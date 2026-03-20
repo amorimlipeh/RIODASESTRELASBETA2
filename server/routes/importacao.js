@@ -1,519 +1,237 @@
 const express = require("express");
 const multer = require("multer");
-const XLSX = require("xlsx");
 const path = require("path");
 const fs = require("fs");
+const XLSX = require("xlsx");
 
+const { garantirPastaEmpresa, loadEmpresaJson, saveEmpresaJson, normalizarEmpresa, caminhoArquivoEmpresa } = require("../empresa_data");
 const { ensureDir } = require("../utils/fileDB");
-const {
-  normalizarEmpresa,
-  loadEmpresaJson,
-  saveEmpresaJson,
-  caminhoArquivoEmpresa
-} = require("../empresa_data");
 
 const router = express.Router();
 
-const UPLOAD_DIR = path.join(__dirname, "../../uploads/importacao");
+const ROOT = path.join(__dirname, "..", "..");
+const UPLOAD_DIR = path.join(ROOT, "uploads", "importacao");
 ensureDir(UPLOAD_DIR);
 
-const upload = multer({
-  dest: UPLOAD_DIR
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
+  filename: (_req, file, cb) => {
+    const seguro = String(file.originalname || "arquivo.xlsx").replace(/[^\w.\-]+/g, "_");
+    cb(null, `${Date.now()}-${seguro}`);
+  }
 });
 
+const upload = multer({ storage });
+
 function empresaAtual(req) {
-  return normalizarEmpresa(
-    req.headers["x-empresa"] ||
-    req.query.empresa ||
-    req.body?.empresa ||
-    "rio_das_estrelas"
-  );
+  return normalizarEmpresa(req.headers["x-empresa"] || req.query.empresa || "rio_das_estrelas");
 }
 
-function lerWorkbook(filePath) {
-  return XLSX.readFile(filePath, { cellDates: false });
-}
-
-function sheetToJson(workbook, sheetName) {
-  const nome = sheetName && workbook.SheetNames.includes(sheetName)
-    ? sheetName
-    : workbook.SheetNames[0];
-
-  const sheet = workbook.Sheets[nome];
-  const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-
-  return {
-    activeSheetName: nome,
-    rows
-  };
-}
-
-function texto(v) {
-  return String(v ?? "").trim();
-}
-
-function numero(v) {
-  if (v === null || v === undefined || v === "") return 0;
-  const normalizado = String(v).trim().replace(/\./g, "").replace(",", ".");
-  const n = Number(normalizado);
-  return Number.isFinite(n) ? n : 0;
+function lerXlsx(caminhoArquivo) {
+  const wb = XLSX.readFile(caminhoArquivo, { cellDates: false });
+  const aba = wb.SheetNames[0];
+  return XLSX.utils.sheet_to_json(wb.Sheets[aba], { defval: "" });
 }
 
 function normalizarLinha(row) {
   const out = {};
-  for (const [key, value] of Object.entries(row || {})) {
-    out[String(key || "").trim()] = value;
+  for (const [k, v] of Object.entries(row || {})) {
+    out[String(k || "").trim().toUpperCase()] = v;
   }
   return out;
 }
 
-function detectarCampo(row, candidatos = []) {
-  for (const nome of candidatos) {
-    if (row[nome] !== undefined && row[nome] !== null && String(row[nome]).trim() !== "") {
-      return row[nome];
-    }
-  }
-  return "";
+function detectarTipo(rows) {
+  const first = normalizarLinha(rows[0] || {});
+  if (first["ENDERECO"] || first["ENDEREÇO"] || first["LOCAL"]) return "ESTOQUE";
+  return "PRODUTOS";
 }
 
-function guessMapping(columns = []) {
-  const lowerMap = {};
-  columns.forEach((col) => {
-    lowerMap[String(col).trim().toLowerCase()] = col;
-  });
-
-  function pick(...candidatos) {
-    for (const nome of candidatos) {
-      if (lowerMap[nome]) return lowerMap[nome];
-    }
-    return "";
-  }
-
-  return {
-    codigo: pick("codigo", "código", "sku", "item", "item no", "item no."),
-    produto: pick("produto", "descrição", "descricao", "description", "item name", "nome"),
-    caixas: pick("caixas", "cx"),
-    quantidade: pick("quantidade", "qtde", "unidades", "un", "saldo", "estoque"),
-    fator: pick("fator", "q/c", "un/caixa", "unidades por caixa"),
-    imagem: pick("imagem", "pictures", "picture", "foto", "url imagem"),
-    endereco: pick("endereco", "endereço", "local")
-  };
+function previewRows(rows) {
+  return rows.slice(0, 300).map((r) => normalizarLinha(r));
 }
 
-function converterPreview(items = [], mapping = {}, factorPolicy = "use_import_if_missing") {
-  return items.map((raw, index) => {
-    const row = normalizarLinha(raw);
-
-    const codigo = texto(row[mapping.codigo] ?? detectarCampo(row, ["codigo", "Código", "CODIGO", "SKU", "ITEM", "ITEM NO", "ITEM NO."]));
-    const produto = texto(row[mapping.produto] ?? detectarCampo(row, ["produto", "Produto", "DESCRIÇÃO", "DESCRICAO", "ITEM NAME", "NOME"])) || codigo;
-    const caixas = numero(row[mapping.caixas] ?? detectarCampo(row, ["CAIXAS", "Cx", "cx"]));
-    const quantidade = numero(row[mapping.quantidade] ?? detectarCampo(row, ["QUANTIDADE", "QTDE", "UNIDADES", "UN", "SALDO", "ESTOQUE"]));
-    const fatorImportado = numero(row[mapping.fator] ?? detectarCampo(row, ["FATOR", "Q/C", "UN/CAIXA", "UNIDADES POR CAIXA"]));
-    const imagem = texto(row[mapping.imagem] ?? detectarCampo(row, ["IMAGEM", "PICTURES", "PICTURE", "FOTO", "URL IMAGEM"]));
-    const endereco = texto(row[mapping.endereco] ?? detectarCampo(row, ["ENDERECO", "ENDEREÇO", "LOCAL"]));
-
-    let fator = fatorImportado || 0;
-
-    if (!fator && factorPolicy === "use_default_1") {
-      fator = 1;
-    }
-
-    return {
-      id: `prev_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 7)}`,
-      codigo,
-      produto,
-      caixas,
-      quantidade,
-      fator,
-      fatorImportado,
-      imagem,
-      endereco,
-      _ok: !!(codigo || produto)
-    };
-  });
+function previewFile(empresa) {
+  garantirPastaEmpresa(empresa);
+  return caminhoArquivoEmpresa(empresa, "import_preview.json");
 }
 
-function detectarConflitos(preview = [], estoqueAtual = []) {
-  const conflitos = [];
-
-  preview.forEach((item) => {
-    const existente = estoqueAtual.find((e) => {
-      return String(e.codigo || "").trim() && String(e.codigo || "").trim() === String(item.codigo || "").trim();
-    });
-
-    if (!existente) return;
-
-    const fatorExistente = numero(existente.fator || 0);
-    const fatorImportado = numero(item.fatorImportado || item.fator || 0);
-
-    if (fatorExistente && fatorImportado && fatorExistente !== fatorImportado) {
-      conflitos.push({
-        codigo: item.codigo || "",
-        produto: item.produto || "",
-        fatorExistente,
-        fatorImportado
-      });
-    }
-  });
-
-  return conflitos;
+function salvarPreview(empresa, payload) {
+  saveEmpresaJson(empresa, "import_preview.json", payload);
 }
 
-function tipoImportacao(mapping = {}) {
-  if (mapping.endereco) return "estoque";
-  return "container";
-}
-
-function previewPath(empresa) {
-  return caminhoArquivoEmpresa(empresa, "importacao_preview.json");
-}
-
-function loadPreviewState(empresa) {
-  return loadEmpresaJson(empresa, "importacao_preview.json", {
-    empresa,
-    arquivo: "",
-    filePath: "",
-    abas: [],
-    activeSheetName: "",
-    columns: [],
-    visibleColumns: [],
-    mapping: {},
-    previewOriginal: { columns: [], items: [] },
+function lerPreview(empresa) {
+  return loadEmpresaJson(empresa, "import_preview.json", {
+    status: "VAZIO",
     preview: [],
-    conflitosFator: [],
-    tipo: "container",
-    total: 0,
-    factorPolicy: "use_import_if_missing",
-    quantityMode: "prefer_total",
-    saveLayout: false
+    colunas: []
   });
 }
 
-function savePreviewState(empresa, state) {
-  saveEmpresaJson(empresa, "importacao_preview.json", state);
-}
-
-function buildResponseFromWorkbook({
-  empresa,
-  filePath,
-  originalName,
-  workbook,
-  activeSheetName,
-  mapping,
-  factorPolicy,
-  quantityMode,
-  visibleColumns,
-  saveLayout
-}) {
-  const extraido = sheetToJson(workbook, activeSheetName);
-  const rows = Array.isArray(extraido.rows) ? extraido.rows : [];
-  const columns = rows.length ? Object.keys(normalizarLinha(rows[0])) : [];
-  const mappingFinal = { ...guessMapping(columns), ...(mapping || {}) };
-  const previewItems = rows.slice(0, 50).map((r) => normalizarLinha(r));
-  const previewConvertido = converterPreview(previewItems, mappingFinal, factorPolicy);
-  const estoqueAtual = loadEmpresaJson(empresa, "estoque.json", []);
-  const conflitosFator = detectarConflitos(previewConvertido, estoqueAtual);
-  const visible = Array.isArray(visibleColumns) && visibleColumns.length ? visibleColumns : columns;
-
-  const payload = {
-    ok: true,
-    mensagem: "Arquivo analisado com sucesso",
-    empresa,
-    arquivo: originalName || "",
-    filePath,
-    abas: workbook.SheetNames || [],
-    activeSheetName: extraido.activeSheetName || activeSheetName || workbook.SheetNames[0] || "",
-    columns,
-    visibleColumns: visible,
-    mapping: mappingFinal,
-    previewOriginal: {
-      columns,
-      items: previewItems
-    },
-    preview: previewConvertido,
-    conflitosFator,
-    tipo: tipoImportacao(mappingFinal),
-    total: rows.length,
-    factorPolicy: factorPolicy || "use_import_if_missing",
-    quantityMode: quantityMode || "prefer_total",
-    saveLayout: !!saveLayout,
-    layoutSaved: false
-  };
-
-  return payload;
-}
-
-router.post("/analisar", upload.single("arquivo"), async (req, res) => {
+router.post("/analisar", upload.single("arquivo"), (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({
-        ok: false,
-        erro: "Arquivo não enviado."
-      });
+      return res.status(400).json({ ok: false, erro: "Arquivo não enviado." });
     }
 
     const empresa = empresaAtual(req);
-    const filePath = req.file.path;
-    const workbook = lerWorkbook(filePath);
+    const rows = lerXlsx(req.file.path);
+    const preview = previewRows(rows);
+    const tipo = detectarTipo(rows);
 
-    const payload = buildResponseFromWorkbook({
-      empresa,
-      filePath,
-      originalName: req.file.originalname,
-      workbook,
-      activeSheetName: workbook.SheetNames[0],
-      mapping: {},
-      factorPolicy: "use_import_if_missing",
-      quantityMode: "prefer_total",
-      visibleColumns: [],
-      saveLayout: false
-    });
-
-    savePreviewState(empresa, payload);
-
-    return res.json(payload);
-  } catch (err) {
-    console.error("Erro em /api/importacao/analisar:", err);
-    return res.status(500).json({
-      ok: false,
-      erro: "Erro ao analisar arquivo."
-    });
-  }
-});
-
-router.get("/preview", async (req, res) => {
-  try {
-    const empresa = empresaAtual(req);
-    const state = loadPreviewState(empresa);
-
-    if (!state.filePath || !fs.existsSync(state.filePath)) {
-      return res.status(400).json({
-        ok: false,
-        erro: "Nenhum arquivo analisado foi encontrado."
-      });
-    }
-
-    const workbook = lerWorkbook(state.filePath);
-    const requestedSheet = texto(req.query.sheetName) || state.activeSheetName || workbook.SheetNames[0];
-
-    const payload = buildResponseFromWorkbook({
-      empresa,
-      filePath: state.filePath,
-      originalName: state.arquivo,
-      workbook,
-      activeSheetName: requestedSheet,
-      mapping: state.mapping || {},
-      factorPolicy: state.factorPolicy || "use_import_if_missing",
-      quantityMode: state.quantityMode || "prefer_total",
-      visibleColumns: state.visibleColumns || [],
-      saveLayout: !!state.saveLayout
-    });
-
-    savePreviewState(empresa, payload);
-
-    return res.json(payload);
-  } catch (err) {
-    console.error("Erro em /api/importacao/preview:", err);
-    return res.status(500).json({
-      ok: false,
-      erro: "Erro ao gerar pré-visualização."
-    });
-  }
-});
-
-router.post("/configurar", async (req, res) => {
-  try {
-    const empresa = empresaAtual(req);
-    const state = loadPreviewState(empresa);
-
-    if (!state.filePath || !fs.existsSync(state.filePath)) {
-      return res.status(400).json({
-        ok: false,
-        erro: "Nenhum arquivo analisado foi encontrado."
-      });
-    }
-
-    const workbook = lerWorkbook(state.filePath);
-
-    const mapping = {
-      codigo: texto(req.body.codigo),
-      produto: texto(req.body.produto),
-      caixas: texto(req.body.caixas),
-      quantidade: texto(req.body.quantidade),
-      fator: texto(req.body.fator),
-      imagem: texto(req.body.imagem),
-      endereco: texto(req.body.endereco)
+    const payload = {
+      id: `imp_${Date.now()}`,
+      status: "ANALISADO",
+      tipo,
+      arquivo: req.file.originalname,
+      arquivoSalvo: req.file.filename,
+      caminho: req.file.path,
+      totalLinhas: rows.length,
+      colunas: Object.keys(preview[0] || {}),
+      preview,
+      configuracao: {},
+      criadoEm: new Date().toISOString()
     };
 
-    const visibleColumns = Array.isArray(req.body.visibleColumns) ? req.body.visibleColumns : [];
-    const factorPolicy = texto(req.body.factorPolicy) || "use_import_if_missing";
-    const quantityMode = texto(req.body.quantityMode) || "prefer_total";
-    const saveLayout = !!req.body.saveLayout;
-    const activeSheetName = texto(req.body.activeSheetName) || state.activeSheetName || workbook.SheetNames[0];
+    salvarPreview(empresa, payload);
 
-    const payload = buildResponseFromWorkbook({
-      empresa,
-      filePath: state.filePath,
-      originalName: state.arquivo,
-      workbook,
-      activeSheetName,
-      mapping,
-      factorPolicy,
-      quantityMode,
-      visibleColumns,
-      saveLayout
+    return res.json({
+      ok: true,
+      ...payload,
+      rows: payload.preview,
+      columns: payload.colunas
     });
-
-    if (saveLayout) {
-      const layout = {
-        mapping,
-        visibleColumns,
-        factorPolicy,
-        quantityMode,
-        salvoEm: new Date().toISOString()
-      };
-      saveEmpresaJson(empresa, "importacao_layout.json", layout);
-      payload.layoutSaved = true;
-      payload.mensagem = "Configuração aplicada e layout salvo.";
-    } else {
-      payload.layoutSaved = false;
-      payload.mensagem = "Configuração aplicada com sucesso.";
-    }
-
-    savePreviewState(empresa, payload);
-
-    return res.json(payload);
-  } catch (err) {
-    console.error("Erro em /api/importacao/configurar:", err);
-    return res.status(500).json({
-      ok: false,
-      erro: "Erro ao aplicar configuração."
-    });
+  } catch (error) {
+    console.error("Erro em /api/importacao/analisar:", error);
+    return res.status(500).json({ ok: false, erro: "Erro ao analisar arquivo." });
   }
 });
 
-router.post("/confirmar", async (req, res) => {
+router.get("/preview", (req, res) => {
+  const empresa = empresaAtual(req);
+  const payload = lerPreview(empresa);
+
+  return res.json({
+    ok: true,
+    ...payload,
+    rows: Array.isArray(payload.preview) ? payload.preview : [],
+    columns: Array.isArray(payload.colunas) ? payload.colunas : []
+  });
+});
+
+router.post("/configurar", (req, res) => {
+  const empresa = empresaAtual(req);
+  const atual = lerPreview(empresa);
+
+  const atualizado = {
+    ...atual,
+    status: "CONFIGURADO",
+    configuracao: req.body || {},
+    configuradoEm: new Date().toISOString()
+  };
+
+  salvarPreview(empresa, atualizado);
+
+  return res.json({
+    ok: true,
+    mensagem: "Configuração salva.",
+    configuracao: atualizado.configuracao
+  });
+});
+
+router.post("/confirmar", (req, res) => {
   try {
     const empresa = empresaAtual(req);
-    const state = loadPreviewState(empresa);
+    const atual = lerPreview(empresa);
 
-    if (!state.filePath || !fs.existsSync(state.filePath)) {
+    if (!atual.caminho || !fs.existsSync(atual.caminho)) {
       return res.status(400).json({
         ok: false,
-        erro: "Nenhum arquivo pronto para importação."
+        erro: "Nenhum arquivo analisado encontrado para confirmar."
       });
     }
 
-    const estoque = loadEmpresaJson(empresa, "estoque.json", []);
-    const updateRegisteredFactor = !!req.body.updateRegisteredFactor;
-    let importados = 0;
+    const rows = lerXlsx(atual.caminho);
+    const tipo = String(req.body.tipo || atual.tipo || "PRODUTOS").toUpperCase();
 
-    state.preview.forEach((item) => {
-      if (!item || (!item.codigo && !item.produto)) return;
+    if (tipo === "ESTOQUE") {
+      const estoque = loadEmpresaJson(empresa, "estoque.json", []);
+      const novos = previewRows(rows).map((r) => ({
+        id: `est_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        codigo: String(r["CODIGO"] || r["CÓDIGO"] || r["SKU"] || r["ITEM"] || "").trim(),
+        produto: String(r["PRODUTO"] || r["DESCRICAO"] || r["DESCRIÇÃO"] || r["NOME"] || "").trim(),
+        quantidade: Number(r["QUANTIDADE"] || r["QTDE"] || r["UNIDADES"] || r["UN"] || r["SALDO"] || 0),
+        caixas: Number(r["CAIXAS"] || r["CX"] || 0),
+        fator: Number(r["FATOR"] || r["Q/C"] || r["UN/CAIXA"] || 0),
+        endereco: String(r["ENDERECO"] || r["ENDEREÇO"] || r["LOCAL"] || "").trim(),
+        criadoEm: new Date().toISOString()
+      })).filter((i) => i.codigo || i.produto);
 
-      const existente = estoque.find((e) => String(e.codigo || "").trim() === String(item.codigo || "").trim());
+      saveEmpresaJson(empresa, "estoque.json", [...estoque, ...novos]);
 
-      if (existente) {
-        existente.produto = item.produto || existente.produto || "";
-        existente.imagem = item.imagem || existente.imagem || "";
-        existente.endereco = item.endereco || existente.endereco || "";
-        existente.quantidade = numero(item.quantidade || existente.quantidade || 0);
-        existente.caixas = numero(item.caixas || existente.caixas || 0);
+      const final = {
+        ...atual,
+        status: "CONFIRMADO",
+        confirmadoEm: new Date().toISOString(),
+        resultado: { inseridos: novos.length, atualizados: 0, ignorados: 0, tipo: "ESTOQUE" }
+      };
+      salvarPreview(empresa, final);
 
-        if (updateRegisteredFactor) {
-          existente.fator = numero(item.fator || existente.fator || 0);
-        } else if (!numero(existente.fator || 0)) {
-          existente.fator = numero(item.fator || 0);
-        }
+      return res.json({ ok: true, ...final.resultado });
+    }
 
-        existente.atualizadoEm = new Date().toISOString();
-      } else {
-        estoque.push({
-          id: item.id || `imp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-          codigo: item.codigo || "",
-          produto: item.produto || "",
-          quantidade: numero(item.quantidade || 0),
-          caixas: numero(item.caixas || 0),
-          fator: numero(item.fator || 0),
-          imagem: item.imagem || "",
-          endereco: item.endereco || "",
-          criadoEm: new Date().toISOString()
-        });
-      }
+    const produtos = loadEmpresaJson(empresa, "estoque.json", []);
+    const novos = previewRows(rows).map((r) => ({
+      id: `prod_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      codigo: String(r["CODIGO"] || r["CÓDIGO"] || r["SKU"] || r["ITEM"] || "").trim(),
+      produto: String(r["PRODUTO"] || r["DESCRICAO"] || r["DESCRIÇÃO"] || r["NOME"] || "").trim(),
+      quantidade: Number(r["QUANTIDADE"] || r["QTDE"] || r["UNIDADES"] || r["UN"] || r["SALDO"] || 0),
+      caixas: Number(r["CAIXAS"] || r["CX"] || 0),
+      fator: Number(r["FATOR"] || r["Q/C"] || r["UN/CAIXA"] || 0),
+      endereco: String(r["ENDERECO"] || r["ENDEREÇO"] || r["LOCAL"] || "").trim(),
+      imagem: String(r["IMAGEM"] || r["PICTURES"] || r["PICTURE"] || "").trim(),
+      criadoEm: new Date().toISOString()
+    })).filter((i) => i.codigo || i.produto);
 
-      importados += 1;
-    });
+    saveEmpresaJson(empresa, "estoque.json", [...produtos, ...novos]);
 
-    saveEmpresaJson(empresa, "estoque.json", estoque);
+    const final = {
+      ...atual,
+      status: "CONFIRMADO",
+      confirmadoEm: new Date().toISOString(),
+      resultado: { inseridos: novos.length, atualizados: 0, ignorados: 0, tipo: "PRODUTOS" }
+    };
+    salvarPreview(empresa, final);
 
-    const historico = loadEmpresaJson(empresa, "historico-importacoes.json", []);
-    historico.unshift({
-      id: `hist_${Date.now()}`,
-      data: new Date().toISOString(),
-      arquivo: state.arquivo || "",
-      aba: state.activeSheetName || "",
-      importados,
-      tipo: state.tipo || "container"
-    });
-    saveEmpresaJson(empresa, "historico-importacoes.json", historico);
-
-    return res.json({
-      ok: true,
-      mensagem: "Importação confirmada com sucesso",
-      importados
-    });
-  } catch (err) {
-    console.error("Erro em /api/importacao/confirmar:", err);
-    return res.status(500).json({
-      ok: false,
-      erro: "Erro ao confirmar importação."
-    });
+    return res.json({ ok: true, ...final.resultado });
+  } catch (error) {
+    console.error("Erro em /api/importacao/confirmar:", error);
+    return res.status(500).json({ ok: false, erro: "Erro ao confirmar importação." });
   }
 });
 
-router.post("/cancelar", async (req, res) => {
-  try {
-    const empresa = empresaAtual(req);
-    const state = loadPreviewState(empresa);
+router.post("/cancelar", (req, res) => {
+  const empresa = empresaAtual(req);
+  const atual = lerPreview(empresa);
 
-    if (state.filePath && fs.existsSync(state.filePath)) {
-      try {
-        fs.unlinkSync(state.filePath);
-      } catch (e) {
-        console.error("Não foi possível apagar arquivo temporário:", e.message);
-      }
-    }
-
-    savePreviewState(empresa, {
-      empresa,
-      arquivo: "",
-      filePath: "",
-      abas: [],
-      activeSheetName: "",
-      columns: [],
-      visibleColumns: [],
-      mapping: {},
-      previewOriginal: { columns: [], items: [] },
-      preview: [],
-      conflitosFator: [],
-      tipo: "container",
-      total: 0,
-      factorPolicy: "use_import_if_missing",
-      quantityMode: "prefer_total",
-      saveLayout: false
-    });
-
-    return res.json({
-      ok: true,
-      mensagem: "Prévia cancelada com sucesso."
-    });
-  } catch (err) {
-    console.error("Erro em /api/importacao/cancelar:", err);
-    return res.status(500).json({
-      ok: false,
-      erro: "Erro ao cancelar importação."
-    });
+  if (atual.caminho && fs.existsSync(atual.caminho)) {
+    try { fs.unlinkSync(atual.caminho); } catch (_e) {}
   }
+
+  salvarPreview(empresa, {
+    status: "CANCELADO",
+    canceladoEm: new Date().toISOString(),
+    preview: [],
+    colunas: []
+  });
+
+  return res.json({ ok: true, mensagem: "Importação cancelada." });
+});
+
+router.get("/logs", (req, res) => {
+  const empresa = empresaAtual(req);
+  const logs = loadEmpresaJson(empresa, "logs.json", []);
+  return res.json({ ok: true, logs });
 });
 
 module.exports = router;
