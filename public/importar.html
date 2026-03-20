@@ -3,59 +3,1409 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Importador WMS</title>
+  <title>Importador Contêiner</title>
   <style>
-    :root{--bg:#071a36;--panel:#0b2545;--panel2:#102d52;--line:#1d3c66;--text:#fff;--muted:#b9c7da;--btn:#3b73e6;--btn2:#295ec9;--shadow:0 6px 22px rgba(0,0,0,.28);--radius:16px}
-    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,sans-serif}
-    .header{background:#0d2b5c;padding:16px 18px;font-size:20px;font-weight:700;position:sticky;top:0;z-index:20;box-shadow:var(--shadow)}
-    .sub{font-size:12px;color:var(--muted);margin-top:4px} .page{padding:14px;max-width:1380px;margin:0 auto}
-    .card{background:var(--panel);border-radius:var(--radius);padding:16px;margin-bottom:14px;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.04)}
-    .title{font-size:16px;font-weight:700;margin-bottom:10px} .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    .row.grow > *{flex:1 1 220px} input[type="file"],select{width:100%;background:#17345c;color:#fff;border:1px solid #2b4a75;border-radius:10px;padding:10px}
-    button{border:0;background:linear-gradient(180deg,var(--btn),var(--btn2));color:#fff;padding:10px 14px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,.18)}
-    button.secondary{background:#17345c} button.success{background:linear-gradient(180deg,#22c55e,#15803d)} button.danger{background:linear-gradient(180deg,#ef4444,#b91c1c)} button.hidden{display:none} button:disabled{opacity:.45;cursor:not-allowed}
-    .msg{margin-top:10px;padding:10px 12px;border-radius:12px;background:#17345c;color:#fff;font-size:13px} .msg.ok{border:1px solid rgba(34,197,94,.35)} .msg.erro{border:1px solid rgba(239,68,68,.35);background:#441a26}
-    .pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px} .pill{display:inline-block;padding:7px 10px;border-radius:999px;background:#17345c;font-size:12px;color:#fff}
-    .table-wrap{overflow:auto;border-radius:12px;border:1px solid rgba(255,255,255,.05);background:#0a1b35} table{width:max-content;min-width:100%;border-collapse:collapse;font-size:12px}
-    th,td{border-bottom:1px solid var(--line);padding:8px 10px;white-space:nowrap;text-align:left;vertical-align:top} th{background:#0d1c33;position:sticky;top:0;z-index:2} td{color:#eef4ff}
-    .section-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;align-items:center;margin-bottom:12px}
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px} .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
-    .modal{position:fixed;inset:0;display:none;background:rgba(0,0,0,.84);z-index:80;padding:18px} .modal.show{display:block}
-    .modal-card{max-width:1200px;margin:0 auto;background:var(--panel);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;border:1px solid rgba(255,255,255,.06)}
-    .modal-header{padding:14px 16px;background:#0d2b5c;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap} .modal-body{padding:16px;max-height:calc(100vh - 80px);overflow:auto}
-    .checkbox-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px} .checkbox-item{display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:#17345c}
-    .split{display:grid;grid-template-columns:1fr;gap:14px} @media(min-width:1100px){.split{grid-template-columns:1.2fr .8fr}} .muted{font-size:12px;color:var(--muted)}
+    :root{
+      --bg:#071a36;
+      --panel:#0b2545;
+      --panel2:#102d52;
+      --line:#1d3c66;
+      --text:#fff;
+      --muted:#b9c7da;
+      --btn:#3b73e6;
+      --btn2:#295ec9;
+      --shadow:0 6px 22px rgba(0,0,0,.28);
+      --radius:14px;
+      --ok:#16a34a;
+      --ok2:#22c55e;
+    }
+
+    *{ box-sizing:border-box; }
+
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:Arial,sans-serif;
+    }
+
+    .header{
+      background:#0d2b5c;
+      padding:16px;
+      font-size:20px;
+      font-weight:700;
+      position:sticky;
+      top:0;
+      z-index:20;
+      box-shadow:var(--shadow);
+    }
+
+    .page{
+      padding:14px;
+      max-width:1280px;
+      margin:0 auto;
+    }
+
+    .card{
+      background:var(--panel);
+      border-radius:var(--radius);
+      padding:16px;
+      margin-bottom:14px;
+      box-shadow:var(--shadow);
+      border:1px solid rgba(255,255,255,.04);
+    }
+
+    .title{
+      font-size:16px;
+      font-weight:700;
+      margin-bottom:10px;
+    }
+
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    button{
+      border:0;
+      background:linear-gradient(180deg,var(--btn),var(--btn2));
+      color:#fff;
+      padding:10px 14px;
+      border-radius:10px;
+      font-size:14px;
+      font-weight:700;
+      cursor:pointer;
+      box-shadow:0 4px 10px rgba(0,0,0,.18);
+    }
+
+    button.small{
+      padding:6px 10px;
+      font-size:12px;
+      border-radius:8px;
+    }
+
+    button.ghost{
+      background:#17345c;
+    }
+
+    button:disabled{
+      opacity:.45;
+      cursor:not-allowed;
+    }
+
+    input[type="file"]{
+      max-width:100%;
+    }
+
+    .progress{
+      margin-top:12px;
+      width:100%;
+      height:10px;
+      background:#0b1830;
+      border-radius:999px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.05);
+    }
+
+    .progress-bar{
+      width:0%;
+      height:100%;
+      background:linear-gradient(90deg,var(--ok2),var(--ok));
+      transition:.25s;
+    }
+
+    .status{
+      margin-top:8px;
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    .tabs{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:8px;
+    }
+
+    .tab{
+      background:#17345c;
+    }
+
+    .tab.active{
+      background:linear-gradient(180deg,#22c55e,#15803d);
+    }
+
+    .logs .log-item{
+      background:var(--panel2);
+      border:1px solid rgba(255,255,255,.05);
+      border-radius:10px;
+      padding:10px;
+      margin-top:8px;
+      font-size:13px;
+    }
+
+    .badge,.pill{
+      display:inline-block;
+      padding:7px 10px;
+      border-radius:999px;
+      background:#17345c;
+      font-size:12px;
+      color:#fff;
+    }
+
+    .modal{
+      position:fixed;
+      inset:0;
+      display:none;
+      background:rgba(0,0,0,.88);
+      z-index:50;
+      flex-direction:column;
+    }
+
+    .modal.show{
+      display:flex;
+    }
+
+    .modal-header{
+      background:#0d2b5c;
+      padding:12px 14px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      font-weight:700;
+      box-shadow:var(--shadow);
+    }
+
+    .modal-body{
+      padding:12px;
+      overflow:auto;
+      flex:1;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:10px;
+      margin-bottom:12px;
+    }
+
+    .field label{
+      display:block;
+      font-size:12px;
+      color:#b9c7da;
+      margin-bottom:4px;
+    }
+
+    select{
+      width:100%;
+      background:#17345c;
+      color:#fff;
+      border:1px solid #2b4a75;
+      border-radius:8px;
+      padding:8px 10px;
+    }
+
+    .table-toolbar{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-bottom:10px;
+    }
+
+    .table-toolbar .hint{
+      font-size:12px;
+      color:#b9c7da;
+      background:#17345c;
+      padding:7px 10px;
+      border-radius:999px;
+    }
+
+    .table-wrap{
+      overflow:auto;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.05);
+      background:#0a1b35;
+      cursor:grab;
+      -webkit-overflow-scrolling:touch;
+      touch-action:pan-x pan-y;
+      position:relative;
+    }
+
+    .table-wrap.dragging{
+      cursor:grabbing;
+    }
+
+    table{
+      width:max-content;
+      min-width:100%;
+      border-collapse:collapse;
+      font-size:12px;
+    }
+
+    th,td{
+      border-bottom:1px solid var(--line);
+      padding:8px 10px;
+      white-space:nowrap;
+      text-align:left;
+      vertical-align:middle;
+    }
+
+    th{
+      background:#0d1c33;
+      position:sticky;
+      top:0;
+      z-index:2;
+      user-select:none;
+      -webkit-user-select:none;
+      cursor:move;
+      position:relative;
+    }
+
+    th.dragging-col{
+      opacity:.45;
+      background:#17345c;
+    }
+
+    th.drag-ready{
+      outline:2px solid #4da3ff;
+      outline-offset:-2px;
+    }
+
+    th.drag-over-left::before,
+    th.drag-over-right::after{
+      content:"";
+      position:absolute;
+      top:0;
+      bottom:0;
+      width:3px;
+      background:#4da3ff;
+      z-index:3;
+    }
+
+    th.drag-over-left::before{ left:0; }
+    th.drag-over-right::after{ right:0; }
+
+    td{
+      color:#eef4ff;
+    }
+
+    .top-actions{
+      margin:8px 0 10px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+    }
+
+    .pager{
+      margin-top:12px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+    }
+
+    .pager-left,.pager-right{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .thumb{
+      width:56px;
+      height:56px;
+      object-fit:cover;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,.08);
+      background:#0e223f;
+      display:block;
+    }
+
+    .no-image{
+      color:#9fb2cf;
+      font-size:11px;
+    }
+
+    .produto-wrap{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      min-width:180px;
+      white-space:normal;
+      line-height:1.3;
+    }
+
+    .produto-main{
+      color:#fff;
+      font-size:13px;
+      font-weight:700;
+    }
+
+    .produto-original{
+      color:#9fb2cf;
+      font-size:11px;
+    }
+
+    .success-box{
+      width:min(360px,92vw);
+      margin:40px auto;
+      background:#10381f;
+      border:1px solid rgba(34,197,94,.45);
+      border-radius:16px;
+      padding:18px;
+      text-align:center;
+      box-shadow:var(--shadow);
+    }
+
+    .success-box h2{
+      margin:0 0 8px;
+      font-size:22px;
+    }
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(2,9,22,.82);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:999;
+    }
+
+    .overlay.show{
+      display:flex;
+    }
+
+    .overlay-card{
+      width:min(420px,94vw);
+      background:#0b2545;
+      border-radius:18px;
+      padding:22px;
+      box-shadow:var(--shadow);
+      text-align:left;
+      border:1px solid rgba(255,255,255,.06);
+    }
+
+    .spinner{
+      width:42px;
+      height:42px;
+      border-radius:50%;
+      border:4px solid rgba(255,255,255,.18);
+      border-top-color:#3b73e6;
+      margin:0 auto 14px;
+      animation:spin .9s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform:rotate(360deg); }
+    }
+
+    .overlay-title{
+      font-size:20px;
+      font-weight:700;
+      margin-bottom:10px;
+    }
+
+    .overlay-text{
+      font-size:14px;
+      color:#c9d6ea;
+      margin-bottom:12px;
+    }
+
+    .overlay-progress{
+      width:100%;
+      height:12px;
+      background:#0b1830;
+      border-radius:999px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.05);
+      margin-bottom:12px;
+    }
+
+    .overlay-progress-bar{
+      width:0%;
+      height:100%;
+      background:linear-gradient(90deg,#22c55e,#16a34a);
+      transition:.25s;
+    }
+
+    .overlay-percent{
+      font-size:28px;
+      font-weight:700;
+      margin-bottom:12px;
+    }
+
+    .overlay-grid{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:8px;
+      font-size:14px;
+      color:#e6eefb;
+    }
+
+    .overlay-grid strong{
+      color:#fff;
+    }
+
+    .row-check{
+      accent-color:#3b73e6;
+    }
   </style>
 </head>
 <body>
-  <div class="header">🗺️ Importador WMS<div class="sub">Importação revisável com mapeamento de colunas, conflitos de fator e confirmação final.</div></div>
+  <div class="header">🚢 Importador Contêiner</div>
+
   <div class="page">
     <div class="card">
-      <div class="title">1. Selecionar arquivo</div>
-      <div class="row grow">
-        <div><input type="file" id="arquivo" accept=".xlsx,.xls,.csv" /></div>
-        <div style="flex:0 0 auto"><button id="btn-analisar">Analisar arquivo</button></div>
-        <div style="flex:0 0 auto"><button id="btn-modal" class="secondary hidden">Configurar colunas</button></div>
+      <div class="title">Enviar planilha de contêiner</div>
+
+      <div class="row">
+        <input type="file" id="file" multiple accept="*/*" />
+        <button id="btnAnalisar" onclick="analisar()">Analisar</button>
       </div>
-      <div id="msg" class="msg ok">Selecione um arquivo para iniciar a análise.</div>
-      <div class="pills"><span class="pill" id="pill-tipo">Tipo: -</span><span class="pill" id="pill-total">Linhas: 0</span><span class="pill" id="pill-aba">Aba: -</span></div>
-    </div>
-    <div class="card">
-      <div class="section-actions">
-        <div><div class="title" style="margin-bottom:4px">2. Pré-visualização convertida</div><div class="muted">Essa é a visualização que será usada na confirmação da importação.</div></div>
-        <div class="row" style="flex:0 0 auto"><label class="muted" for="aba-select">Aba</label><select id="aba-select" style="min-width:220px"></select></div>
+
+      <div class="progress">
+        <div class="progress-bar" id="progressBar"></div>
       </div>
-      <div class="table-wrap"><table><thead><tr><th>Código</th><th>Produto</th><th>Caixas</th><th>Quantidade</th><th>Fator</th><th>Imagem</th><th>Endereço</th></tr></thead><tbody id="preview-convertido"></tbody></table></div>
-      <div class="row" style="margin-top:14px"><button id="btn-confirmar" class="success" disabled>Confirmar importação</button><button id="btn-cancelar" class="danger" disabled>Cancelar prévia</button></div>
+
+      <div class="status" id="status">Aguardando arquivo...</div>
+      <div class="status" id="fileInfo">Selecione XLS, XLSX, CSV ou PDF.</div>
     </div>
+
     <div class="card">
-      <div class="title">3. Conflitos de fator</div>
-      <div class="muted" style="margin-bottom:10px">Quando o produto já existe com fator cadastrado diferente do importado, ele aparece aqui para revisão.</div>
-      <div class="table-wrap"><table><thead><tr><th>Código</th><th>Produto</th><th>Fator cadastrado</th><th>Fator importado</th></tr></thead><tbody id="conflicts-body"></tbody></table></div>
+      <div class="title">Abas encontradas</div>
+      <div class="tabs" id="abas"></div>
+    </div>
+
+    <div class="card">
+      <div class="title">Histórico de importações</div>
+      <div class="logs" id="logs"></div>
     </div>
   </div>
-  <div class="modal" id="config-modal"><div class="modal-card"><div class="modal-header"><div><div style="font-weight:700;font-size:18px">Configurar importação</div><div class="sub">Escolha os campos, colunas visíveis e políticas da prévia.</div></div><button id="btn-fechar-modal" class="secondary">Fechar</button></div><div class="modal-body"><div class="split"><div><div class="card" style="margin:0 0 14px 0"><div class="title">Mapeamento de colunas</div><div class="grid"><div class="field"><label for="map-codigo">Código</label><select id="map-codigo"></select></div><div class="field"><label for="map-produto">Produto</label><select id="map-produto"></select></div><div class="field"><label for="map-caixas">Caixas</label><select id="map-caixas"></select></div><div class="field"><label for="map-quantidade">Quantidade</label><select id="map-quantidade"></select></div><div class="field"><label for="map-fator">Fator</label><select id="map-fator"></select></div><div class="field"><label for="map-imagem">Imagem</label><select id="map-imagem"></select></div><div class="field"><label for="map-endereco">Endereço</label><select id="map-endereco"></select></div></div></div><div class="card" style="margin:0"><div class="title">Prévia original</div><div class="muted" style="margin-bottom:10px">Essa tabela mostra as colunas originais da planilha.</div><div class="table-wrap"><table><thead id="original-head"></thead><tbody id="original-body"></tbody></table></div></div></div><div><div class="card" style="margin:0 0 14px 0"><div class="title">Colunas visíveis</div><div class="muted" style="margin-bottom:10px">Selecione quais colunas quer ver na prévia original.</div><div id="visible-columns" class="checkbox-grid"></div></div><div class="card" style="margin:0 0 14px 0"><div class="title">Políticas</div><div class="grid"><div class="field"><label for="factor-policy">Regra do fator</label><select id="factor-policy"><option value="use_import_if_missing">Usar importado se cadastro estiver vazio</option><option value="use_default_1">Usar 1 quando estiver vazio</option></select></div><div class="field"><label for="quantity-mode">Regra da quantidade</label><select id="quantity-mode"><option value="prefer_total">Preferir total importado</option><option value="boxes_times_factor">Caixas × fator</option></select></div></div><label class="checkbox-item" style="margin-top:12px"><input type="checkbox" id="save-layout" /><span>Salvar esse layout para reutilizar depois</span></label></div><div class="row"><button id="btn-aplicar">Aplicar configuração</button></div></div></div></div></div></div>
-  <script src="/js/api.js"></script>
-  <script src="/js/importador.js"></script>
+
+  <div class="modal" id="previewModal">
+    <div class="modal-header">
+      <span>Pré-visualização Contêiner</span>
+      <button class="small ghost" onclick="fecharPreview()">Fechar</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="grid">
+        <div class="field"><label>Código</label><select id="mapCodigo"></select></div>
+        <div class="field"><label>Produto</label><select id="mapProduto"></select></div>
+        <div class="field"><label>Container</label><select id="mapContainer"></select></div>
+        <div class="field"><label>Lote</label><select id="mapLote"></select></div>
+        <div class="field"><label>Caixas</label><select id="mapCaixas"></select></div>
+        <div class="field"><label>Unidades</label><select id="mapUnidades"></select></div>
+        <div class="field"><label>Fator (Q/C)</label><select id="mapFator"></select></div>
+        <div class="field"><label>NF</label><select id="mapNF"></select></div>
+        <div class="field"><label>Fornecedor</label><select id="mapFornecedor"></select></div>
+        <div class="field"><label>Imagem</label><select id="mapImagem"></select></div>
+      </div>
+
+      <div class="top-actions">
+        <div class="row">
+          <button class="small" onclick="selecionarLinhasPagina()">Selecionar página</button>
+          <button class="small ghost" onclick="desmarcarLinhasPagina()">Desmarcar página</button>
+          <button class="small" onclick="selecionarTodasLinhas()">Selecionar todas</button>
+          <button class="small ghost" onclick="desmarcarTodasLinhas()">Desmarcar todas</button>
+        </div>
+        <span class="pill" id="previewInfo">0 linhas</span>
+      </div>
+
+      <div class="table-toolbar">
+        <button class="small ghost" onclick="scrollTabelaEsquerda()">◀ Esquerda</button>
+        <button class="small ghost" onclick="scrollTabelaDireita()">Direita ▶</button>
+        <button class="small ghost" onclick="scrollTabelaInicio()">Início</button>
+        <button class="small ghost" onclick="scrollTabelaFim()">Fim</button>
+        <span class="hint">Para mover colunas no celular, toque e segure no cabeçalho por um instante e arraste.</span>
+      </div>
+
+      <div class="table-wrap" id="tableWrap">
+        <table id="tabela">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="pager">
+        <div class="pager-left">
+          <button class="small ghost" id="btnPrev" onclick="paginaAnterior()">Anterior</button>
+          <button class="small ghost" id="btnNext" onclick="proximaPagina()">Próxima</button>
+          <span class="badge" id="pageInfo">Página 1</span>
+        </div>
+
+        <div class="pager-right">
+          <label>Por página</label>
+          <select id="perPage" onchange="alterarPorPagina()">
+            <option value="20">20</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="top-actions" style="margin-top:12px;">
+        <button id="btnImportar" onclick="importar()">Importar Contêiner</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="successModal">
+    <div class="modal-body">
+      <div class="success-box">
+        <h2>✔ Importação concluída</h2>
+        <div id="successText">0 itens importados.</div>
+        <div class="top-actions" style="justify-content:center; margin-top:14px;">
+          <button onclick="fecharSucesso()">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="loadingOverlay">
+    <div class="overlay-card">
+      <div class="spinner"></div>
+      <div class="overlay-title" id="overlayTitle">Iniciando...</div>
+      <div class="overlay-text" id="overlayText">Preparando leitura da planilha.</div>
+
+      <div class="overlay-progress">
+        <div class="overlay-progress-bar" id="overlayProgressBar"></div>
+      </div>
+
+      <div class="overlay-percent" id="overlayPercent">0%</div>
+
+      <div class="overlay-grid">
+        <div><strong>Arquivo:</strong> <span id="overlayArquivo"></span></div>
+        <div><strong>Etapa:</strong> <span id="overlayEtapa">Iniciando...</span></div>
+        <div><strong>Linhas:</strong> <span id="overlayLinhas">-</span></div>
+        <div><strong>Colunas:</strong> <span id="overlayColunas">-</span></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let planilhas = {};
+    let metadados = {};
+    let dados = [];
+    let colunasAtuais = [];
+    let abaAtual = "";
+    let paginaAtual = 1;
+    let itensPorPagina = 50;
+    let rowSelections = {};
+    let nomeArquivoAtual = "";
+    let progressTimer = null;
+
+    let tableDragBound = false;
+    let dragState = {
+      active: false,
+      pressTimer: null,
+      startIndex: -1,
+      currentTargetIndex: -1,
+      startX: 0,
+      startY: 0,
+      threshold: 12
+    };
+
+    function setStatus(txt) {
+      document.getElementById("status").innerText = txt;
+    }
+
+    function setBar(percent) {
+      document.getElementById("progressBar").style.width = percent + "%";
+    }
+
+    function abrirOverlay() {
+      document.getElementById("loadingOverlay").classList.add("show");
+    }
+
+    function fecharOverlay() {
+      document.getElementById("loadingOverlay").classList.remove("show");
+    }
+
+    function atualizarOverlay(percent, etapa, arquivo = "", linhas = "-", colunasInfo = "-") {
+      document.getElementById("overlayProgressBar").style.width = percent + "%";
+      document.getElementById("overlayPercent").innerText = percent + "%";
+      document.getElementById("overlayEtapa").innerText = etapa || "";
+      if (arquivo) document.getElementById("overlayArquivo").innerText = arquivo;
+      document.getElementById("overlayLinhas").innerText = linhas;
+      document.getElementById("overlayColunas").innerText = colunasInfo;
+      document.getElementById("overlayTitle").innerText = etapa || "Processando...";
+      document.getElementById("overlayText").innerText = `Etapa atual: ${etapa || "Processando..."}`;
+    }
+
+    function iniciarProgressoFake(nomeArquivo) {
+      let p = 0;
+      atualizarOverlay(0, "Iniciando...", nomeArquivo, "-", "-");
+      clearInterval(progressTimer);
+      progressTimer = setInterval(() => {
+        if (p < 15) p += 5;
+        else if (p < 35) p += 3;
+        else if (p < 55) p += 2;
+        else if (p < 70) p += 1;
+        else return;
+        atualizarOverlay(p, "Lendo arquivo...", nomeArquivo, "-", "-");
+      }, 250);
+    }
+
+    function pararProgressoFake() {
+      clearInterval(progressTimer);
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function totalPaginas() {
+      return Math.max(1, Math.ceil(dados.length / itensPorPagina));
+    }
+
+    function inicioPagina() {
+      return (paginaAtual - 1) * itensPorPagina;
+    }
+
+    function fimPagina() {
+      return Math.min(inicioPagina() + itensPorPagina, dados.length);
+    }
+
+    function isImageColumn(colName) {
+      const n = String(colName || "").toLowerCase();
+      return n.includes("picture") || n.includes("imagem") || n.includes("image") || n.includes("photo");
+    }
+
+    function isProductColumn(colName) {
+      const n = String(colName || "").toLowerCase();
+      return n.includes("description") || n.includes("produto") || n.includes("desc");
+    }
+
+    function isValidImagePath(src) {
+      if (!src) return false;
+      const s = String(src).trim();
+      return (
+        s.startsWith("/uploads/") ||
+        s.startsWith("http://") ||
+        s.startsWith("https://") ||
+        s.startsWith("data:image/")
+      );
+    }
+
+    function normalizeImageValue(val, row = {}) {
+      const direto = String(val || "").trim();
+      if (isValidImagePath(direto)) return direto;
+
+      if (direto && direto.length > 100 && /^[A-Za-z0-9+/=]+$/.test(direto)) {
+        return `data:image/png;base64,${direto}`;
+      }
+
+      const candidatos = [
+        row.imagem, row.Imagem, row.IMAGEM,
+        row.image, row.Image, row.IMAGE,
+        row.picture, row.Picture, row.PICTURE
+      ];
+
+      for (const item of candidatos) {
+        const s = String(item || "").trim();
+        if (isValidImagePath(s)) return s;
+      }
+
+      const codigo = String(
+        row.codigo ||
+        row.CODIGO ||
+        row["ITEM NO"] ||
+        row.item_no ||
+        ""
+      ).trim();
+
+      if (codigo) return `/uploads/produtos/${codigo}.jpg`;
+      return "";
+    }
+
+    function renderCell(col, val, row = {}) {
+      if (isImageColumn(col)) {
+        const src = normalizeImageValue(val, row);
+        if (src) {
+          return `
+            <img
+              src="${escapeHtml(src)}"
+              class="thumb"
+              alt="imagem"
+              onerror="this.outerHTML='<span class=&quot;no-image&quot;>Sem imagem</span>'"
+            >
+          `;
+        }
+        return `<span class="no-image">Sem imagem</span>`;
+      }
+
+      if (isProductColumn(col)) {
+        const traduzido = row.produto || row.DESCRIPTION || val || "";
+        const original = row.produto_original || row.DESCRIPTION_ORIGINAL || "";
+
+        if (original && original !== traduzido) {
+          return `
+            <div class="produto-wrap">
+              <div class="produto-main">${escapeHtml(traduzido)}</div>
+              <div class="produto-original">${escapeHtml(original)}</div>
+            </div>
+          `;
+        }
+
+        return `<div class="produto-main">${escapeHtml(traduzido)}</div>`;
+      }
+
+      return escapeHtml(val ?? "");
+    }
+
+    function buildFormDataWithField(fieldName, files) {
+      const form = new FormData();
+      for (const f of files) form.append(fieldName, f);
+      return form;
+    }
+
+    async function tentarAnalise(fieldName, files) {
+      const form = buildFormDataWithField(fieldName, files);
+      const res = await fetch("/api/importar-container", {
+        method: "POST",
+        body: form
+      });
+      const data = await res.json().catch(() => ({}));
+      return { res, data };
+    }
+
+    function respostaValida(res, data) {
+      return !!(res.ok && (data.ok || data.sucesso || data.planilhas || Array.isArray(data.dados)));
+    }
+
+    async function analisar() {
+      const files = document.getElementById("file").files;
+      if (!files.length) {
+        alert("Selecione pelo menos um arquivo.");
+        return;
+      }
+
+      nomeArquivoAtual = files[0].name || "arquivo contêiner";
+      document.getElementById("fileInfo").innerText = `${files.length} arquivo(s) selecionado(s).`;
+
+      const btn = document.getElementById("btnAnalisar");
+      btn.disabled = true;
+
+      abrirOverlay();
+      iniciarProgressoFake(nomeArquivoAtual);
+
+      try {
+        setStatus("Enviando planilha de contêiner...");
+        setBar(20);
+        atualizarOverlay(15, "Enviando arquivo...", nomeArquivoAtual, "-", "-");
+
+        let tentativa = await tentarAnalise("arquivo", files);
+        if (!respostaValida(tentativa.res, tentativa.data)) {
+          tentativa = await tentarAnalise("file", files);
+        }
+
+        const { res, data } = tentativa;
+
+        if (!respostaValida(res, data)) {
+          pararProgressoFake();
+          fecharOverlay();
+          setBar(0);
+          alert(data.erro || "Erro ao enviar/analisar contêiner.");
+          btn.disabled = false;
+          return;
+        }
+
+        if (data.planilhas) {
+          planilhas = data.planilhas || {};
+          metadados = data.metadados || {};
+
+          const abas = data.abas || Object.keys(planilhas);
+          const primeiraAba = abas[0] || "";
+          const linhas = primeiraAba ? (planilhas[primeiraAba]?.length || 0) : 0;
+          const cols = primeiraAba ? ((metadados[primeiraAba]?.cabecalhos || []).length) : 0;
+
+          atualizarOverlay(80, "Processando dados...", nomeArquivoAtual, linhas, cols);
+          setBar(85);
+
+          renderAbas(abas);
+          setStatus("Planilha de contêiner carregada.");
+          setBar(100);
+
+          if (abas.length) selecionarAba(abas[0]);
+
+          atualizarOverlay(100, "Finalizado", nomeArquivoAtual, linhas, cols);
+        } else {
+          const lista = Array.isArray(data.dados) ? data.dados : [];
+          planilhas = { "Planilha 1": lista };
+          metadados = {
+            "Planilha 1": {
+              cabecalhos: lista.length ? Object.keys(lista[0]) : [],
+              camposDetectados: {}
+            }
+          };
+
+          renderAbas(["Planilha 1"]);
+          selecionarAba("Planilha 1");
+          atualizarOverlay(100, "Finalizado", nomeArquivoAtual, lista.length, metadados["Planilha 1"].cabecalhos.length);
+          setStatus("Planilha de contêiner carregada.");
+          setBar(100);
+        }
+
+        setTimeout(() => {
+          pararProgressoFake();
+          fecharOverlay();
+          setBar(0);
+        }, 500);
+      } catch (err) {
+        console.error(err);
+        pararProgressoFake();
+        fecharOverlay();
+        setBar(0);
+        alert("Erro ao enviar/analisar contêiner.");
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function renderAbas(abas) {
+      const box = document.getElementById("abas");
+      box.innerHTML = "";
+
+      abas.forEach((nome, idx) => {
+        const btn = document.createElement("button");
+        btn.className = "tab" + (idx === 0 ? " active" : "");
+        btn.textContent = nome;
+        btn.onclick = () => selecionarAba(nome);
+        box.appendChild(btn);
+      });
+    }
+
+    function preencherSelect(id, valorSugerido) {
+      const el = document.getElementById(id);
+      el.innerHTML =
+        `<option value="">-- não usar --</option>` +
+        colunasAtuais.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+
+      if (valorSugerido && colunasAtuais.includes(valorSugerido)) {
+        el.value = valorSugerido;
+      }
+    }
+
+    function selecionarAba(nome) {
+      abaAtual = nome;
+      dados = planilhas[nome] || [];
+      if (!dados.length) {
+        alert("Aba vazia.");
+        return;
+      }
+
+      colunasAtuais = metadados[nome]?.cabecalhos || Object.keys(dados[0] || {});
+      paginaAtual = 1;
+      itensPorPagina = Number(document.getElementById("perPage")?.value || 50);
+
+      rowSelections = {};
+      for (let i = 0; i < dados.length; i++) rowSelections[i] = true;
+
+      document.querySelectorAll(".tab").forEach((el) => {
+        el.classList.toggle("active", el.textContent === nome);
+      });
+
+      const campos = metadados[nome]?.camposDetectados || {};
+      preencherSelect("mapCodigo", campos.codigo);
+      preencherSelect("mapProduto", campos.produto);
+      preencherSelect("mapContainer", campos.container);
+      preencherSelect("mapLote", campos.lote);
+      preencherSelect("mapCaixas", campos.caixas);
+      preencherSelect("mapUnidades", campos.unidades);
+      preencherSelect("mapFator", campos.fator);
+      preencherSelect("mapNF", campos.nf);
+      preencherSelect("mapFornecedor", campos.fornecedor);
+      preencherSelect("mapImagem", campos.imagem);
+
+      atualizarInfoPreview();
+      abrirPreview();
+      renderTabela();
+    }
+
+    function atualizarInfoPreview() {
+      const selecionadas = Object.values(rowSelections).filter(Boolean).length;
+      document.getElementById("previewInfo").innerText =
+        `${dados.length} linhas • ${selecionadas} selecionadas • aba ${abaAtual}`;
+    }
+
+    function abrirPreview() {
+      document.getElementById("previewModal").classList.add("show");
+    }
+
+    function fecharPreview() {
+      document.getElementById("previewModal").classList.remove("show");
+    }
+
+    function selecionarLinhasPagina() {
+      const start = inicioPagina();
+      const end = fimPagina();
+      for (let i = start; i < end; i++) rowSelections[i] = true;
+      renderTabela();
+    }
+
+    function desmarcarLinhasPagina() {
+      const start = inicioPagina();
+      const end = fimPagina();
+      for (let i = start; i < end; i++) rowSelections[i] = false;
+      renderTabela();
+    }
+
+    function selecionarTodasLinhas() {
+      for (let i = 0; i < dados.length; i++) rowSelections[i] = true;
+      renderTabela();
+    }
+
+    function desmarcarTodasLinhas() {
+      for (let i = 0; i < dados.length; i++) rowSelections[i] = false;
+      renderTabela();
+    }
+
+    function paginaAnterior() {
+      if (paginaAtual > 1) {
+        paginaAtual--;
+        renderTabela();
+      }
+    }
+
+    function proximaPagina() {
+      if (paginaAtual < totalPaginas()) {
+        paginaAtual++;
+        renderTabela();
+      }
+    }
+
+    function alterarPorPagina() {
+      itensPorPagina = Number(document.getElementById("perPage").value || 50);
+      paginaAtual = 1;
+      renderTabela();
+    }
+
+    function dadosPagina() {
+      const start = inicioPagina();
+      const end = fimPagina();
+      return dados.slice(start, end);
+    }
+
+    function checkboxHeaderHtml() {
+      const start = inicioPagina();
+      const end = fimPagina();
+      let todasMarcadas = true;
+
+      for (let i = start; i < end; i++) {
+        if (!rowSelections[i]) {
+          todasMarcadas = false;
+          break;
+        }
+      }
+
+      return `<input type="checkbox" id="checkPageRows" ${todasMarcadas ? "checked" : ""} onchange="togglePageRows(this.checked)">`;
+    }
+
+    function togglePageRows(checked) {
+      const start = inicioPagina();
+      const end = fimPagina();
+      for (let i = start; i < end; i++) rowSelections[i] = checked;
+      renderTabela();
+    }
+
+    function onCheckRow(indexGlobal, checked) {
+      rowSelections[indexGlobal] = checked;
+      atualizarInfoPreview();
+    }
+
+    function renderTabela() {
+      const thead = document.querySelector("#tabela thead");
+      const tbody = document.querySelector("#tabela tbody");
+      const start = inicioPagina();
+      const end = fimPagina();
+
+      let ths = `<th>${checkboxHeaderHtml()}</th>`;
+      ths += colunasAtuais.map((c, idx) => `
+        <th data-col-index="${idx}">
+          ${escapeHtml(c)}
+        </th>
+      `).join("");
+
+      thead.innerHTML = `<tr>${ths}</tr>`;
+
+      let html = "";
+      for (let i = start; i < end; i++) {
+        const linha = dados[i];
+        html += `<tr>`;
+        html += `<td><input type="checkbox" class="row-check" data-i="${i}" ${rowSelections[i] ? "checked" : ""}></td>`;
+
+        colunasAtuais.forEach((c) => {
+          html += `<td>${renderCell(c, linha[c], linha)}</td>`;
+        });
+
+        html += `</tr>`;
+      }
+
+      tbody.innerHTML = html;
+
+      document.querySelectorAll(".row-check").forEach((el) => {
+        el.addEventListener("change", (e) => {
+          const idx = Number(e.target.getAttribute("data-i"));
+          rowSelections[idx] = e.target.checked;
+          atualizarInfoPreview();
+        });
+      });
+
+      document.getElementById("pageInfo").innerText = `Página ${paginaAtual} de ${totalPaginas()}`;
+      document.getElementById("btnPrev").disabled = paginaAtual <= 1;
+      document.getElementById("btnNext").disabled = paginaAtual >= totalPaginas();
+
+      atualizarInfoPreview();
+
+      setTimeout(() => {
+        ativarArrasteTabela();
+        ativarArrasteColunas();
+      }, 30);
+    }
+
+    function moverColunaLista(fromIndex, toIndex) {
+      if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= colunasAtuais.length || toIndex > colunasAtuais.length) return;
+      const col = colunasAtuais.splice(fromIndex, 1)[0];
+      colunasAtuais.splice(toIndex, 0, col);
+      renderTabela();
+    }
+
+    function limparClassesDrag() {
+      document.querySelectorAll("#tabela th[data-col-index]").forEach(h => {
+        h.classList.remove("dragging-col", "drag-ready", "drag-over-left", "drag-over-right");
+      });
+    }
+
+    function ativarArrasteTabela() {
+      const wrap = document.getElementById("tableWrap");
+      if (!wrap || tableDragBound) return;
+
+      let isDown = false;
+      let startX = 0;
+      let scrollLeft = 0;
+
+      wrap.addEventListener("mousedown", (e) => {
+        if (e.target.closest("th")) return;
+        isDown = true;
+        wrap.classList.add("dragging");
+        startX = e.pageX - wrap.offsetLeft;
+        scrollLeft = wrap.scrollLeft;
+      });
+
+      wrap.addEventListener("mouseleave", () => {
+        isDown = false;
+        wrap.classList.remove("dragging");
+      });
+
+      wrap.addEventListener("mouseup", () => {
+        isDown = false;
+        wrap.classList.remove("dragging");
+      });
+
+      wrap.addEventListener("mousemove", (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - wrap.offsetLeft;
+        const walk = x - startX;
+        wrap.scrollLeft = scrollLeft - walk;
+      });
+
+      let touchStartX = 0;
+      let touchScrollLeft = 0;
+
+      wrap.addEventListener("touchstart", (e) => {
+        if (e.target.closest("th")) return;
+        touchStartX = e.touches[0].clientX;
+        touchScrollLeft = wrap.scrollLeft;
+      }, { passive: true });
+
+      wrap.addEventListener("touchmove", (e) => {
+        if (e.target.closest("th")) return;
+        const x = e.touches[0].clientX;
+        const walk = x - touchStartX;
+        wrap.scrollLeft = touchScrollLeft - walk;
+      }, { passive: true });
+
+      tableDragBound = true;
+    }
+
+    function ativarArrasteColunas() {
+      const headers = Array.from(document.querySelectorAll("#tabela th[data-col-index]"));
+      if (!headers.length) return;
+
+      headers.forEach((th, idx) => {
+        th.dataset.index = idx;
+        th.oncontextmenu = (e) => e.preventDefault();
+
+        th.ontouchstart = (e) => {
+          if (!e.touches || !e.touches[0]) return;
+          dragState.startIndex = Number(th.dataset.index);
+          dragState.currentTargetIndex = Number(th.dataset.index);
+          dragState.startX = e.touches[0].clientX;
+          dragState.startY = e.touches[0].clientY;
+          dragState.active = false;
+          clearTimeout(dragState.pressTimer);
+
+          dragState.pressTimer = setTimeout(() => {
+            dragState.active = true;
+            th.classList.add("drag-ready", "dragging-col");
+          }, 220);
+        };
+
+        th.ontouchmove = (e) => {
+          if (!e.touches || !e.touches[0]) return;
+          const touch = e.touches[0];
+          const dx = Math.abs(touch.clientX - dragState.startX);
+          const dy = Math.abs(touch.clientY - dragState.startY);
+
+          if (!dragState.active && (dx > dragState.threshold || dy > dragState.threshold)) {
+            clearTimeout(dragState.pressTimer);
+            return;
+          }
+
+          if (!dragState.active) return;
+
+          e.preventDefault();
+          headers.forEach(h => h.classList.remove("drag-over-left", "drag-over-right"));
+
+          const target = document.elementFromPoint(touch.clientX, touch.clientY)?.closest("th[data-col-index]");
+          if (!target) return;
+
+          const rect = target.getBoundingClientRect();
+          const middle = rect.left + rect.width / 2;
+          dragState.currentTargetIndex = Number(target.dataset.index);
+
+          if (touch.clientX < middle) target.classList.add("drag-over-left");
+          else target.classList.add("drag-over-right");
+        };
+
+        th.ontouchend = (e) => {
+          clearTimeout(dragState.pressTimer);
+          if (!dragState.active) {
+            limparClassesDrag();
+            return;
+          }
+
+          const touch = e.changedTouches && e.changedTouches[0];
+          const target = touch
+            ? document.elementFromPoint(touch.clientX, touch.clientY)?.closest("th[data-col-index]")
+            : null;
+
+          let toIndex = dragState.currentTargetIndex;
+          if (target && touch) {
+            const rect = target.getBoundingClientRect();
+            const middle = rect.left + rect.width / 2;
+            toIndex = Number(target.dataset.index);
+            if (touch.clientX > middle) toIndex += 1;
+          }
+
+          let fromIndex = dragState.startIndex;
+          if (toIndex > fromIndex) toIndex -= 1;
+
+          limparClassesDrag();
+          dragState.active = false;
+
+          if (fromIndex >= 0 && toIndex >= 0 && fromIndex !== toIndex) {
+            moverColunaLista(fromIndex, toIndex);
+          }
+        };
+
+        th.ontouchcancel = () => {
+          clearTimeout(dragState.pressTimer);
+          limparClassesDrag();
+          dragState.active = false;
+        };
+
+        th.draggable = true;
+
+        th.ondragstart = (e) => {
+          th.classList.add("dragging-col");
+          e.dataTransfer.setData("text/plain", th.dataset.index);
+        };
+
+        th.ondragend = () => {
+          limparClassesDrag();
+        };
+
+        th.ondragover = (e) => {
+          e.preventDefault();
+          headers.forEach(h => h.classList.remove("drag-over-left", "drag-over-right"));
+          const rect = th.getBoundingClientRect();
+          const middle = rect.left + rect.width / 2;
+          if (e.clientX < middle) th.classList.add("drag-over-left");
+          else th.classList.add("drag-over-right");
+        };
+
+        th.ondrop = (e) => {
+          e.preventDefault();
+          const fromIndex = Number(e.dataTransfer.getData("text/plain"));
+          let toIndex = Number(th.dataset.index);
+
+          const rect = th.getBoundingClientRect();
+          const middle = rect.left + rect.width / 2;
+          if (e.clientX > middle) toIndex += 1;
+          if (toIndex > fromIndex) toIndex -= 1;
+
+          limparClassesDrag();
+          moverColunaLista(fromIndex, toIndex);
+        };
+      });
+    }
+
+    function scrollTabelaEsquerda() {
+      const el = document.getElementById("tableWrap");
+      el.scrollBy({ left: -260, behavior: "smooth" });
+    }
+
+    function scrollTabelaDireita() {
+      const el = document.getElementById("tableWrap");
+      el.scrollBy({ left: 260, behavior: "smooth" });
+    }
+
+    function scrollTabelaInicio() {
+      document.getElementById("tableWrap").scrollTo({ left: 0, behavior: "smooth" });
+    }
+
+    function scrollTabelaFim() {
+      const el = document.getElementById("tableWrap");
+      el.scrollTo({ left: el.scrollWidth, behavior: "smooth" });
+    }
+
+    async function importar() {
+      try {
+        const colSelecionadas = colunasAtuais;
+        const linhasSelecionadas = Object.keys(rowSelections)
+          .filter((k) => rowSelections[k])
+          .map((k) => Number(k));
+
+        if (!linhasSelecionadas.length) {
+          alert("Selecione pelo menos uma linha.");
+          return;
+        }
+
+        const map = {
+          codigo: document.getElementById("mapCodigo").value,
+          produto: document.getElementById("mapProduto").value,
+          container: document.getElementById("mapContainer").value,
+          lote: document.getElementById("mapLote").value,
+          caixas: document.getElementById("mapCaixas").value,
+          unidades: document.getElementById("mapUnidades").value,
+          fator: document.getElementById("mapFator").value,
+          nf: document.getElementById("mapNF").value,
+          fornecedor: document.getElementById("mapFornecedor").value,
+          imagem: document.getElementById("mapImagem").value
+        };
+
+        const itens = [];
+
+        linhasSelecionadas.forEach((i) => {
+          const origem = dados[i];
+          const bruto = {};
+
+          colSelecionadas.forEach((col) => {
+            bruto[col] = origem[col];
+          });
+
+          itens.push({
+            codigo: map.codigo ? origem[map.codigo] : "",
+            produto: origem.produto || (map.produto ? origem[map.produto] : ""),
+            produto_original: origem.produto_original || origem.DESCRIPTION_ORIGINAL || "",
+            container: map.container ? origem[map.container] : "",
+            lote: map.lote ? origem[map.lote] : "",
+            caixas: map.caixas ? origem[map.caixas] : "",
+            unidades: map.unidades ? origem[map.unidades] : "",
+            fator: map.fator ? origem[map.fator] : "",
+            nf: map.nf ? origem[map.nf] : "",
+            fornecedor: map.fornecedor ? origem[map.fornecedor] : "",
+            imagem: map.imagem ? normalizeImageValue(origem[map.imagem], origem) : normalizeImageValue("", origem),
+            bruto
+          });
+        });
+
+        const btn = document.getElementById("btnImportar");
+        btn.disabled = true;
+
+        abrirOverlay();
+        atualizarOverlay(20, "Preparando importação...", nomeArquivoAtual, itens.length, colSelecionadas.length);
+
+        setStatus("Importando contêiner...");
+        setBar(35);
+
+        const res = await fetch("/api/estoque/container", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            arquivo: nomeArquivoAtual,
+            aba: abaAtual,
+            itens
+          })
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || !data.ok) {
+          fecharOverlay();
+          setBar(0);
+          btn.disabled = false;
+          alert(data.erro || "Erro ao importar contêiner.");
+          return;
+        }
+
+        atualizarOverlay(100, "Finalizado", nomeArquivoAtual, data.inseridos || itens.length, colSelecionadas.length);
+        setBar(100);
+
+        abrirSucesso(data.inseridos || itens.length);
+        addLog(data.inseridos || itens.length);
+
+        setTimeout(() => {
+          fecharOverlay();
+          setBar(0);
+        }, 500);
+
+        btn.disabled = false;
+      } catch (err) {
+        console.error(err);
+        fecharOverlay();
+        setBar(0);
+        document.getElementById("btnImportar").disabled = false;
+        alert("Erro ao importar contêiner.");
+      }
+    }
+
+    function abrirSucesso(qtd) {
+      document.getElementById("successText").innerText = `${qtd} itens de contêiner importados com sucesso.`;
+      document.getElementById("successModal").classList.add("show");
+    }
+
+    function fecharSucesso() {
+      document.getElementById("successModal").classList.remove("show");
+    }
+
+    function addLog(qtd) {
+      const logs = document.getElementById("logs");
+      const div = document.createElement("div");
+      div.className = "log-item";
+      div.textContent = typeof qtd === "string"
+        ? qtd
+        : `🚢 Contêiner • ${qtd} itens • ${new Date().toLocaleString("pt-BR")}`;
+      logs.prepend(div);
+    }
+
+    addLog("Sistema pronto. Selecione uma planilha e clique em Analisar.");
+  </script>
 </body>
 </html>
