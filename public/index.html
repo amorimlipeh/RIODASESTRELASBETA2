@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SISTEMA LOGÍSTICO 🌟 RIO DAS ESTRELAS 💫</title>
+
+  <style>
+    :root{
+      --bg:#071a36;
+      --panel:#0b2545;
+      --panel2:#102d52;
+      --line:#1d3c66;
+      --text:#fff;
+      --muted:#b9c7da;
+      --btn:#3b73e6;
+      --btn2:#295ec9;
+      --shadow:0 10px 30px rgba(0,0,0,.35);
+      --radius:18px;
+    }
+
+    *{box-sizing:border-box}
+
+    body{
+      margin:0;
+      background:linear-gradient(180deg,#06152c,#071a36);
+      color:var(--text);
+      font-family:Arial,sans-serif;
+    }
+
+    /* HEADER */
+    .header{
+      background:linear-gradient(90deg,#0d2b5c,#0a1f45);
+      padding:20px;
+      text-align:center;
+      box-shadow:var(--shadow);
+      border-bottom:1px solid rgba(255,255,255,.05);
+    }
+
+    .header h1{
+      margin:0;
+      font-size:20px;
+      letter-spacing:.5px;
+    }
+
+    .sub{
+      font-size:12px;
+      color:#9fb6db;
+      margin-top:6px;
+    }
+
+    /* CONTAINER */
+    .container{
+      padding:20px;
+      max-width:1200px;
+      margin:auto;
+    }
+
+    /* GRID */
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:16px;
+    }
+
+    /* CARD */
+    .card{
+      background:var(--panel);
+      border-radius:var(--radius);
+      padding:18px;
+      cursor:pointer;
+      transition:.25s;
+      box-shadow:var(--shadow);
+      border:1px solid rgba(255,255,255,.04);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .card::before{
+      content:"";
+      position:absolute;
+      top:0;
+      left:0;
+      width:100%;
+      height:3px;
+      background:linear-gradient(90deg,#3b73e6,#7aa7ff);
+      opacity:.6;
+    }
+
+    .card:hover{
+      transform:translateY(-5px) scale(1.02);
+      background:var(--panel2);
+    }
+
+    .icon{
+      font-size:30px;
+      margin-bottom:12px;
+    }
+
+    .title{
+      font-size:15px;
+      font-weight:700;
+      margin-bottom:6px;
+    }
+
+    .desc{
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    /* FOOTER */
+    .footer{
+      margin-top:30px;
+      text-align:center;
+      font-size:11px;
+      color:#7f9cc9;
+      opacity:.7;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>🚀 SISTEMA LOGÍSTICO DE OPERAÇÃO</h1>
+    <div class="sub">🌟 RIO DAS ESTRELAS 💫 • V39 ENTERPRISE</div>
+  </div>
+
+  <div class="container">
+
+    <div class="grid">
+
+      <div class="card" onclick="abrir('importar.html')">
+        <div class="icon">🗺️</div>
+        <div class="title">Importador WMS</div>
+        <div class="desc">Endereçamento e estoque por localização</div>
+      </div>
+
+      <div class="card" onclick="abrir('importar_container.html')">
+        <div class="icon">🚢</div>
+        <div class="title">Importador Contêiner</div>
+        <div class="desc">Entrada de carga com lote, NF e imagem</div>
+      </div>
+
+      <div class="card" onclick="abrir('importar_erp.html')">
+        <div class="icon">📊</div>
+        <div class="title">Importador ERP</div>
+        <div class="desc">Importação de relatórios e estoque geral</div>
+      </div>
+
+      <div class="card" onclick="abrir('estoque.html')">
+        <div class="icon">📦</div>
+        <div class="title">Produtos / Estoque</div>
+        <div class="desc">Cadastro, consulta e gestão de produtos</div>
+      </div>
+
+      <div class="card" onclick="abrir('picking.html')">
+        <div class="icon">🎯</div>
+        <div class="title">Picking</div>
+        <div class="desc">Separação com voz e confirmação</div>
+      </div>
+
+      <div class="card" onclick="abrir('mapa.html')">
+        <div class="icon">🧭</div>
+        <div class="title">Mapa WMS</div>
+        <div class="desc">Visualização de ruas e endereços</div>
+      </div>
+
+      <div class="card" onclick="abrir('pedidos.html')">
+        <div class="icon">📋</div>
+        <div class="title">Pedidos</div>
+        <div class="desc">Gestão e separação de pedidos</div>
+      </div>
+
+      <div class="card" onclick="abrir('notificacoes.html')">
+        <div class="icon">🔔</div>
+        <div class="title">Notificações</div>
+        <div class="desc">Mensagens internas e alertas</div>
+      </div>
+
+    </div>
+
+    <div class="footer">
+      Sistema Logístico • Performance • Inteligência • Automação 🚀
+    </div>
+
+  </div>
+
+  <script>
+    function abrir(pagina){
+      window.location.href = pagina;
+    }
+  </script>
+
+</body>
+</html>

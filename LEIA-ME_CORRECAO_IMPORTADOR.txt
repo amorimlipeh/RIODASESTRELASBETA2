@@ -1,0 +1,40 @@
+CORREÇÃO COMPLETA DO IMPORTADOR
+
+O QUE ESTAVA DANDO CONFLITO / DUPLICADO / BLOQUEANDO
+1. public/importar.html estava com um importador antigo inline.
+2. public/js/importador.js novo existia, mas a página não usava ele.
+3. public/js/api.js existia, mas o importador novo mandava body já serializado, e o api.js serializava de novo.
+4. Isso fazia o backend receber payload em formato errado em /api/importacao/configurar, /confirmar e /cancelar.
+
+O QUE FOI CORRIGIDO
+1. public/importar.html foi refeito para usar somente:
+   - /js/api.js
+   - /js/importador.js
+2. public/js/importador.js foi corrigido para conversar certo com o public/js/api.js.
+3. O fluxo agora usa somente as rotas novas:
+   - POST /api/importacao/analisar
+   - GET /api/importacao/preview
+   - POST /api/importacao/configurar
+   - POST /api/importacao/confirmar
+   - POST /api/importacao/cancelar
+
+O QUE MANTER
+- public/js/api.js
+- public/js/importador.js
+- server/routes/importacao.js
+- server/auth.js
+- server/empresa_data.js
+- server/utils/fileDB.js
+- server.js atual
+
+O QUE PARAR DE USAR
+- O script inline antigo que existia dentro de public/importar.html
+- Qualquer chamada antiga para /api/importar-wms
+
+O QUE VOCÊ PODE DEIXAR NO PROJETO SEM QUEBRAR
+- server/importador.js
+Ele está duplicado em função, mas não está bloqueando o fluxo principal. Pode manter por enquanto.
+
+SUBSTITUIR AGORA
+- public/importar.html
+- public/js/importador.js

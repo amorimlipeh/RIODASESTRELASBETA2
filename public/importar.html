@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Importador WMS</title>
+  <style>
+    :root{--bg:#071a36;--panel:#0b2545;--panel2:#102d52;--line:#1d3c66;--text:#fff;--muted:#b9c7da;--btn:#3b73e6;--btn2:#295ec9;--shadow:0 6px 22px rgba(0,0,0,.28);--radius:16px}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,sans-serif}
+    .header{background:#0d2b5c;padding:16px 18px;font-size:20px;font-weight:700;position:sticky;top:0;z-index:20;box-shadow:var(--shadow)}
+    .sub{font-size:12px;color:var(--muted);margin-top:4px} .page{padding:14px;max-width:1380px;margin:0 auto}
+    .card{background:var(--panel);border-radius:var(--radius);padding:16px;margin-bottom:14px;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.04)}
+    .title{font-size:16px;font-weight:700;margin-bottom:10px} .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .row.grow > *{flex:1 1 220px} input[type="file"],select{width:100%;background:#17345c;color:#fff;border:1px solid #2b4a75;border-radius:10px;padding:10px}
+    button{border:0;background:linear-gradient(180deg,var(--btn),var(--btn2));color:#fff;padding:10px 14px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,.18)}
+    button.secondary{background:#17345c} button.success{background:linear-gradient(180deg,#22c55e,#15803d)} button.danger{background:linear-gradient(180deg,#ef4444,#b91c1c)} button.hidden{display:none} button:disabled{opacity:.45;cursor:not-allowed}
+    .msg{margin-top:10px;padding:10px 12px;border-radius:12px;background:#17345c;color:#fff;font-size:13px} .msg.ok{border:1px solid rgba(34,197,94,.35)} .msg.erro{border:1px solid rgba(239,68,68,.35);background:#441a26}
+    .pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px} .pill{display:inline-block;padding:7px 10px;border-radius:999px;background:#17345c;font-size:12px;color:#fff}
+    .table-wrap{overflow:auto;border-radius:12px;border:1px solid rgba(255,255,255,.05);background:#0a1b35} table{width:max-content;min-width:100%;border-collapse:collapse;font-size:12px}
+    th,td{border-bottom:1px solid var(--line);padding:8px 10px;white-space:nowrap;text-align:left;vertical-align:top} th{background:#0d1c33;position:sticky;top:0;z-index:2} td{color:#eef4ff}
+    .section-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px} .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+    .modal{position:fixed;inset:0;display:none;background:rgba(0,0,0,.84);z-index:80;padding:18px} .modal.show{display:block}
+    .modal-card{max-width:1200px;margin:0 auto;background:var(--panel);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;border:1px solid rgba(255,255,255,.06)}
+    .modal-header{padding:14px 16px;background:#0d2b5c;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap} .modal-body{padding:16px;max-height:calc(100vh - 80px);overflow:auto}
+    .checkbox-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px} .checkbox-item{display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:#17345c}
+    .split{display:grid;grid-template-columns:1fr;gap:14px} @media(min-width:1100px){.split{grid-template-columns:1.2fr .8fr}} .muted{font-size:12px;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="header">🗺️ Importador WMS<div class="sub">Importação revisável com mapeamento de colunas, conflitos de fator e confirmação final.</div></div>
+  <div class="page">
+    <div class="card">
+      <div class="title">1. Selecionar arquivo</div>
+      <div class="row grow">
+        <div><input type="file" id="arquivo" accept=".xlsx,.xls,.csv" /></div>
+        <div style="flex:0 0 auto"><button id="btn-analisar">Analisar arquivo</button></div>
+        <div style="flex:0 0 auto"><button id="btn-modal" class="secondary hidden">Configurar colunas</button></div>
+      </div>
+      <div id="msg" class="msg ok">Selecione um arquivo para iniciar a análise.</div>
+      <div class="pills"><span class="pill" id="pill-tipo">Tipo: -</span><span class="pill" id="pill-total">Linhas: 0</span><span class="pill" id="pill-aba">Aba: -</span></div>
+    </div>
+    <div class="card">
+      <div class="section-actions">
+        <div><div class="title" style="margin-bottom:4px">2. Pré-visualização convertida</div><div class="muted">Essa é a visualização que será usada na confirmação da importação.</div></div>
+        <div class="row" style="flex:0 0 auto"><label class="muted" for="aba-select">Aba</label><select id="aba-select" style="min-width:220px"></select></div>
+      </div>
+      <div class="table-wrap"><table><thead><tr><th>Código</th><th>Produto</th><th>Caixas</th><th>Quantidade</th><th>Fator</th><th>Imagem</th><th>Endereço</th></tr></thead><tbody id="preview-convertido"></tbody></table></div>
+      <div class="row" style="margin-top:14px"><button id="btn-confirmar" class="success" disabled>Confirmar importação</button><button id="btn-cancelar" class="danger" disabled>Cancelar prévia</button></div>
+    </div>
+    <div class="card">
+      <div class="title">3. Conflitos de fator</div>
+      <div class="muted" style="margin-bottom:10px">Quando o produto já existe com fator cadastrado diferente do importado, ele aparece aqui para revisão.</div>
+      <div class="table-wrap"><table><thead><tr><th>Código</th><th>Produto</th><th>Fator cadastrado</th><th>Fator importado</th></tr></thead><tbody id="conflicts-body"></tbody></table></div>
+    </div>
+  </div>
+  <div class="modal" id="config-modal"><div class="modal-card"><div class="modal-header"><div><div style="font-weight:700;font-size:18px">Configurar importação</div><div class="sub">Escolha os campos, colunas visíveis e políticas da prévia.</div></div><button id="btn-fechar-modal" class="secondary">Fechar</button></div><div class="modal-body"><div class="split"><div><div class="card" style="margin:0 0 14px 0"><div class="title">Mapeamento de colunas</div><div class="grid"><div class="field"><label for="map-codigo">Código</label><select id="map-codigo"></select></div><div class="field"><label for="map-produto">Produto</label><select id="map-produto"></select></div><div class="field"><label for="map-caixas">Caixas</label><select id="map-caixas"></select></div><div class="field"><label for="map-quantidade">Quantidade</label><select id="map-quantidade"></select></div><div class="field"><label for="map-fator">Fator</label><select id="map-fator"></select></div><div class="field"><label for="map-imagem">Imagem</label><select id="map-imagem"></select></div><div class="field"><label for="map-endereco">Endereço</label><select id="map-endereco"></select></div></div></div><div class="card" style="margin:0"><div class="title">Prévia original</div><div class="muted" style="margin-bottom:10px">Essa tabela mostra as colunas originais da planilha.</div><div class="table-wrap"><table><thead id="original-head"></thead><tbody id="original-body"></tbody></table></div></div></div><div><div class="card" style="margin:0 0 14px 0"><div class="title">Colunas visíveis</div><div class="muted" style="margin-bottom:10px">Selecione quais colunas quer ver na prévia original.</div><div id="visible-columns" class="checkbox-grid"></div></div><div class="card" style="margin:0 0 14px 0"><div class="title">Políticas</div><div class="grid"><div class="field"><label for="factor-policy">Regra do fator</label><select id="factor-policy"><option value="use_import_if_missing">Usar importado se cadastro estiver vazio</option><option value="use_default_1">Usar 1 quando estiver vazio</option></select></div><div class="field"><label for="quantity-mode">Regra da quantidade</label><select id="quantity-mode"><option value="prefer_total">Preferir total importado</option><option value="boxes_times_factor">Caixas × fator</option></select></div></div><label class="checkbox-item" style="margin-top:12px"><input type="checkbox" id="save-layout" /><span>Salvar esse layout para reutilizar depois</span></label></div><div class="row"><button id="btn-aplicar">Aplicar configuração</button></div></div></div></div></div></div>
+  <script src="/js/api.js"></script>
+  <script src="/js/importador.js"></script>
+</body>
+</html>
