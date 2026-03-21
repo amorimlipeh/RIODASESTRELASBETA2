@@ -3,1128 +3,450 @@ const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
 const XLSX = require("xlsx");
-const unzipper = require("unzipper");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const ROOT = __dirname;
-const PUBLIC_DIR = path.join(ROOT, "public");
-const DATA_DIR = path.join(ROOT, "data");
-const UPLOADS_DIR = path.join(ROOT, "uploads");
-const PRODUTOS_IMG_DIR = path.join(UPLOADS_DIR, "produtos");
-const ESTOQUE_FILE = path.join(DATA_DIR, "estoque.json");
-const TRADUCOES_FILE = path.join(DATA_DIR, "traducoes.json");
-
-function ensureDir(dirPath) {
-  if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
-}
-
-ensureDir(PUBLIC_DIR);
-ensureDir(DATA_DIR);
-ensureDir(UPLOADS_DIR);
-ensureDir(PRODUTOS_IMG_DIR);
-
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
-app.use("/uploads", express.static(UPLOADS_DIR));
+
+const DATA_DIR = path.join(__dirname, "data");
+const UPLOADS_DIR = path.join(__dirname, "uploads");
+const PRODUTOS_IMG_DIR = path.join(UPLOADS_DIR, "produtos");
+const TMP_DIR = path.join(UPLOADS_DIR, "tmp");
+const PUBLIC_DIR = path.join(__dirname, "public");
+
+garantirPasta(DATA_DIR);
+garantirPasta(UPLOADS_DIR);
+garantirPasta(PRODUTOS_IMG_DIR);
+garantirPasta(TMP_DIR);
+
 app.use(express.static(PUBLIC_DIR));
+app.use("/uploads", express.static(UPLOADS_DIR));
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 30 * 1024 * 1024,
-    files: 10,
-  },
+    fileSize: 30 * 1024 * 1024
+  }
 });
 
-/* =========================
-   JSON HELPERS
-========================= */
-function readJson(filePath, fallback = []) {
+function garantirPasta(dir) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+function lerJsonSeguro(caminho, fallback = []) {
   try {
-    if (!fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath, JSON.stringify(fallback, null, 2), "utf8");
-      return fallback;
-    }
-    const raw = fs.readFileSync(filePath, "utf8").trim();
-    if (!raw) return fallback;
-    return JSON.parse(raw);
-  } catch (error) {
-    console.error("Erro ao ler JSON:", filePath, error.message);
+    if (!fs.existsSync(caminho)) return fallback;
+    const bruto = fs.readFileSync(caminho, "utf8");
+    if (!bruto.trim()) return fallback;
+    return JSON.parse(bruto);
+  } catch (erro) {
+    console.error("Erro ao ler JSON:", caminho, erro.message);
     return fallback;
   }
 }
 
-function writeJson(filePath, data) {
-  try {
-    ensureDir(path.dirname(filePath));
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
-    return true;
-  } catch (error) {
-    console.error("Erro ao salvar JSON:", filePath, error.message);
-    return false;
-  }
+function salvarJsonSeguro(caminho, dados) {
+  garantirPasta(path.dirname(caminho));
+  fs.writeFileSync(caminho, JSON.stringify(dados, null, 2), "utf8");
 }
 
-/* =========================
-   TEXTO / NORMALIZAÇÃO
-========================= */
-function normalizar(valor = "") {
-  return String(valor)
+function numeroSeguro(valor, padrao = 0) {
+  if (valor === null || valor === undefined || valor === "") return padrao;
+  const texto = String(valor).trim();
+
+  // tenta respeitar vírgula decimal sem destruir inteiros
+  const normalizado = texto.includes(",") && !texto.includes(".")
+    ? texto.replace(",", ".")
+    : texto.replace(/,/g, "");
+
+  const n = Number(normalizado);
+  return Number.isFinite(n) ? n : padrao;
+}
+
+function textoSeguro(valor) {
+  return String(valor ?? "").trim();
+}
+
+function normalizarCabecalho(valor) {
+  return textoSeguro(valor)
+    .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
     .replace(/\s+/g, " ")
     .trim();
 }
 
-function isEmptyCell(value) {
-  return value === null || value === undefined || String(value).trim() === "";
-}
+function detectarCampos(headers = []) {
+  const lista = headers.map((h) => ({
+    original: h,
+    normalizado: normalizarCabecalho(h)
+  }));
 
-function isMeaningfulRow(row) {
-  return Array.isArray(row) && row.some((cell) => !isEmptyCell(cell));
-}
+  function buscar(possibles = []) {
+    const exato = lista.find((item) => possibles.includes(item.normalizado));
+    if (exato) return exato.original;
 
-function containsChinese(text = "") {
-  return /[\u3400-\u9FFF]/.test(String(text));
-}
+    const parcial = lista.find((item) =>
+      possibles.some((p) => item.normalizado.includes(p))
+    );
 
-function uniqueHeaders(row = []) {
-  const usados = new Set();
-  return row.map((cell, idx) => {
-    let nome = String(cell ?? "").trim();
-    if (!nome) nome = `Coluna ${idx + 1}`;
-
-    let finalName = nome;
-    let seq = 2;
-    while (usados.has(finalName)) {
-      finalName = `${nome} (${seq})`;
-      seq += 1;
-    }
-    usados.add(finalName);
-    return finalName;
-  });
-}
-
-/* =========================
-   CACHE DE TRADUÇÃO
-========================= */
-function readTradCache() {
-  return readJson(TRADUCOES_FILE, {});
-}
-
-function writeTradCache(cache) {
-  writeJson(TRADUCOES_FILE, cache);
-}
-
-/* =========================
-   TRADUTOR HÍBRIDO
-========================= */
-const DICIONARIO_CH_PT = {
-  "品名": "nome do produto",
-  "产品图片": "imagem do produto",
-  "客人货号": "código do cliente",
-  "货号": "código",
-  "出货清单": "lista de embarque",
-  "件数": "quantidade",
-  "数量": "quantidade",
-  "包装": "embalagem",
-  "材质": "material",
-  "型号": "modelo",
-  "颜色": "cor",
-  "规格": "especificação",
-  "净重": "peso líquido",
-  "毛重": "peso bruto",
-  "尺寸": "medidas",
-  "长": "comprimento",
-  "宽": "largura",
-  "高": "altura",
-
-  "钥匙扣": "chaveiro",
-  "吊坠": "pingente",
-  "挂件": "enfeite",
-  "手链": "pulseira",
-  "项链": "colar",
-  "耳环": "brinco",
-  "戒指": "anel",
-  "发夹": "presilha",
-  "贴纸": "adesivo",
-  "玩具": "brinquedo",
-  "杯垫": "porta-copo",
-  "冰箱贴": "ímã de geladeira",
-  "双面镜": "espelho dupla face",
-  "圆镜": "espelho redondo",
-  "桃心镜子": "espelho coração",
-  "镜子": "espelho",
-  "帆布袋": "saco de lona",
-  "帆布包": "bolsa de lona",
-  "地图": "mapa",
-  "十字架": "cruz",
-  "顶针": "dedal",
-  "铝片车牌冰箱贴": "ímã de geladeira placa de carro em alumínio",
-  "银箔冰箱贴": "ímã de geladeira prata",
-  "地图银箔冰箱贴": "ímã de geladeira mapa prata",
-  "地图圆镜冰箱贴": "ímã de geladeira mapa com espelho redondo",
-  "圆镜冰箱贴": "ímã de geladeira com espelho redondo",
-  "7.5塑料双面镜": "espelho dupla face plástico 7.5 cm",
-  "7.5双面镜": "espelho dupla face 7.5 cm",
-  "塑料双面镜": "espelho dupla face plástico",
-
-  "蓝色": "azul",
-  "大红": "vermelho escuro",
-  "红色": "vermelho",
-  "粉色": "rosa",
-  "黑色": "preto",
-  "白色": "branco",
-  "黄色": "amarelo",
-  "绿色": "verde",
-  "紫色": "roxo",
-  "橙色": "laranja",
-  "灰色": "cinza",
-  "金色": "dourado",
-  "银色": "prata",
-  "棕色": "marrom",
-  "彩色": "colorido",
-  "透明": "transparente",
-
-  "蓝": "azul",
-  "红": "vermelho",
-  "粉": "rosa",
-  "黑": "preto",
-  "白": "branco",
-  "黄": "amarelo",
-  "绿": "verde",
-  "紫": "roxo",
-  "橙": "laranja",
-  "灰": "cinza",
-  "金": "dourado",
-  "银": "prata",
-
-  "钥匙扣蓝色": "chaveiro azul",
-  "钥匙扣大红": "chaveiro vermelho escuro",
-  "钥匙扣红色": "chaveiro vermelho",
-  "钥匙扣粉色": "chaveiro rosa",
-  "钥匙扣黑色": "chaveiro preto",
-  "钥匙扣白色": "chaveiro branco",
-  "钥匙扣黄色": "chaveiro amarelo",
-  "钥匙扣绿色": "chaveiro verde",
-  "钥匙扣紫色": "chaveiro roxo",
-  "钥匙扣橙色": "chaveiro laranja",
-  "钥匙扣灰色": "chaveiro cinza",
-  "钥匙扣金色": "chaveiro dourado",
-  "钥匙扣银色": "chaveiro prata",
-
-  "顶针蓝色": "dedal azul",
-  "顶针红色": "dedal vermelho",
-  "顶针粉色": "dedal rosa",
-  "顶针黑色": "dedal preto",
-  "顶针白色": "dedal branco",
-  "顶针黄色": "dedal amarelo",
-  "顶针绿色": "dedal verde",
-  "顶针紫色": "dedal roxo",
-
-  "帆布袋黑色": "saco de lona preto",
-  "帆布袋白色": "saco de lona branco",
-  "帆布包黑色": "bolsa de lona preta",
-  "帆布包白色": "bolsa de lona branca"
-};
-
-const TERMOS_COMPOSTOS = [
-  ["地图圆镜冰箱贴", "ímã de geladeira mapa com espelho redondo"],
-  ["圆镜冰箱贴", "ímã de geladeira com espelho redondo"],
-  ["地图银箔冰箱贴", "ímã de geladeira mapa prata"],
-  ["银箔冰箱贴", "ímã de geladeira prata"],
-  ["铝片车牌冰箱贴", "ímã de geladeira placa de carro em alumínio"],
-  ["7.5塑料双面镜", "espelho dupla face plástico 7.5 cm"],
-  ["7.5双面镜", "espelho dupla face 7.5 cm"],
-  ["塑料双面镜", "espelho dupla face plástico"],
-  ["桃心镜子", "espelho coração"],
-  ["双面镜", "espelho dupla face"],
-  ["圆镜", "espelho redondo"],
-  ["冰箱贴", "ímã de geladeira"],
-  ["帆布袋", "saco de lona"],
-  ["帆布包", "bolsa de lona"],
-  ["钥匙扣", "chaveiro"],
-  ["顶针", "dedal"],
-  ["十字架", "cruz"],
-  ["吊坠", "pingente"],
-  ["挂件", "enfeite"],
-  ["手链", "pulseira"],
-  ["项链", "colar"],
-  ["耳环", "brinco"],
-  ["戒指", "anel"],
-  ["发夹", "presilha"],
-  ["贴纸", "adesivo"],
-  ["玩具", "brinquedo"],
-  ["杯垫", "porta-copo"],
-  ["地图", "mapa"],
-  ["蓝色", "azul"],
-  ["大红", "vermelho escuro"],
-  ["红色", "vermelho"],
-  ["粉色", "rosa"],
-  ["黑色", "preto"],
-  ["白色", "branco"],
-  ["黄色", "amarelo"],
-  ["绿色", "verde"],
-  ["紫色", "roxo"],
-  ["橙色", "laranja"],
-  ["灰色", "cinza"],
-  ["金色", "dourado"],
-  ["银色", "prata"]
-];
-
-function limparTextoComercial(texto = "") {
-  return String(texto)
-    .replace(/--.*$/g, "")
-    .replace(/还有.*$/g, "")
-    .replace(/[^\x00-\x7F\u4e00-\u9fa5\s.\-\/]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function limparTraducao(texto = "") {
-  return String(texto)
-    .replace(/\s+/g, " ")
-    .replace(/\s+\|/g, " |")
-    .replace(/\|\s+/g, "| ")
-    .replace(/\s+([,.;:])/g, "$1")
-    .trim();
-}
-
-async function traduzirOnline(texto) {
-  const endpoints = [
-    "https://libretranslate.de/translate",
-    "https://translate.argosopentech.com/translate"
-  ];
-
-  for (const url of endpoints) {
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          q: texto,
-          source: "auto",
-          target: "pt",
-          format: "text"
-        })
-      });
-
-      if (!res.ok) continue;
-
-      const data = await res.json().catch(() => ({}));
-      const traduzido = data?.translatedText;
-
-      if (traduzido && typeof traduzido === "string") {
-        return traduzido.trim();
-      }
-    } catch (e) {
-      // tenta o próximo endpoint
-    }
+    return parcial ? parcial.original : "";
   }
-
-  return texto;
-}
-
-async function traduzirUniversal(texto = "", cache = null) {
-  const valorBruto = String(texto || "").trim();
-  if (!valorBruto) return "";
-  if (!containsChinese(valorBruto)) return valorBruto;
-
-  const tradCache = cache || readTradCache();
-  if (tradCache[valorBruto]) return tradCache[valorBruto];
-
-  let valor = limparTextoComercial(valorBruto);
-  let traduzido = valor;
-
-  if (DICIONARIO_CH_PT[valor]) {
-    traduzido = DICIONARIO_CH_PT[valor];
-  } else {
-    for (const [orig, dest] of TERMOS_COMPOSTOS) {
-      if (traduzido.includes(orig)) {
-        traduzido = traduzido.split(orig).join(dest);
-      }
-    }
-
-    const entradas = Object.entries(DICIONARIO_CH_PT).sort((a, b) => b[0].length - a[0].length);
-    for (const [orig, dest] of entradas) {
-      if (traduzido.includes(orig)) {
-        traduzido = traduzido.split(orig).join(dest);
-      }
-    }
-
-    if (containsChinese(traduzido)) {
-      traduzido = await traduzirOnline(traduzido);
-    }
-  }
-
-  traduzido = String(traduzido)
-    .replace(/7\.5x7\.5/gi, "7.5 x 7.5")
-    .replace(/7\.5\s*cm/gi, "7.5 cm")
-    .replace(/mapa\s+prata/gi, "mapa prata")
-    .replace(/prata\s+ímã de geladeira/gi, "ímã de geladeira prata")
-    .replace(/mapa\s+ímã de geladeira/gi, "ímã de geladeira mapa")
-    .replace(/espelho redondo ímã de geladeira/gi, "ímã de geladeira com espelho redondo")
-    .replace(/mapa com espelho redondo ímã de geladeira/gi, "ímã de geladeira mapa com espelho redondo")
-    .replace(/plástico espelho dupla face/gi, "espelho dupla face plástico")
-    .replace(/\bpreto saco de lona\b/gi, "saco de lona preto")
-    .replace(/\bbranco saco de lona\b/gi, "saco de lona branco")
-    .replace(/\bpreto bolsa de lona\b/gi, "bolsa de lona preta")
-    .replace(/\bbranco bolsa de lona\b/gi, "bolsa de lona branca")
-    .replace(/(\b[\wÀ-ÿ.-]+\b)(\s+\1)+/gi, "$1");
-
-  traduzido = limparTraducao(traduzido);
-  tradCache[valorBruto] = traduzido;
-  return traduzido;
-}
-
-/* =========================
-   DETECÇÃO DE COLUNAS
-========================= */
-function detectarCampos(headers, aliasMap) {
-  const detectados = {};
-  const normHeaders = headers.map((h) => normalizar(h));
-
-  for (const [campo, aliases] of Object.entries(aliasMap)) {
-    let encontrado = "";
-
-    for (let i = 0; i < normHeaders.length; i += 1) {
-      const h = normHeaders[i];
-      const ok = aliases.some((alias) => {
-        const a = normalizar(alias);
-        return h === a || h.includes(a) || a.includes(h);
-      });
-      if (ok) {
-        encontrado = headers[i];
-        break;
-      }
-    }
-
-    detectados[campo] = encontrado;
-  }
-
-  return detectados;
-}
-
-function scoreHeaderRow(row, aliasMap) {
-  const headers = uniqueHeaders(row);
-  const campos = detectarCampos(headers, aliasMap);
-  return Object.values(campos).filter(Boolean).length;
-}
-
-function findHeaderRow(indexedRows, aliasMap) {
-  let bestIndex = -1;
-  let bestScore = -1;
-  const limite = Math.min(indexedRows.length, 25);
-
-  for (let i = 0; i < limite; i += 1) {
-    const row = indexedRows[i].row;
-    if (!isMeaningfulRow(row)) continue;
-
-    const filled = row.filter((cell) => !isEmptyCell(cell)).length;
-    if (filled < 2) continue;
-
-    const score = scoreHeaderRow(row, aliasMap);
-    if (score > bestScore) {
-      bestScore = score;
-      bestIndex = i;
-    }
-  }
-
-  if (bestIndex >= 0 && bestScore > 0) return bestIndex;
-
-  for (let i = 0; i < limite; i += 1) {
-    const row = indexedRows[i].row;
-    if (!isMeaningfulRow(row)) continue;
-    const filled = row.filter((cell) => !isEmptyCell(cell)).length;
-    if (filled >= 2) return i;
-  }
-
-  return -1;
-}
-
-function rowsToObjects(rows, aliasMap) {
-  const indexedRows = rows
-    .map((row, idx) => ({ row, idx }))
-    .filter((entry) => isMeaningfulRow(entry.row));
-
-  if (!indexedRows.length) {
-    return { dados: [], cabecalhos: [], camposDetectados: {}, headerExcelRow: -1 };
-  }
-
-  const headerIndex = findHeaderRow(indexedRows, aliasMap);
-  if (headerIndex < 0) {
-    return { dados: [], cabecalhos: [], camposDetectados: {}, headerExcelRow: -1 };
-  }
-
-  const headerEntry = indexedRows[headerIndex];
-  const cabecalhos = uniqueHeaders(headerEntry.row);
-  const dadosEntries = indexedRows.slice(headerIndex + 1);
-
-  const dados = dadosEntries
-    .map((entry) => {
-      const obj = {};
-      cabecalhos.forEach((header, idx) => {
-        obj[header] = entry.row[idx] ?? "";
-      });
-      obj.__excelRow = entry.idx + 1;
-      return obj;
-    })
-    .filter((obj) => Object.entries(obj).some(([k, v]) => k !== "__excelRow" && !isEmptyCell(v)));
 
   return {
-    dados,
-    cabecalhos,
-    camposDetectados: detectarCampos(cabecalhos, aliasMap),
-    headerExcelRow: headerEntry.idx + 1,
+    codigo: buscar(["codigo", "codigo do produto", "código", "item no", "sku", "ref", "id", "cod", "客人货号", "货号"]),
+    produto: buscar(["produto", "descricao", "descrição", "description", "nome", "item", "produto descricao", "品名"]),
+    endereco: buscar(["endereco", "endereço", "local", "location", "rua", "posicao", "posição"]),
+    quantidade: buscar(["quantidade", "qty", "qtd", "quantity", "estoque (un)", "estoque", "t.qty", "总数"]),
+    caixas: buscar(["caixas", "ctns", "cartons", "box", "件数"]),
+    fator: buscar(["q/c", "fator", "qc", "factor", "装箱"]),
+    lote: buscar(["lote", "lot", "batch"]),
+    nf: buscar(["nf", "nota", "invoice"]),
+    fornecedor: buscar(["fornecedor", "supplier", "vendor"]),
+    imagem: buscar(["imagem", "picture", "image", "foto", "产品图片"]),
+    container: buscar(["container", "contêiner", "conteiner"])
   };
 }
 
-function parseWorkbook(buffer, aliasMap) {
-  const workbook = XLSX.read(buffer, {
+function parseCsvBuffer(buffer) {
+  const texto = buffer.toString("utf8");
+  const wb = XLSX.read(texto, { type: "string" });
+  return wb;
+}
+
+function lerWorkbookDeArquivo(file) {
+  const nome = (file.originalname || "").toLowerCase();
+
+  if (nome.endsWith(".csv")) {
+    return parseCsvBuffer(file.buffer);
+  }
+
+  return XLSX.read(file.buffer, {
     type: "buffer",
     cellDates: true,
-    raw: false,
+    raw: false
   });
+}
+
+function workbookParaPayload(fileBuffer, originalname = "") {
+  const fakeFile = { buffer: fileBuffer, originalname };
+  const workbook = lerWorkbookDeArquivo(fakeFile);
+
+  const abas = workbook.SheetNames || [];
+  if (!abas.length) {
+    throw new Error("Nenhuma aba encontrada no arquivo.");
+  }
 
   const planilhas = {};
   const metadados = {};
-  const abas = [];
 
-  for (const aba of workbook.SheetNames) {
-    const ws = workbook.Sheets[aba];
-    if (!ws) continue;
-
-    const rows = XLSX.utils.sheet_to_json(ws, {
-      header: 1,
+  for (const nomeAba of abas) {
+    const worksheet = workbook.Sheets[nomeAba];
+    const linhas = XLSX.utils.sheet_to_json(worksheet, {
       defval: "",
-      blankrows: false,
-      raw: false,
+      raw: false
     });
 
-    const { dados, cabecalhos, camposDetectados, headerExcelRow } = rowsToObjects(rows, aliasMap);
-    if (!dados.length) continue;
+    const cabecalhos = linhas.length
+      ? Object.keys(linhas[0]).filter((h) => h !== "__excelRow")
+      : [];
 
-    planilhas[aba] = dados;
-    metadados[aba] = {
+    planilhas[nomeAba] = linhas;
+    metadados[nomeAba] = {
       cabecalhos,
-      camposDetectados,
-      total: dados.length,
-      headerExcelRow,
+      total: linhas.length,
+      camposDetectados: detectarCampos(cabecalhos)
     };
-    abas.push(aba);
   }
 
-  return { abas, planilhas, metadados };
-}
-
-function getUploadedFiles(req) {
-  const files = [];
-
-  if (Array.isArray(req.files)) {
-    files.push(...req.files);
-  } else if (req.files && typeof req.files === "object") {
-    Object.values(req.files).forEach((value) => {
-      if (Array.isArray(value)) files.push(...value);
-    });
-  }
-
-  if (req.file) files.push(req.file);
-  return files.filter(Boolean);
-}
-
-function getFirstSpreadsheet(req) {
-  const files = getUploadedFiles(req);
-  return files.length ? files[0] : null;
-}
-
-/* =========================
-   ALIASES
-========================= */
-const ALIASES_WMS = {
-  codigo: ["codigo", "código", "item no", "item", "sku", "ref", "referencia", "cod", "codigo do produto", "id"],
-  produto: ["produto", "description", "descrição", "item name", "descricao", "nome", "desc"],
-  endereco: ["endereco", "endereço", "location", "address", "locacao", "local", "rua", "posicao"],
-  quantidade: ["quantidade", "qty", "qtd", "estoque (un)", "estoque", "unidades", "t.qty", "quantity"],
-};
-
-const ALIASES_CONTAINER = {
-  codigo: ["codigo", "código", "item no", "sku", "ref", "referencia", "cod", "客人货号", "货号", "ITEM NO"],
-  produto: ["produto", "description", "descrição", "item name", "descricao", "nome", "desc", "traducao", "tradução", "品名", "DESCRIPTION"],
-  caixas: ["caixas", "cartons", "ctns", "ctn", "boxes", "box", "volume", "CTNS"],
-  unidades: ["unidades", "quantidade", "qty", "qtd", "pcs", "pieces", "estoque (un)", "quantity", "t.qty", "件数", "数量", "T.QTY"],
-  imagem: ["imagem", "image", "images", "picture", "pictures", "foto", "fotos", "产品图片", "PICTURE"],
-  container: ["container", "contêiner", "conteiner"],
-  lote: ["lote", "lot", "batch"],
-  nf: ["nf", "nota", "nota fiscal", "invoice"],
-  fornecedor: ["fornecedor", "supplier", "vendor", "fabricante", "marca"],
-  fator: ["fator", "q/c", "qc", "factor", "packing", "pack", "Q/C"]
-};
-
-/* =========================
-   IMAGEM POR CÓDIGO
-========================= */
-function findImageByCode(codigo = "") {
-  const code = String(codigo || "").trim();
-  if (!code) return "";
-
-  const exts = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
-  for (const ext of exts) {
-    const abs = path.join(PRODUTOS_IMG_DIR, `${code}${ext}`);
-    if (fs.existsSync(abs)) return `/uploads/produtos/${code}${ext}`;
-  }
-  return "";
-}
-
-/* =========================
-   EXTRAÇÃO DE IMAGENS XLSX
-========================= */
-function posixDir(p) {
-  const d = path.posix.dirname(p);
-  return d === "." ? "" : d;
-}
-
-function resolveZipTarget(baseFile, target) {
-  const baseDir = posixDir(baseFile);
-  let resolved = path.posix.normalize(path.posix.join(baseDir, target)).replace(/^\/+/, "");
-  if (!resolved.startsWith("xl/") && !resolved.startsWith("_rels/") && !resolved.startsWith("docProps/")) {
-    resolved = path.posix.normalize(path.posix.join("xl", resolved)).replace(/^\/+/, "");
-  }
-  return resolved;
-}
-
-async function zipEntriesMap(buffer) {
-  const zip = await unzipper.Open.buffer(buffer);
-  const map = new Map();
-  for (const entry of zip.files) map.set(entry.path, entry);
-  return map;
-}
-
-async function readZipText(entries, filePath) {
-  const entry = entries.get(filePath);
-  if (!entry) return "";
-  return (await entry.buffer()).toString("utf8");
-}
-
-async function readZipBuffer(entries, filePath) {
-  const entry = entries.get(filePath);
-  if (!entry) return null;
-  return entry.buffer();
-}
-
-function parseRelationships(xml = "") {
-  const rels = {};
-  const regex = /<Relationship\b[^>]*Id="([^"]+)"[^>]*Target="([^"]+)"[^>]*\/?>/g;
-  let m;
-  while ((m = regex.exec(xml))) rels[m[1]] = m[2];
-  return rels;
-}
-
-function parseWorkbookSheets(xml = "") {
-  const sheets = [];
-  const regex = /<sheet\b[^>]*name="([^"]+)"[^>]*r:id="([^"]+)"[^>]*\/?>/g;
-  let m;
-  while ((m = regex.exec(xml))) sheets.push({ name: m[1], rid: m[2] });
-  return sheets;
-}
-
-function parseWorksheetDrawingRid(xml = "") {
-  const m = xml.match(/<drawing\b[^>]*r:id="([^"]+)"/);
-  return m ? m[1] : "";
-}
-
-function parseAnchorsFromDrawing(xml = "") {
-  const results = [];
-  const regex = /<(?:xdr:)?(?:twoCellAnchor|oneCellAnchor)[\s\S]*?<(?:xdr:)?from>[\s\S]*?<(?:xdr:)?row>(\d+)<\/(?:xdr:)?row>[\s\S]*?<a:blip\b[^>]*r:embed="([^"]+)"/g;
-  let m;
-  while ((m = regex.exec(xml))) {
-    results.push({
-      rowZeroBased: Number(m[1] || 0),
-      embedRid: m[2] || "",
-    });
-  }
-  return results;
-}
-
-function extFromMediaPath(mediaPath = "") {
-  const ext = path.extname(mediaPath || "").toLowerCase();
-  return [".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"].includes(ext) ? ext : ".png";
-}
-
-async function extractXlsxImagesBySheet(buffer) {
-  const entries = await zipEntriesMap(buffer);
-  const workbookXml = await readZipText(entries, "xl/workbook.xml");
-  const workbookRelsXml = await readZipText(entries, "xl/_rels/workbook.xml.rels");
-
-  if (!workbookXml || !workbookRelsXml) return {};
-
-  const workbookSheets = parseWorkbookSheets(workbookXml);
-  const workbookRels = parseRelationships(workbookRelsXml);
-  const imagesBySheet = {};
-
-  for (const sheet of workbookSheets) {
-    const worksheetTarget = workbookRels[sheet.rid];
-    if (!worksheetTarget) continue;
-
-    const worksheetPath = resolveZipTarget("xl/workbook.xml", worksheetTarget);
-    const worksheetXml = await readZipText(entries, worksheetPath);
-    if (!worksheetXml) continue;
-
-    const drawingRid = parseWorksheetDrawingRid(worksheetXml);
-    if (!drawingRid) continue;
-
-    const sheetRelsPath =
-      `${posixDir(worksheetPath)}/_rels/${path.posix.basename(worksheetPath)}.rels`.replace(/^\/+/, "");
-    const sheetRelsXml = await readZipText(entries, sheetRelsPath);
-    const sheetRels = parseRelationships(sheetRelsXml);
-    const drawingTarget = sheetRels[drawingRid];
-    if (!drawingTarget) continue;
-
-    const drawingPath = resolveZipTarget(worksheetPath, drawingTarget);
-    const drawingXml = await readZipText(entries, drawingPath);
-    if (!drawingXml) continue;
-
-    const drawingRelsPath =
-      `${posixDir(drawingPath)}/_rels/${path.posix.basename(drawingPath)}.rels`.replace(/^\/+/, "");
-    const drawingRelsXml = await readZipText(entries, drawingRelsPath);
-    const drawingRels = parseRelationships(drawingRelsXml);
-
-    const anchors = parseAnchorsFromDrawing(drawingXml);
-    if (!anchors.length) continue;
-
-    imagesBySheet[sheet.name] = {};
-
-    for (const anchor of anchors) {
-      const mediaTarget = drawingRels[anchor.embedRid];
-      if (!mediaTarget) continue;
-
-      const mediaPath = resolveZipTarget(drawingPath, mediaTarget);
-      const mediaBuffer = await readZipBuffer(entries, mediaPath);
-      if (!mediaBuffer) continue;
-
-      const ext = extFromMediaPath(mediaPath);
-      const safeSheet = normalizar(sheet.name).replace(/[^a-z0-9]+/g, "_") || "sheet";
-      const row1 = anchor.rowZeroBased + 1;
-      const filename = `${safeSheet}_row_${row1}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}${ext}`;
-      const abs = path.join(PRODUTOS_IMG_DIR, filename);
-
-      fs.writeFileSync(abs, mediaBuffer);
-      if (!imagesBySheet[sheet.name][row1]) {
-        imagesBySheet[sheet.name][row1] = `/uploads/produtos/${filename}`;
-      }
-    }
-  }
-
-  return imagesBySheet;
-}
-
-/* =========================
-   ENRIQUECIMENTO CONTÊINER
-========================= */
-async function enrichContainerPreview(planilhas, metadados, imagesBySheet) {
-  const tradCache = readTradCache();
-
-  for (const [aba, rows] of Object.entries(planilhas)) {
-    const meta = metadados[aba] || {};
-    const camposDetectados = meta.camposDetectados || {};
-    const codigoHeader = camposDetectados.codigo || "ITEM NO";
-    const imageHeader = camposDetectados.imagem || "";
-    const produtoHeader = camposDetectados.produto || "DESCRIPTION";
-
-    for (const row of rows) {
-      let imagem = "";
-
-      const rowNum = Number(row.__excelRow || 0);
-      if (rowNum && imagesBySheet[aba] && imagesBySheet[aba][rowNum]) {
-        imagem = imagesBySheet[aba][rowNum];
-      }
-
-      if (!imagem) {
-        const direto =
-          row.imagem ||
-          row.Imagem ||
-          row.IMAGEM ||
-          row.image ||
-          row.Image ||
-          row.IMAGE ||
-          row.picture ||
-          row.Picture ||
-          row.PICTURE ||
-          (imageHeader ? row[imageHeader] : "");
-
-        if (direto && String(direto).trim()) imagem = String(direto).trim();
-      }
-
-      if (!imagem) {
-        const codigo = String(row[codigoHeader] || row.codigo || row.CODIGO || row["ITEM NO"] || "").trim();
-        imagem = findImageByCode(codigo);
-      }
-
-      if (imagem) {
-        row.imagem = imagem;
-        if (imageHeader && !row[imageHeader]) row[imageHeader] = imagem;
-      }
-
-      const originalProduto = String(
-        row[produtoHeader] ||
-          row.produto ||
-          row.DESCRIPTION ||
-          row["品名"] ||
-          ""
-      ).trim();
-
-      if (originalProduto) {
-        const traduzido = await traduzirUniversal(originalProduto, tradCache);
-        row.descricao_original = originalProduto;
-        row.descricao_traduzida = traduzido;
-        row.traducao = traduzido;
-      }
-    }
-  }
-
-  writeTradCache(tradCache);
-}
-
-/* =========================
-   MAPEAMENTO FINAL
-========================= */
-function pickBySelectedOrDetected(item, selectedMap = {}, detectedMap = {}, aliases = []) {
-  const candidates = [];
-
-  if (Array.isArray(aliases)) {
-    aliases.forEach((a) => {
-      if (selectedMap[a]) candidates.push(selectedMap[a]);
-      if (detectedMap[a]) candidates.push(detectedMap[a]);
-    });
-  }
-
-  for (const key of candidates) {
-    if (key && Object.prototype.hasOwnProperty.call(item, key)) return item[key];
-  }
-
-  return "";
-}
-
-function toNumber(value) {
-  if (value === null || value === undefined || value === "") return 0;
-  const texto = String(value).replace(/\./g, "").replace(",", ".").trim();
-  const num = Number(texto);
-  return Number.isFinite(num) ? num : 0;
-}
-
-function mapearLinhaContainer(item, selectedMap = {}, detectedMap = {}) {
-  const codigo = String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["codigo"]) || "").trim();
-  let imagem = String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["imagem"]) || "").trim();
-
-  if (!imagem) {
-    imagem =
-      String(
-        item.imagem ||
-          item.Imagem ||
-          item.IMAGEM ||
-          item.image ||
-          item.Image ||
-          item.IMAGE ||
-          item.picture ||
-          item.Picture ||
-          item.PICTURE ||
-          ""
-      ).trim() || findImageByCode(codigo);
-  }
-
-  const produtoTraduzido = String(item.descricao_traduzida || item.traducao || "").trim();
-  const produtoOriginal = String(item.descricao_original || "").trim();
-
-  const produtoBase = String(
-    produtoTraduzido ||
-      pickBySelectedOrDetected(item, selectedMap, detectedMap, ["produto"]) ||
-      ""
-  ).trim();
+  const primeiraAba = abas[0];
+  const dados = planilhas[primeiraAba] || [];
+  const colunas = (metadados[primeiraAba] && metadados[primeiraAba].cabecalhos) || [];
 
   return {
-    codigo,
-    produto: produtoBase,
-    produto_original: produtoOriginal,
-    produto_traduzido: produtoTraduzido || produtoBase,
-    container: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["container"]) || "").trim(),
-    lote: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["lote"]) || "").trim(),
-    caixas: toNumber(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["caixas"])),
-    unidades: toNumber(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["unidades"])),
-    fator: toNumber(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["fator"])),
-    nf: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["nf"]) || "").trim(),
-    fornecedor: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["fornecedor"]) || "").trim(),
-    imagem,
-    bruto: item,
-  };
-}
-
-function mapearLinhaWms(item, selectedMap = {}, detectedMap = {}) {
-  return {
-    codigo: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["codigo"]) || "").trim(),
-    produto: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["produto"]) || "").trim(),
-    endereco: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["endereco"]) || "").trim(),
-    quantidade: toNumber(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["quantidade"])),
-    bruto: item,
-  };
-}
-
-function criarRegistroBase(item, origemPadrao) {
-  return {
-    id: `est_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    origem: String(item.origem || origemPadrao || "").trim(),
-    codigo: String(item.codigo || "").trim(),
-    produto: String(item.produto || "").trim(),
-    endereco: String(item.endereco || "").trim(),
-    quantidade: Number(item.quantidade || item.unidades || 0),
-    caixas: Number(item.caixas || 0),
-    fator: Number(item.fator || 0),
-    imagem: String(item.imagem || "").trim(),
-    container: String(item.container || "").trim(),
-    lote: String(item.lote || "").trim(),
-    nf: String(item.nf || "").trim(),
-    fornecedor: String(item.fornecedor || "").trim(),
-    bruto: item.bruto && typeof item.bruto === "object" ? item.bruto : {},
-    criadoEm: new Date().toISOString(),
-  };
-}
-
-function normalizarMapaCampos(mapa) {
-  if (!mapa || typeof mapa !== "object" || Array.isArray(mapa)) return {};
-  const out = {};
-  for (const [k, v] of Object.entries(mapa)) out[k] = typeof v === "string" ? v : "";
-  return out;
-}
-
-/* =========================
-   ROTAS
-========================= */
-app.get("/health", (_req, res) => {
-  res.json({
     ok: true,
-    service: "rio-das-estrelas",
-    status: "online",
-    time: new Date().toISOString(),
+    abas,
+    planilhas,
+    metadados,
+    dados,
+    colunas
+  };
+}
+
+function montarRegistroImportacao(origem, item, campos = {}, index = 0, extras = {}) {
+  const pegar = (campo) => {
+    const coluna = campos[campo];
+    return coluna ? item[coluna] ?? "" : "";
+  };
+
+  return {
+    id: `${origem.toLowerCase()}_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 8)}`,
+    origem,
+    codigo: textoSeguro(pegar("codigo")),
+    produto: textoSeguro(pegar("produto")),
+    endereco: textoSeguro(pegar("endereco")),
+    quantidade: numeroSeguro(pegar("quantidade")),
+    caixas: numeroSeguro(pegar("caixas")),
+    fator: numeroSeguro(pegar("fator")),
+    lote: textoSeguro(pegar("lote")),
+    nf: textoSeguro(pegar("nf")),
+    fornecedor: textoSeguro(pegar("fornecedor")),
+    imagem: textoSeguro(pegar("imagem")),
+    container: textoSeguro(pegar("container")),
+    bruto: item,
+    criadoEm: new Date().toISOString(),
+    ...extras
+  };
+}
+
+function importarParaEstoque(origem, itens, campos = {}, extras = {}) {
+  const caminhoEstoque = path.join(DATA_DIR, "estoque.json");
+  const estoque = lerJsonSeguro(caminhoEstoque, []);
+
+  const novos = itens.map((item, index) =>
+    montarRegistroImportacao(origem, item, campos, index, extras)
+  );
+
+  estoque.unshift(...novos);
+  salvarJsonSeguro(caminhoEstoque, estoque);
+
+  return novos;
+}
+
+function responderErro(res, contexto, error) {
+  console.error(contexto, error);
+  return res.status(500).json({
+    ok: false,
+    erro: contexto,
+    detalhe: error.message
   });
+}
+
+/* =========================
+   ROTAS DE PÁGINAS
+========================= */
+
+app.get("/", (_req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, "index.html"));
 });
+
+app.get("/importar", (_req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, "importar.html"));
+});
+
+app.get("/importar_erp", (_req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, "importar_erp.html"));
+});
+
+app.get("/importar_container", (_req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, "importar_container.html"));
+});
+
+/* =========================
+   ANÁLISE WMS
+========================= */
 
 app.post("/api/importar-wms", upload.any(), (req, res) => {
   try {
-    const file = getFirstSpreadsheet(req);
-    if (!file || !file.buffer) {
-      return res.json({ ok: false, erro: "Arquivo não enviado" });
+    const file = (req.files && req.files[0]) || req.file;
+
+    if (!file) {
+      return res.status(400).json({
+        ok: false,
+        erro: "Arquivo não enviado."
+      });
     }
 
-    const { abas, planilhas, metadados } = parseWorkbook(file.buffer, ALIASES_WMS);
-
-    if (!abas.length) {
-      return res.json({ ok: false, erro: "Planilha vazia ou sem dados válidos." });
-    }
-
-    return res.json({
-      ok: true,
-      abas,
-      planilhas,
-      metadados,
-      arquivo: file.originalname || "arquivo",
-    });
+    const payload = workbookParaPayload(file.buffer, file.originalname || "");
+    return res.json(payload);
   } catch (error) {
-    console.error("Erro em /api/importar-wms:", error);
-    return res.status(500).json({
-      ok: false,
-      erro: "Erro ao enviar/analisar WMS. Se for PDF, imagem ou outro formato não-planilha, a leitura automática ainda não está pronta.",
-    });
+    return responderErro(res, "Erro ao analisar WMS.", error);
   }
 });
 
-app.post("/api/importar-container", upload.any(), async (req, res) => {
+/* =========================
+   ANÁLISE ERP
+========================= */
+
+app.post("/api/importar-erp", upload.any(), (req, res) => {
   try {
-    const file = getFirstSpreadsheet(req);
-    if (!file || !file.buffer) {
-      return res.json({ ok: false, erro: "Arquivo não enviado" });
+    const file = (req.files && req.files[0]) || req.file;
+
+    if (!file) {
+      return res.status(400).json({
+        ok: false,
+        erro: "Arquivo não enviado."
+      });
     }
 
-    const { abas, planilhas, metadados } = parseWorkbook(file.buffer, ALIASES_CONTAINER);
-
-    if (!abas.length) {
-      return res.json({ ok: false, erro: "Planilha vazia ou sem dados válidos." });
-    }
-
-    try {
-      const imagesBySheet = await extractXlsxImagesBySheet(file.buffer);
-      await enrichContainerPreview(planilhas, metadados, imagesBySheet);
-    } catch (imgErr) {
-      console.error("Falha ao extrair imagens do XLSX:", imgErr.message);
-      await enrichContainerPreview(planilhas, metadados, {});
-    }
-
-    return res.json({
-      ok: true,
-      abas,
-      planilhas,
-      metadados,
-      arquivo: file.originalname || "arquivo",
-    });
+    const payload = workbookParaPayload(file.buffer, file.originalname || "");
+    return res.json(payload);
   } catch (error) {
-    console.error("Erro em /api/importar-container:", error);
-    return res.status(500).json({
-      ok: false,
-      erro: "Erro ao analisar contêiner.",
-      detalhe: error.message
-    });
+    return responderErro(res, "Erro ao analisar ERP.", error);
   }
 });
 
-app.get("/api/estoque", (_req, res) => {
+/* =========================
+   ANÁLISE CONTÊINER
+========================= */
+
+app.post("/api/importar-container", upload.any(), (req, res) => {
   try {
-    const estoque = readJson(ESTOQUE_FILE, []);
-    return res.json({
-      ok: true,
-      total: estoque.length,
-      itens: estoque,
-    });
-  } catch (error) {
-    console.error("Erro em GET /api/estoque:", error);
-    return res.status(500).json({
-      ok: false,
-      erro: "Erro ao carregar estoque.",
-    });
-  }
-});
+    const file = (req.files && req.files[0]) || req.file;
 
-app.post("/api/estoque", (req, res) => {
-  try {
-    const estoque = readJson(ESTOQUE_FILE, []);
-    const body = req.body || {};
-    const itensEntrada = Array.isArray(body.itens) ? body.itens : [];
-
-    if (itensEntrada.length) {
-      const novos = itensEntrada.map((item) => criarRegistroBase(item, "WMS"));
-      estoque.unshift(...novos);
-      writeJson(ESTOQUE_FILE, estoque);
-      return res.json({ ok: true, inseridos: novos.length, itens: novos });
+    if (!file) {
+      return res.status(400).json({
+        ok: false,
+        erro: "Arquivo não enviado."
+      });
     }
 
-    const itemUnico = criarRegistroBase(body, "MANUAL");
-    estoque.unshift(itemUnico);
-    writeJson(ESTOQUE_FILE, estoque);
-    return res.json({ ok: true, inseridos: 1, item: itemUnico });
+    const payload = workbookParaPayload(file.buffer, file.originalname || "");
+    return res.json(payload);
   } catch (error) {
-    console.error("Erro em POST /api/estoque:", error);
-    return res.status(500).json({
-      ok: false,
-      erro: "Erro ao salvar item no estoque.",
-    });
+    return responderErro(res, "Erro ao analisar contêiner.", error);
   }
 });
+
+/* =========================
+   IMPORTAÇÃO FINAL WMS
+========================= */
 
 app.post("/api/estoque/wms", (req, res) => {
   try {
-    const estoque = readJson(ESTOQUE_FILE, []);
     const body = req.body || {};
-    const itensEntrada = Array.isArray(body.itens) ? body.itens : [];
-    const selectedMap = normalizarMapaCampos(body.campos || body.mapeamento || {});
-    const detectedMap = normalizarMapaCampos(body.camposDetectados || {});
+    const itens = Array.isArray(body.itens) ? body.itens : [];
+    const campos = body.campos || {};
 
-    if (!itensEntrada.length) {
+    if (!itens.length) {
       return res.status(400).json({
         ok: false,
-        erro: "Nenhum item recebido para importar WMS.",
+        erro: "Nenhum item recebido para importar WMS."
       });
     }
 
-    const novos = itensEntrada.map((item) =>
-      criarRegistroBase(mapearLinhaWms(item, selectedMap, detectedMap), "WMS")
-    );
-
-    estoque.unshift(...novos);
-    writeJson(ESTOQUE_FILE, estoque);
-
+    const novos = importarParaEstoque("WMS", itens, campos);
     return res.json({
       ok: true,
       inseridos: novos.length,
-      itens: novos,
-      arquivo: body.arquivo || "",
-      aba: body.aba || "",
+      itens: novos
     });
   } catch (error) {
-    console.error("Erro em POST /api/estoque/wms:", error);
-    return res.status(500).json({
-      ok: false,
-      erro: "Erro ao importar WMS.",
-    });
+    return responderErro(res, "Erro ao importar WMS.", error);
   }
 });
+
+/* =========================
+   IMPORTAÇÃO FINAL ERP
+========================= */
+
+app.post("/api/estoque/erp", (req, res) => {
+  try {
+    const body = req.body || {};
+    const itens = Array.isArray(body.itens) ? body.itens : [];
+    const campos = body.campos || {};
+
+    if (!itens.length) {
+      return res.status(400).json({
+        ok: false,
+        erro: "Nenhum item recebido para importar ERP."
+      });
+    }
+
+    const novos = importarParaEstoque("ERP", itens, campos);
+    return res.json({
+      ok: true,
+      inseridos: novos.length,
+      itens: novos
+    });
+  } catch (error) {
+    return responderErro(res, "Erro ao importar ERP.", error);
+  }
+});
+
+/* =========================
+   IMPORTAÇÃO FINAL CONTÊINER
+========================= */
 
 app.post("/api/estoque/container", (req, res) => {
   try {
-    const estoque = readJson(ESTOQUE_FILE, []);
     const body = req.body || {};
-    const itensEntrada = Array.isArray(body.itens) ? body.itens : [];
-    const selectedMap = normalizarMapaCampos(body.campos || body.mapeamento || {});
-    const detectedMap = normalizarMapaCampos(body.camposDetectados || {});
+    const itens = Array.isArray(body.itens) ? body.itens : [];
+    const campos = body.campos || {};
+    const aba = body.aba || "";
+    const arquivo = body.arquivo || "";
 
-    if (!itensEntrada.length) {
+    if (!itens.length) {
       return res.status(400).json({
         ok: false,
-        erro: "Nenhum item recebido para importar.",
+        erro: "Nenhum item recebido para importar contêiner."
       });
     }
 
-    const novos = itensEntrada.map((item) =>
-      criarRegistroBase(mapearLinhaContainer(item, selectedMap, detectedMap), "CONTAINER")
-    );
-
-    estoque.unshift(...novos);
-    writeJson(ESTOQUE_FILE, estoque);
+    const novos = importarParaEstoque("CONTAINER", itens, campos, {
+      abaOrigem: aba,
+      arquivoOrigem: arquivo
+    });
 
     return res.json({
       ok: true,
       inseridos: novos.length,
-      itens: novos,
-      arquivo: body.arquivo || "",
-      aba: body.aba || "",
+      itens: novos
     });
   } catch (error) {
-    console.error("Erro em POST /api/estoque/container:", error);
-    return res.status(500).json({
-      ok: false,
-      erro: "Erro ao importar contêiner.",
+    return responderErro(res, "Erro ao importar contêiner.", error);
+  }
+});
+
+/* =========================
+   CONSULTA ESTOQUE
+========================= */
+
+app.get("/api/estoque", (_req, res) => {
+  try {
+    const caminhoEstoque = path.join(DATA_DIR, "estoque.json");
+    const estoque = lerJsonSeguro(caminhoEstoque, []);
+    return res.json({
+      ok: true,
+      total: estoque.length,
+      itens: estoque
     });
+  } catch (error) {
+    return responderErro(res, "Erro ao consultar estoque.", error);
   }
 });
 
-app.get("/", (_req, res) => {
-  const indexFile = path.join(PUBLIC_DIR, "index.html");
-  if (fs.existsSync(indexFile)) return res.sendFile(indexFile);
-  return res.status(200).send("SISTEMA LOGÍSTICO RIO DAS ESTRELAS ONLINE");
-});
+/* =========================
+   HEALTHCHECK
+========================= */
 
-app.use((req, res, next) => {
-  if (req.path.startsWith("/api/")) return next();
-
-  const fallbackFile = path.join(PUBLIC_DIR, req.path);
-  if (fs.existsSync(fallbackFile) && fs.statSync(fallbackFile).isFile()) {
-    return res.sendFile(fallbackFile);
-  }
-
-  const indexFile = path.join(PUBLIC_DIR, "index.html");
-  if (fs.existsSync(indexFile)) return res.sendFile(indexFile);
-
-  return res.status(404).send("Página não encontrada.");
-});
-
-app.use((err, _req, res, _next) => {
-  console.error("Erro não tratado:", err);
-  return res.status(500).json({
-    ok: false,
-    erro: "Erro interno do servidor.",
+app.get("/health", (_req, res) => {
+  res.json({
+    ok: true,
+    status: "online",
+    time: new Date().toISOString()
   });
 });
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 SISTEMA LOGÍSTICO RIO DAS ESTRELAS online na porta ${PORT}`);
+/* =========================
+   FALLBACK
+========================= */
+
+app.use((req, res) => {
+  if (req.path.startsWith("/api/")) {
+    return res.status(404).json({
+      ok: false,
+      erro: "Rota não encontrada."
+    });
+  }
+
+  return res.sendFile(path.join(PUBLIC_DIR, "index.html"));
+});
+
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
