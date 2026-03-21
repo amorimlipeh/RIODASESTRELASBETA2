@@ -9,11 +9,14 @@
     :root{
       --bg:#071a36;
       --panel:#0b2545;
+      --panel2:#102a4d;
       --line:#1d3c66;
       --text:#fff;
       --muted:#b9c7da;
       --btn:#3b73e6;
       --btn2:#24436c;
+      --ok:#2c7a4b;
+      --danger:#7a2c3b;
       --shadow:0 6px 22px rgba(0,0,0,.28);
     }
 
@@ -24,6 +27,11 @@
       background:linear-gradient(180deg,#041229 0%,#071a36 100%);
       font-family:Arial,Helvetica,sans-serif;
       color:var(--text);
+    }
+
+    body.modal-open{
+      overflow:hidden;
+      touch-action:none;
     }
 
     .topbar{
@@ -89,15 +97,20 @@
       user-select:none;
     }
 
-    .btn.secondary{
-      background:var(--btn2);
-    }
+    .btn.secondary{ background:var(--btn2); }
+    .btn.ok{ background:var(--ok); }
+    .btn.danger{ background:var(--danger); }
 
     .btn.small{
       padding:8px 12px;
       min-height:auto;
       font-size:12px;
       border-radius:10px;
+    }
+
+    .btn.active{
+      outline:2px solid rgba(255,255,255,.28);
+      background:#4a86ff;
     }
 
     .btn:disabled{
@@ -155,7 +168,8 @@
       font-size:13px;
     }
 
-    .loading-backdrop{
+    .loading-backdrop,
+    .modal-backdrop{
       position:fixed;
       inset:0;
       background:rgba(0,0,0,.55);
@@ -212,15 +226,19 @@
       100%{ transform:translateX(180%); }
     }
 
-    .preview-shell{
+    .modal-shell{
+      width:min(98vw,1280px);
+      max-height:92vh;
       background:#071a36;
       border:1px solid rgba(255,255,255,.08);
       border-radius:18px;
       overflow:hidden;
-      box-shadow:var(--shadow);
+      box-shadow:0 20px 60px rgba(0,0,0,.45);
+      display:flex;
+      flex-direction:column;
     }
 
-    .preview-header{
+    .modal-header{
       display:flex;
       align-items:center;
       justify-content:space-between;
@@ -228,12 +246,20 @@
       padding:14px 16px;
       background:#12336b;
       border-bottom:1px solid rgba(255,255,255,.08);
+      flex:0 0 auto;
     }
 
-    .preview-title{
+    .modal-title{
       font-size:18px;
       font-weight:800;
       margin:0;
+    }
+
+    .modal-body{
+      padding:14px;
+      overflow:auto;
+      flex:1 1 auto;
+      min-height:0;
     }
 
     .toolbar{
@@ -245,7 +271,7 @@
     }
 
     .inner-panel{
-      background:#102a4d;
+      background:var(--panel2);
       border:1px solid rgba(255,255,255,.08);
       border-radius:14px;
       padding:12px;
@@ -286,9 +312,15 @@
       overflow:auto;
       border:1px solid rgba(255,255,255,.08);
       border-radius:16px;
-      max-height:60vh;
+      max-height:52vh;
       -webkit-overflow-scrolling:touch;
       background:#082048;
+      touch-action:auto;
+    }
+
+    .table-wrap.drag-select-active{
+      touch-action:none;
+      overscroll-behavior:contain;
     }
 
     table{
@@ -313,6 +345,10 @@
       z-index:2;
     }
 
+    tr.row-selected{
+      background:rgba(59,115,230,.18);
+    }
+
     .th-check{
       display:flex;
       align-items:center;
@@ -326,17 +362,11 @@
     }
 
     .rename-target{
-      cursor:pointer;
       padding:4px 6px;
       border-radius:8px;
-      transition:.15s;
       display:inline-flex;
       align-items:center;
       gap:6px;
-    }
-
-    .rename-target:hover{
-      background:rgba(255,255,255,.08);
     }
 
     .rename-edit{
@@ -367,12 +397,20 @@
       line-height:1;
     }
 
-    .icon-btn.ok{
-      background:#2c7a4b;
-    }
+    .icon-btn.ok{ background:var(--ok); }
+    .icon-btn.cancel{ background:var(--danger); }
+    .icon-btn.edit{ background:#345a93; }
 
-    .icon-btn.cancel{
-      background:#7a2c3b;
+    .selection-banner{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      background:#16345d;
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:14px;
+      padding:10px 12px;
+      margin-bottom:12px;
     }
 
     .msg{
@@ -397,23 +435,26 @@
       .filter-list{ grid-template-columns:1fr; }
       .file-button-wrap{ width:100%; }
       .actions .btn{ width:100%; }
-      .preview-header{
+      .modal-header{
         flex-direction:column;
         align-items:stretch;
       }
-      .preview-header .actions{
+      .modal-header .actions{
         width:100%;
       }
-      .preview-header .actions .btn{
+      .modal-header .actions .btn{
         width:100%;
+      }
+      .table-wrap{
+        max-height:48vh;
       }
     }
   </style>
 </head>
 <body>
   <div class="topbar">
-    <h1>Pré-visualização Contêiner</h1>
-    <button class="btn secondary small" type="button" onclick="fecharTela()">Fechar</button>
+    <h1>Importador Contêiner</h1>
+    <button class="btn secondary small" type="button" onclick="window.location.href='/'">Fechar</button>
   </div>
 
   <div class="wrap">
@@ -430,18 +471,27 @@
       <div class="muted">Selecione XLS, XLSX ou CSV.</div>
       <div id="debugInfo" class="debug-box hidden"></div>
     </div>
+  </div>
 
-    <div id="previewArea" class="preview-shell hidden">
-      <div class="preview-header">
-        <div class="preview-title">Pré-visualização Contêiner</div>
+  <div id="previewModal" class="modal-backdrop hidden">
+    <div class="modal-shell">
+      <div class="modal-header">
+        <div class="modal-title">Pré-visualização Contêiner</div>
         <div class="actions" style="margin:0;">
           <button id="btnFiltro" class="btn secondary small" type="button">Filtro</button>
           <button id="btnMapeamento" class="btn secondary small" type="button">Mapear colunas</button>
-          <button class="btn secondary small" type="button" onclick="fecharTela()">Fechar</button>
+          <button id="btnModoSelecao" class="btn secondary small" type="button">Selecionar por arraste</button>
+          <button class="btn secondary small" type="button" onclick="fecharPreview()">Fechar</button>
         </div>
       </div>
 
-      <div style="padding:14px;">
+      <div class="modal-body">
+        <div id="selectionBanner" class="selection-banner hidden">
+          <strong>Modo seleção ativo.</strong>
+          <span>Arraste o dedo pelas linhas para marcar.</span>
+          <button class="btn danger small" type="button" onclick="alternarModoSelecao(false)">Concluir</button>
+        </div>
+
         <div class="toolbar">
           <button class="btn small" type="button" onclick="selecionarPagina()">Selecionar página</button>
           <button class="btn secondary small" type="button" onclick="desmarcarPagina()">Desmarcar página</button>
@@ -455,7 +505,7 @@
           <button class="btn secondary small" type="button" onclick="moverHorizontal(1)">Direita ▶</button>
           <button class="btn secondary small" type="button" onclick="irInicio()">Início</button>
           <button class="btn secondary small" type="button" onclick="irFim()">Fim</button>
-          <div class="hint">Desktop: Ctrl + arrastar nas linhas. Mobile: toque longo + arrastar. Duplo clique no cabeçalho para renomear.</div>
+          <div class="hint">No mobile, use o botão “Selecionar por arraste”. No cabeçalho, use o lápis para renomear.</div>
         </div>
 
         <div id="panelFiltro" class="inner-panel hidden">
@@ -519,12 +569,11 @@
       porPagina: 100,
       dragIndex: null,
       touchDragIndex: null,
-      touchLongPressTimer: null,
-      ctrlSelecting: false,
-      touchRowSelecting: false,
-      lastRowSelectionState: true,
       editingHeader: null,
       editingValue: "",
+      selectionMode: false,
+      dragSelectingActive: false,
+      dragSelectionState: true,
       map: {
         codigo: "",
         produto: "",
@@ -559,9 +608,11 @@
       btnImportar: document.getElementById("btnImportar"),
       btnFiltro: document.getElementById("btnFiltro"),
       btnMapeamento: document.getElementById("btnMapeamento"),
-      previewArea: document.getElementById("previewArea"),
+      btnModoSelecao: document.getElementById("btnModoSelecao"),
+      previewModal: document.getElementById("previewModal"),
       panelFiltro: document.getElementById("panelFiltro"),
       panelMapeamento: document.getElementById("panelMapeamento"),
+      selectionBanner: document.getElementById("selectionBanner"),
       tbody: document.getElementById("tbody"),
       thead: document.getElementById("thead"),
       infoLinhas: document.getElementById("infoLinhas"),
@@ -622,39 +673,18 @@
     }
 
     function abrirPreview() {
-      els.previewArea.classList.remove("hidden");
+      document.body.classList.add("modal-open");
+      els.previewModal.classList.remove("hidden");
     }
 
-    function fecharPreview(reset = false) {
-      els.previewArea.classList.add("hidden");
+    function fecharPreview() {
+      alternarModoSelecao(false);
+      els.previewModal.classList.add("hidden");
       els.panelFiltro.classList.add("hidden");
       els.panelMapeamento.classList.add("hidden");
       els.msgFinal.classList.add("hidden");
       els.msgFinal.textContent = "";
-
-      if (reset) {
-        state.headers = [];
-        state.rows = [];
-        state.visibleHeaders = new Set();
-        state.renamedHeaders = {};
-        state.selectedRows = new Set();
-        state.pagina = 1;
-        state.editingHeader = null;
-        state.editingValue = "";
-
-        els.thead.innerHTML = "";
-        els.tbody.innerHTML = "";
-        els.infoLinhas.textContent = "0 linhas";
-        els.paginaInfo.textContent = "Página 1";
-      }
-    }
-
-    function fecharTela() {
-      if (!els.previewArea.classList.contains("hidden")) {
-        fecharPreview(false);
-        return;
-      }
-      window.location.href = "/";
+      document.body.classList.remove("modal-open");
     }
 
     function togglePanel(panel) {
@@ -663,6 +693,14 @@
         if (p !== panel) p.classList.add("hidden");
       });
       panel.classList.toggle("hidden");
+    }
+
+    function alternarModoSelecao(forceValue = null) {
+      state.selectionMode = forceValue === null ? !state.selectionMode : !!forceValue;
+      state.dragSelectingActive = false;
+      els.btnModoSelecao.classList.toggle("active", state.selectionMode);
+      els.selectionBanner.classList.toggle("hidden", !state.selectionMode);
+      els.tableWrap.classList.toggle("drag-select-active", state.selectionMode);
     }
 
     function lerArquivoNoNavegador(file) {
@@ -819,7 +857,6 @@
             />
             <button class="icon-btn ok" type="button" onclick="confirmarEdicaoCabecalhoJs('${safe}')">OK</button>
             <button class="icon-btn cancel" type="button" onclick="cancelarEdicaoCabecalhoJs()">X</button>
-            <span class="drag-handle">↕</span>
           </div>
         `;
       }
@@ -827,9 +864,8 @@
       return `
         <div class="th-check">
           <input class="chk" type="checkbox" checked onchange="toggleColuna('${safe}', this.checked)">
-          <span class="rename-target" ondblclick="iniciarEdicaoCabecalhoJs('${safe}')" title="Duplo clique para renomear">
-            ${htmlEscape(displayHeader(header))}
-          </span>
+          <span class="rename-target">${htmlEscape(displayHeader(header))}</span>
+          <button class="icon-btn edit" type="button" onclick="iniciarEdicaoCabecalhoJs('${safe}')" title="Editar nome">✏</button>
           <span class="drag-handle">↕</span>
         </div>
       `;
@@ -880,10 +916,7 @@
                 data-index="${state.headers.indexOf(h)}"
                 ondragstart="onDragStartJs(event)"
                 ondragover="onDragOverJs(event)"
-                ondrop="onDropJs(event)"
-                ontouchstart="onTouchStartHeaderJs(event)"
-                ontouchmove="onTouchMoveHeaderJs(event)"
-                ontouchend="onTouchEndHeaderJs()">
+                ondrop="onDropJs(event)">
               ${renderHeaderContent(h)}
             </th>
           `).join("")}
@@ -892,12 +925,8 @@
 
       els.tbody.innerHTML = rowsPagina.map(({ row, realIndex }) => `
         <tr
-          data-row-index="${realIndex}"
-          onmousedown="rowMouseDownJs(event, ${realIndex})"
-          onmouseenter="rowMouseEnterJs(event, ${realIndex})"
-          ontouchstart="rowTouchStartJs(event, ${realIndex})"
-          ontouchmove="rowTouchMoveJs(event)"
-          ontouchend="rowTouchEndJs()">
+          class="${isChecked(realIndex) ? "row-selected" : ""}"
+          data-row-index="${realIndex}">
           <td>
             <input class="chk" type="checkbox" ${isChecked(realIndex) ? "checked" : ""} onchange="toggleLinha(${realIndex}, this.checked)">
           </td>
@@ -907,6 +936,51 @@
 
       els.paginaInfo.textContent = `Página ${state.pagina}`;
       atualizarInfo();
+      bindMobileDragSelection();
+    }
+
+    function bindMobileDragSelection() {
+      if (!state.selectionMode) return;
+
+      const rows = els.tbody.querySelectorAll("tr[data-row-index]");
+      rows.forEach((tr) => {
+        tr.addEventListener("touchstart", onMobileDragStart, { passive: false });
+        tr.addEventListener("touchmove", onMobileDragMove, { passive: false });
+        tr.addEventListener("touchend", onMobileDragEnd, { passive: false });
+      });
+    }
+
+    function onMobileDragStart(ev) {
+      if (!state.selectionMode) return;
+      ev.preventDefault();
+      const tr = ev.currentTarget;
+      const idx = Number(tr.dataset.rowIndex);
+      state.dragSelectingActive = true;
+      state.dragSelectionState = !state.selectedRows.has(idx);
+      toggleChecked(idx, state.dragSelectionState);
+      renderTabela();
+    }
+
+    function onMobileDragMove(ev) {
+      if (!state.selectionMode || !state.dragSelectingActive) return;
+      ev.preventDefault();
+      const touch = ev.touches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const tr = target && target.closest ? target.closest("tr[data-row-index]") : null;
+      if (!tr) return;
+      const idx = Number(tr.dataset.rowIndex);
+      toggleChecked(idx, state.dragSelectionState);
+
+      const checkbox = tr.querySelector("input.chk");
+      if (checkbox) checkbox.checked = state.dragSelectionState;
+      tr.classList.toggle("row-selected", state.dragSelectionState);
+    }
+
+    function onMobileDragEnd(ev) {
+      if (!state.selectionMode) return;
+      ev.preventDefault();
+      state.dragSelectingActive = false;
+      renderTabela();
     }
 
     function selecionarPagina() {
@@ -983,93 +1057,6 @@
       renderMapeamento();
     }
 
-    function onTouchStartHeader(ev) {
-      const th = ev.target.closest("th");
-      if (!th) return;
-      const idx = Number(th.dataset.index);
-      clearTimeout(state.touchLongPressTimer);
-      state.touchLongPressTimer = setTimeout(() => {
-        state.touchDragIndex = idx;
-      }, 250);
-    }
-
-    function onTouchMoveHeader(ev) {
-      if (state.touchDragIndex == null) return;
-      const touch = ev.touches[0];
-      const target = document.elementFromPoint(touch.clientX, touch.clientY);
-      const th = target?.closest?.("th");
-      if (!th) return;
-
-      const targetIndex = Number(th.dataset.index);
-      if (Number.isNaN(targetIndex) || targetIndex === state.touchDragIndex) return;
-
-      const arr = [...state.headers];
-      const [item] = arr.splice(state.touchDragIndex, 1);
-      arr.splice(targetIndex, 0, item);
-      state.headers = arr;
-      state.visibleHeaders = new Set(arr.filter(h => state.visibleHeaders.has(h)));
-      state.touchDragIndex = targetIndex;
-      renderTabela();
-      renderFiltro();
-      renderMapeamento();
-    }
-
-    function onTouchEndHeader() {
-      clearTimeout(state.touchLongPressTimer);
-      state.touchDragIndex = null;
-    }
-
-    function rowMouseDown(ev, realIndex) {
-      if (!ev.ctrlKey) return;
-      state.ctrlSelecting = true;
-      state.lastRowSelectionState = !state.selectedRows.has(realIndex);
-      toggleChecked(realIndex, state.lastRowSelectionState);
-      renderTabela();
-    }
-
-    function rowMouseEnter(_ev, realIndex) {
-      if (!state.ctrlSelecting) return;
-      toggleChecked(realIndex, state.lastRowSelectionState);
-      const checkbox = els.tbody.querySelector(`tr[data-row-index="${realIndex}"] input.chk`);
-      if (checkbox) checkbox.checked = state.lastRowSelectionState;
-    }
-
-    function rowTouchStart(_ev, realIndex) {
-      clearTimeout(state.touchLongPressTimer);
-      state.touchLongPressTimer = setTimeout(() => {
-        state.touchRowSelecting = true;
-        state.lastRowSelectionState = !state.selectedRows.has(realIndex);
-        toggleChecked(realIndex, state.lastRowSelectionState);
-        renderTabela();
-      }, 250);
-    }
-
-    function rowTouchMove(ev) {
-      if (!state.touchRowSelecting) return;
-      const touch = ev.touches[0];
-      const target = document.elementFromPoint(touch.clientX, touch.clientY);
-      const tr = target?.closest?.("tr[data-row-index]");
-      if (!tr) return;
-      const idx = Number(tr.dataset.rowIndex);
-      toggleChecked(idx, state.lastRowSelectionState);
-      const checkbox = tr.querySelector("input.chk");
-      if (checkbox) checkbox.checked = state.lastRowSelectionState;
-    }
-
-    function rowTouchEnd() {
-      clearTimeout(state.touchLongPressTimer);
-      state.touchRowSelecting = false;
-    }
-
-    document.addEventListener("mouseup", () => {
-      state.ctrlSelecting = false;
-    });
-
-    document.addEventListener("touchend", () => {
-      state.touchRowSelecting = false;
-      clearTimeout(state.touchLongPressTimer);
-    });
-
     async function analisar() {
       if (!state.arquivo) {
         alert("Selecione um arquivo primeiro.");
@@ -1092,6 +1079,7 @@
         state.pagina = 1;
         state.editingHeader = null;
         state.editingValue = "";
+        alternarModoSelecao(false);
 
         if (!state.rows.length || !state.headers.length) {
           throw new Error("Arquivo vazio ou sem cabeçalhos válidos.");
@@ -1153,7 +1141,7 @@
     els.arquivoInput.addEventListener("change", () => {
       const file = els.arquivoInput.files && els.arquivoInput.files[0];
       state.arquivo = file || null;
-      state.arquivoNome = file ? file.name : "";
+      state.arquivoNome = file ? file.name : "Aguardando arquivo...";
       els.arquivoNome.textContent = file ? file.name : "Aguardando arquivo...";
     });
 
@@ -1161,6 +1149,7 @@
     els.btnImportar.addEventListener("click", importar);
     els.btnFiltro.addEventListener("click", () => togglePanel(els.panelFiltro));
     els.btnMapeamento.addEventListener("click", () => togglePanel(els.panelMapeamento));
+    els.btnModoSelecao.addEventListener("click", () => alternarModoSelecao());
 
     els.porPagina.addEventListener("change", () => {
       state.porPagina = Number(els.porPagina.value || 100);
@@ -1183,16 +1172,7 @@
     window.onDragStartJs = onDragStart;
     window.onDragOverJs = onDragOver;
     window.onDropJs = onDrop;
-    window.onTouchStartHeaderJs = onTouchStartHeader;
-    window.onTouchMoveHeaderJs = onTouchMoveHeader;
-    window.onTouchEndHeaderJs = onTouchEndHeader;
-    window.rowMouseDownJs = rowMouseDown;
-    window.rowMouseEnterJs = rowMouseEnter;
-    window.rowTouchStartJs = rowTouchStart;
-    window.rowTouchMoveJs = rowTouchMove;
-    window.rowTouchEndJs = rowTouchEnd;
     window.fecharPreview = fecharPreview;
-    window.fecharTela = fecharTela;
     window.selecionarPagina = selecionarPagina;
     window.desmarcarPagina = desmarcarPagina;
     window.selecionarTodas = selecionarTodas;
@@ -1202,6 +1182,7 @@
     window.moverHorizontal = moverHorizontal;
     window.irInicio = irInicio;
     window.irFim = irFim;
+    window.alternarModoSelecao = alternarModoSelecao;
   </script>
 </body>
 </html>
