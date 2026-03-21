@@ -3,163 +3,246 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Importar WMS</title>
-
-<link rel="stylesheet" href="css/style.css">
+<title>Importador WMS</title>
 
 <style>
-/* reaproveitando padrão container */
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.7);
-  display: none;
-  z-index: 999;
+body{
+  margin:0;
+  background:#071a36;
+  font-family:Arial;
+  color:#fff;
 }
 
-.modal-content {
-  background: #0b2545;
-  margin: auto;
-  width: 95%;
-  height: 90%;
-  border-radius: 12px;
-  overflow: auto;
-  padding: 10px;
+.wrap{
+  padding:15px;
 }
 
-.filtro-box {
-  position: fixed;
-  bottom: 0;
-  width: 100%;
-  background: #0b2545;
-  padding: 10px;
-  display: none;
-  z-index: 1000;
+.btn{
+  background:#3b73e6;
+  border:0;
+  padding:12px 16px;
+  border-radius:10px;
+  color:#fff;
+  font-weight:bold;
+}
+
+.card{
+  background:#0b2545;
+  padding:15px;
+  border-radius:15px;
+}
+
+/* MODAL */
+.modal-bg{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.6);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:999;
+}
+
+.modal{
+  background:#0b2545;
+  padding:20px;
+  border-radius:15px;
+  width:90%;
+  max-width:500px;
+  text-align:center;
+}
+
+/* SPINNER */
+.spinner{
+  width:50px;
+  height:50px;
+  border:5px solid rgba(255,255,255,.2);
+  border-top:5px solid #3b73e6;
+  border-radius:50%;
+  margin:auto;
+  animation:spin 1s linear infinite;
+}
+
+@keyframes spin{
+  to{ transform:rotate(360deg); }
+}
+
+/* PREVIEW */
+.preview-modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.6);
+  z-index:999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.preview-box{
+  background:#071a36;
+  width:95%;
+  max-height:90vh;
+  overflow:auto;
+  border-radius:15px;
+}
+
+.preview-header{
+  background:#12336b;
+  padding:10px;
+  display:flex;
+  justify-content:space-between;
+}
+
+.table{
+  overflow:auto;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+}
+
+td,th{
+  padding:8px;
+  border-bottom:1px solid #1d3c66;
 }
 </style>
 </head>
 
 <body>
 
-<h2>Importador WMS</h2>
+<div class="wrap">
 
-<input type="file" id="file">
+  <div class="card">
+    <input type="file" id="file">
+    <button class="btn" onclick="analisar()">Analisar</button>
+  </div>
 
-<button onclick="analisar()">Analisar</button>
+</div>
 
 <!-- LOADING -->
-<div class="modal" id="loadingModal">
-  <div class="modal-content">
-    <h3>Carregando arquivo...</h3>
+<div id="loading" class="modal-bg" style="display:none;">
+  <div class="modal">
+    <div class="spinner"></div>
+    <p>Carregando arquivo...</p>
   </div>
 </div>
 
 <!-- PREVIEW -->
-<div class="modal" id="previewModal">
-  <div class="modal-content">
+<div id="preview" class="preview-modal" style="display:none;">
+  <div class="preview-box">
 
-    <button onclick="abrirFiltro()">Filtro</button>
-    <button onclick="fecharPreview()">Fechar</button>
+    <div class="preview-header">
+      <b>Pré-visualização WMS</b>
+      <div>
+        <button class="btn" onclick="abrirFiltro()">Filtro</button>
+        <button class="btn" onclick="fecharPreview()">Fechar</button>
+      </div>
+    </div>
 
-    <div id="tabela"></div>
+    <div class="table">
+      <table id="table"></table>
+    </div>
 
   </div>
 </div>
 
 <!-- FILTRO -->
-<div class="filtro-box" id="filtroBox">
-  <h3>Filtro</h3>
-  <div id="filtros"></div>
-  <button onclick="aplicarFiltro()">Aplicar</button>
+<div id="filtro" class="modal-bg" style="display:none;">
+  <div class="modal">
+    <b>Filtro de Colunas</b>
+    <div id="filtroList"></div>
+    <br>
+    <button class="btn" onclick="fecharFiltro()">Fechar</button>
+  </div>
 </div>
 
 <script>
-let dados = []
-let colunas = []
-let colunasAtivas = []
+let dados = [];
+let headers = [];
+let visible = [];
 
-async function analisar() {
-  document.getElementById("loadingModal").style.display = "flex"
+async function analisar(){
+  const file = document.getElementById("file").files[0];
+  if(!file){ alert("Selecione arquivo"); return; }
 
-  const file = document.getElementById("file").files[0]
+  document.getElementById("loading").style.display="flex";
 
-  const formData = new FormData()
-  formData.append("file", file)
+  const fd = new FormData();
+  fd.append("file", file);
 
-  const res = await fetch("/api/importar-wms", {
-    method: "POST",
-    body: formData
-  })
+  try{
+    const res = await fetch("/api/importar-wms",{
+      method:"POST",
+      body:fd
+    });
 
-  const json = await res.json()
+    const json = await res.json();
 
-  dados = json.dados
-  colunas = json.colunas
-  colunasAtivas = [...colunas]
+    dados = json.dados || [];
+    headers = json.colunas || Object.keys(dados[0] || {});
+    visible = [...headers];
 
-  montarTabela()
-  montarFiltro()
+    montarTabela();
+    montarFiltro();
 
-  document.getElementById("loadingModal").style.display = "none"
-  document.getElementById("previewModal").style.display = "flex"
+    document.getElementById("preview").style.display="flex";
+
+  }catch(e){
+    alert("Erro ao importar");
+  }
+
+  document.getElementById("loading").style.display="none";
 }
 
-function montarTabela() {
-  let html = "<table><tr>"
+function montarTabela(){
+  const table = document.getElementById("table");
 
-  colunasAtivas.forEach(c => {
-    html += `<th>${c}</th>`
-  })
+  let html = "<tr>";
+  visible.forEach(h=> html += `<th>${h}</th>`);
+  html += "</tr>";
 
-  html += "</tr>"
+  dados.forEach(row=>{
+    html += "<tr>";
+    visible.forEach(h=>{
+      html += `<td>${row[h] || ""}</td>`;
+    });
+    html += "</tr>";
+  });
 
-  dados.forEach(linha => {
-    html += "<tr>"
-    colunasAtivas.forEach(c => {
-      html += `<td>${linha[c] || ""}</td>`
-    })
-    html += "</tr>"
-  })
-
-  html += "</table>"
-
-  document.getElementById("tabela").innerHTML = html
+  table.innerHTML = html;
 }
 
-function montarFiltro() {
-  let html = ""
+function montarFiltro(){
+  const div = document.getElementById("filtroList");
 
-  colunas.forEach(c => {
-    html += `
-      <label>
-        <input type="checkbox" checked value="${c}">
-        ${c}
-      </label><br>
-    `
-  })
-
-  document.getElementById("filtros").innerHTML = html
+  div.innerHTML = headers.map(h=>`
+    <div>
+      <input type="checkbox" checked onchange="toggle('${h}', this.checked)">
+      ${h}
+    </div>
+  `).join("");
 }
 
-function abrirFiltro() {
-  document.getElementById("filtroBox").style.display = "block"
+function toggle(h,checked){
+  if(checked){
+    visible.push(h);
+  }else{
+    visible = visible.filter(x=>x!==h);
+  }
+  montarTabela();
 }
 
-function aplicarFiltro() {
-  const checks = document.querySelectorAll("#filtros input")
-
-  colunasAtivas = []
-
-  checks.forEach(c => {
-    if (c.checked) colunasAtivas.push(c.value)
-  })
-
-  montarTabela()
-  document.getElementById("filtroBox").style.display = "none"
+function abrirFiltro(){
+  document.getElementById("filtro").style.display="flex";
 }
 
-function fecharPreview() {
-  document.getElementById("previewModal").style.display = "none"
+function fecharFiltro(){
+  document.getElementById("filtro").style.display="none";
+}
+
+function fecharPreview(){
+  document.getElementById("preview").style.display="none";
 }
 </script>
 
