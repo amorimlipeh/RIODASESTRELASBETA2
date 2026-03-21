@@ -13,6 +13,8 @@ const PUBLIC_DIR = path.join(ROOT, "public");
 const DATA_DIR = path.join(ROOT, "data");
 const UPLOADS_DIR = path.join(ROOT, "uploads");
 const PRODUTOS_IMG_DIR = path.join(UPLOADS_DIR, "produtos");
+const ESTOQUE_FILE = path.join(DATA_DIR, "estoque.json");
+const TRADUCOES_FILE = path.join(DATA_DIR, "traducoes.json");
 
 function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
@@ -36,10 +38,8 @@ const upload = multer({
   },
 });
 
-const ESTOQUE_FILE = path.join(DATA_DIR, "estoque.json");
-
 /* =========================
-   HELPERS BÁSICOS
+   JSON HELPERS
 ========================= */
 function readJson(filePath, fallback = []) {
   try {
@@ -67,6 +67,9 @@ function writeJson(filePath, data) {
   }
 }
 
+/* =========================
+   TEXTO / NORMALIZAÇÃO
+========================= */
 function normalizar(valor = "") {
   return String(valor)
     .normalize("NFD")
@@ -82,6 +85,10 @@ function isEmptyCell(value) {
 
 function isMeaningfulRow(row) {
   return Array.isArray(row) && row.some((cell) => !isEmptyCell(cell));
+}
+
+function containsChinese(text = "") {
+  return /[\u3400-\u9FFF]/.test(String(text));
 }
 
 function uniqueHeaders(row = []) {
@@ -101,6 +108,91 @@ function uniqueHeaders(row = []) {
   });
 }
 
+/* =========================
+   CACHE / TRADUÇÃO LOCAL
+========================= */
+function readTradCache() {
+  return readJson(TRADUCOES_FILE, {});
+}
+
+function writeTradCache(cache) {
+  writeJson(TRADUCOES_FILE, cache);
+}
+
+const DICIONARIO_CH_PT = {
+  "品名": "nome do produto",
+  "产品图片": "imagem do produto",
+  "件数": "quantidade",
+  "大红": "vermelho escuro",
+  "粉色": "rosa",
+  "蓝色": "azul",
+  "黑色": "preto",
+  "白色": "branco",
+  "黄色": "amarelo",
+  "绿色": "verde",
+  "紫色": "roxo",
+  "橙色": "laranja",
+  "灰色": "cinza",
+  "钥匙扣": "chaveiro",
+  "钥匙扣蓝色": "chaveiro azul",
+  "钥匙扣大红": "chaveiro vermelho escuro",
+  "钥匙扣粉色": "chaveiro rosa",
+  "钥匙扣黑色": "chaveiro preto",
+  "钥匙扣白色": "chaveiro branco",
+  "钥匙扣黄色": "chaveiro amarelo",
+  "钥匙扣绿色": "chaveiro verde",
+  "钥匙扣紫色": "chaveiro roxo",
+  "客人货号": "código do cliente",
+  "出货清单": "lista de embarque",
+  "货号": "código",
+  "颜色": "cor",
+  "数量": "quantidade",
+  "包装": "embalagem",
+  "材质": "material",
+  "型号": "modelo",
+  "红": "vermelho",
+  "蓝": "azul",
+  "粉": "rosa",
+  "黑": "preto",
+  "白": "branco",
+  "黄": "amarelo",
+  "绿": "verde",
+  "紫": "roxo"
+};
+
+function traduzirChinesLocal(texto = "", cache = null) {
+  const valor = String(texto || "").trim();
+  if (!valor) return "";
+  if (!containsChinese(valor)) return valor;
+
+  const tradCache = cache || readTradCache();
+  if (tradCache[valor]) return tradCache[valor];
+
+  let traduzido = valor;
+
+  if (DICIONARIO_CH_PT[valor]) {
+    traduzido = DICIONARIO_CH_PT[valor];
+  } else {
+    const entradas = Object.entries(DICIONARIO_CH_PT).sort((a, b) => b[0].length - a[0].length);
+    for (const [orig, dest] of entradas) {
+      if (traduzido.includes(orig)) {
+        traduzido = traduzido.split(orig).join(dest);
+      }
+    }
+  }
+
+  traduzido = String(traduzido)
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.;:])/g, "$1")
+    .trim();
+
+  tradCache[valor] = traduzido;
+  return traduzido;
+}
+
+/* =========================
+   DETECÇÃO DE COLUNAS
+========================= */
 function detectarCampos(headers, aliasMap) {
   const detectados = {};
   const normHeaders = headers.map((h) => normalizar(h));
@@ -187,7 +279,7 @@ function rowsToObjects(rows, aliasMap) {
       cabecalhos.forEach((header, idx) => {
         obj[header] = entry.row[idx] ?? "";
       });
-      obj.__excelRow = entry.idx + 1; // 1-based
+      obj.__excelRow = entry.idx + 1;
       return obj;
     })
     .filter((obj) => Object.entries(obj).some(([k, v]) => k !== "__excelRow" && !isEmptyCell(v)));
@@ -269,10 +361,10 @@ const ALIASES_WMS = {
 };
 
 const ALIASES_CONTAINER = {
-  codigo: ["codigo", "código", "item no", "sku", "ref", "referencia", "cod"],
-  produto: ["produto", "description", "descrição", "item name", "descricao", "nome", "desc", "traducao", "tradução"],
+  codigo: ["codigo", "código", "item no", "sku", "ref", "referencia", "cod", "客人货号", "货号"],
+  produto: ["produto", "description", "descrição", "item name", "descricao", "nome", "desc", "traducao", "tradução", "品名"],
   caixas: ["caixas", "cartons", "ctns", "ctn", "boxes", "box", "volume"],
-  unidades: ["unidades", "quantidade", "qty", "qtd", "pcs", "pieces", "estoque (un)", "quantity", "t.qty"],
+  unidades: ["unidades", "quantidade", "qty", "qtd", "pcs", "pieces", "estoque (un)", "quantity", "t.qty", "件数", "数量"],
   imagem: ["imagem", "image", "images", "picture", "pictures", "foto", "fotos", "产品图片"],
   container: ["container", "contêiner", "conteiner"],
   lote: ["lote", "lot", "batch"],
@@ -282,7 +374,7 @@ const ALIASES_CONTAINER = {
 };
 
 /* =========================
-   IMAGENS POR CÓDIGO
+   IMAGEM POR CÓDIGO
 ========================= */
 function findImageByCode(codigo = "") {
   const code = String(codigo || "").trim();
@@ -298,7 +390,6 @@ function findImageByCode(codigo = "") {
 
 /* =========================
    EXTRAÇÃO DE IMAGENS XLSX
-   tenta mapear imagem -> linha da planilha
 ========================= */
 function posixDir(p) {
   const d = path.posix.dirname(p);
@@ -387,7 +478,6 @@ async function extractXlsxImagesBySheet(buffer) {
 
   const workbookSheets = parseWorkbookSheets(workbookXml);
   const workbookRels = parseRelationships(workbookRelsXml);
-
   const imagesBySheet = {};
 
   for (const sheet of workbookSheets) {
@@ -446,12 +536,18 @@ async function extractXlsxImagesBySheet(buffer) {
   return imagesBySheet;
 }
 
-function enrichContainerPreviewWithImages(planilhas, metadados, imagesBySheet) {
+/* =========================
+   ENRIQUECIMENTO DO CONTÊINER
+========================= */
+function enrichContainerPreview(planilhas, metadados, imagesBySheet) {
+  const tradCache = readTradCache();
+
   for (const [aba, rows] of Object.entries(planilhas)) {
     const meta = metadados[aba] || {};
     const camposDetectados = meta.camposDetectados || {};
     const codigoHeader = camposDetectados.codigo || "ITEM NO";
     const imageHeader = camposDetectados.imagem || "";
+    const produtoHeader = camposDetectados.produto || "DESCRIPTION";
 
     rows.forEach((row) => {
       let imagem = "";
@@ -473,6 +569,7 @@ function enrichContainerPreviewWithImages(planilhas, metadados, imagesBySheet) {
           row.Picture ||
           row.PICTURE ||
           (imageHeader ? row[imageHeader] : "");
+
         if (direto && String(direto).trim()) {
           imagem = String(direto).trim();
         }
@@ -487,8 +584,33 @@ function enrichContainerPreviewWithImages(planilhas, metadados, imagesBySheet) {
         row.imagem = imagem;
         if (imageHeader && !row[imageHeader]) row[imageHeader] = imagem;
       }
+
+      const originalProduto = String(
+        row[produtoHeader] ||
+        row.produto ||
+        row.DESCRIPTION ||
+        row["品名"] ||
+        ""
+      ).trim();
+
+      if (originalProduto) {
+        const traduzido = traduzirChinesLocal(originalProduto, tradCache);
+        row.descricao_original = originalProduto;
+        row.descricao_traduzida = traduzido;
+        row.traducao = traduzido;
+
+        if (
+          containsChinese(originalProduto) &&
+          traduzido &&
+          traduzido !== originalProduto
+        ) {
+          row[produtoHeader] = `${originalProduto} | ${traduzido}`;
+        }
+      }
     });
   }
+
+  writeTradCache(tradCache);
 }
 
 /* =========================
@@ -528,9 +650,18 @@ function mapearLinhaContainer(item, selectedMap = {}, detectedMap = {}) {
       findImageByCode(codigo);
   }
 
+  const produtoBase = String(
+    pickBySelectedOrDetected(item, selectedMap, detectedMap, ["produto"]) ||
+    item.traducao ||
+    item.descricao_traduzida ||
+    ""
+  ).trim();
+
   return {
     codigo,
-    produto: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["produto"]) || "").trim(),
+    produto: produtoBase,
+    produto_original: String(item.descricao_original || "").trim(),
+    produto_traduzido: String(item.descricao_traduzida || item.traducao || produtoBase || "").trim(),
     container: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["container"]) || "").trim(),
     lote: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["lote"]) || "").trim(),
     caixas: toNumber(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["caixas"])),
@@ -638,10 +769,10 @@ app.post("/api/importar-container", upload.any(), async (req, res) => {
 
     try {
       const imagesBySheet = await extractXlsxImagesBySheet(file.buffer);
-      enrichContainerPreviewWithImages(planilhas, metadados, imagesBySheet);
+      enrichContainerPreview(planilhas, metadados, imagesBySheet);
     } catch (imgErr) {
       console.error("Falha ao extrair imagens do XLSX:", imgErr.message);
-      enrichContainerPreviewWithImages(planilhas, metadados, {});
+      enrichContainerPreview(planilhas, metadados, {});
     }
 
     return res.json({
