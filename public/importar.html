@@ -1,1119 +1,251 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Importador WMS</title>
-  <style>
-    :root{
-      --bg:#071a36;
-      --panel:#0b2545;
-      --line:#1d3c66;
-      --text:#fff;
-      --muted:#b9c7da;
-      --btn:#3b73e6;
-      --btn2:#24436c;
-      --shadow:0 6px 22px rgba(0,0,0,.28);
-    }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Importador WMS</title>
 
-    *{ box-sizing:border-box; }
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
-    body{
-      margin:0;
-      background:linear-gradient(180deg,#041229 0%,#071a36 100%);
-      font-family:Arial,Helvetica,sans-serif;
-      color:var(--text);
-    }
+<style>
+body{
+  background:#071a36;
+  color:#fff;
+  font-family:Arial;
+  margin:0;
+  padding:20px;
+}
 
-    .wrap{
-      max-width:1200px;
-      margin:0 auto;
-      padding:14px;
-    }
+.container{
+  max-width:1200px;
+  margin:auto;
+}
 
-    .topbar{
-      position:sticky;
-      top:0;
-      z-index:10;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      background:#12336b;
-      padding:16px 18px;
-      border-bottom:1px solid rgba(255,255,255,.08);
-    }
+button{
+  background:#3b73e6;
+  border:none;
+  padding:10px 14px;
+  border-radius:8px;
+  color:#fff;
+  cursor:pointer;
+}
 
-    .topbar h1{
-      margin:0;
-      font-size:18px;
-    }
+.top{
+  display:flex;
+  gap:10px;
+}
 
-    .card{
-      background:rgba(6,24,54,.96);
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:18px;
-      padding:14px;
-      box-shadow:var(--shadow);
-      margin:14px 0;
-    }
+input[type=file]{
+  display:none;
+}
 
-    .btn{
-      background:var(--btn);
-      color:#fff;
-      border:0;
-      border-radius:12px;
-      padding:12px 16px;
-      font-weight:700;
-      cursor:pointer;
-      box-shadow:var(--shadow);
-    }
+.preview{
+  margin-top:20px;
+  background:#0b2545;
+  padding:10px;
+  border-radius:10px;
+}
 
-    .btn.secondary{ background:var(--btn2); }
-    .btn.small{
-      padding:8px 12px;
-      font-size:12px;
-      border-radius:10px;
-    }
+.toolbar{
+  display:flex;
+  gap:8px;
+  margin-bottom:10px;
+}
 
-    .btn:disabled{
-      opacity:.55;
-      cursor:not-allowed;
-    }
+.panel{
+  background:#102d52;
+  padding:10px;
+  border-radius:8px;
+  margin-bottom:10px;
+}
 
-    .statusbar,.select,.rename-input{
-      width:100%;
-      background:#173a6c;
-      color:#fff;
-      border:1px solid #2e548e;
-      border-radius:14px;
-      padding:14px 16px;
-      font-size:16px;
-    }
+.hidden{
+  display:none;
+}
 
-    .actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:10px;
-      align-items:center;
-    }
+.table-wrap{
+  overflow:auto;
+}
 
-    .file-button-wrap{
-      position:relative;
-      display:inline-block;
-      min-width:150px;
-    }
+table{
+  width:100%;
+  border-collapse:collapse;
+}
 
-    .file-button-wrap .fake-btn{
-      display:inline-block;
-      width:100%;
-      text-align:center;
-    }
+th,td{
+  border-bottom:1px solid #1d3c66;
+  padding:8px;
+  font-size:13px;
+}
 
-    .file-button-wrap input[type="file"]{
-      position:absolute;
-      inset:0;
-      width:100%;
-      height:100%;
-      opacity:0;
-      cursor:pointer;
-      z-index:2;
-    }
+th{
+  background:#173a6c;
+}
 
-    .muted{ color:var(--muted); }
-    .hidden{ display:none !important; }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      background:#183866;
-      border-radius:999px;
-      padding:10px 14px;
-      color:#fff;
-    }
-
-    .hint{
-      background:#173a6c;
-      border-radius:16px;
-      padding:12px 16px;
-      color:#d9e5ff;
-    }
-
-    .modal-backdrop{
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,.55);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      z-index:999;
-      padding:14px;
-    }
-
-    .modal{
-      width:min(98vw, 1220px);
-      max-height:92vh;
-      overflow:auto;
-      background:#071a36;
-      border:1px solid rgba(255,255,255,.1);
-      border-radius:18px;
-      box-shadow:0 20px 60px rgba(0,0,0,.45);
-    }
-
-    .modal-header{
-      position:sticky;
-      top:0;
-      z-index:3;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      padding:14px 16px;
-      background:#12336b;
-      border-bottom:1px solid rgba(255,255,255,.08);
-    }
-
-    .modal-title{
-      font-size:18px;
-      font-weight:800;
-      margin:0;
-    }
-
-    .modal-body{
-      padding:14px;
-    }
-
-    .toolbar-row{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      margin-top:12px;
-    }
-
-    .table-wrap{
-      overflow:auto;
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:16px;
-      margin-top:12px;
-      max-height:60vh;
-      -webkit-overflow-scrolling:touch;
-    }
-
-    table{
-      width:max-content;
-      min-width:100%;
-      border-collapse:collapse;
-      background:#082048;
-    }
-
-    th,td{
-      padding:10px 10px;
-      border-bottom:1px solid rgba(255,255,255,.08);
-      text-align:left;
-      vertical-align:middle;
-      white-space:nowrap;
-    }
-
-    th{
-      position:sticky;
-      top:0;
-      background:#0b2a59;
-      z-index:2;
-    }
-
-    .chk{
-      width:18px;
-      height:18px;
-    }
-
-    .th-check{
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-
-    .drag-handle{
-      opacity:.7;
-      font-size:12px;
-      margin-left:4px;
-    }
-
-    .loading-box{
-      width:min(92vw,420px);
-      background:#0b2545;
-      border:1px solid rgba(255,255,255,.1);
-      border-radius:18px;
-      padding:22px 18px;
-      box-shadow:0 20px 60px rgba(0,0,0,.45);
-      text-align:center;
-    }
-
-    .spinner{
-      width:56px;
-      height:56px;
-      border:5px solid rgba(255,255,255,.18);
-      border-top-color:#4f8cff;
-      border-radius:50%;
-      margin:0 auto 16px;
-      animation:spin 1s linear infinite;
-    }
-
-    .progress{
-      width:100%;
-      height:12px;
-      border-radius:999px;
-      background:#163153;
-      overflow:hidden;
-      margin-top:14px;
-    }
-
-    .progress > div{
-      height:100%;
-      width:55%;
-      background:linear-gradient(90deg,#2c7be5,#49c6ff);
-      border-radius:999px;
-      animation:progressMove 1.4s ease-in-out infinite;
-    }
-
-    .filter-section{
-      margin-bottom:18px;
-    }
-
-    .filter-title{
-      font-size:14px;
-      font-weight:800;
-      color:#d9e5ff;
-      margin-bottom:10px;
-    }
-
-    .filter-list{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(140px,1fr));
-      gap:10px;
-    }
-
-    .filter-item,.rename-item{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      background:#102a4d;
-      border:1px solid rgba(255,255,255,.08);
-      padding:10px 12px;
-      border-radius:12px;
-    }
-
-    .rename-item{
-      flex-direction:column;
-      align-items:stretch;
-    }
-
-    .rename-label{
-      font-size:13px;
-      color:#d9e5ff;
-      font-weight:700;
-    }
-
-    .debug-box{
-      margin-top:12px;
-      background:#102a4d;
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:12px;
-      padding:10px 12px;
-      color:#d9e5ff;
-      font-size:12px;
-      white-space:pre-wrap;
-      word-break:break-word;
-    }
-
-    @keyframes spin{
-      to{ transform:rotate(360deg); }
-    }
-
-    @keyframes progressMove{
-      0%{ transform:translateX(-55%); }
-      100%{ transform:translateX(180%); }
-    }
-
-    @media (max-width:640px){
-      .wrap{ padding:8px; }
-      .topbar h1{ font-size:16px; }
-      .filter-list{ grid-template-columns:1fr; }
-      .table-wrap{ max-height:58vh; }
-      .file-button-wrap{ width:100%; }
-      .actions .btn{ width:100%; }
-    }
-  </style>
+input.rename{
+  width:100%;
+  padding:6px;
+  border-radius:6px;
+  border:none;
+}
+</style>
 </head>
+
 <body>
-  <div class="topbar">
-    <h1>Pré-visualização WMS</h1>
-    <button class="btn secondary small" onclick="window.location.href='/'">Fechar</button>
+
+<div class="container">
+
+<div class="top">
+  <label for="fileInput">
+    <button>Escolher arquivo</button>
+  </label>
+
+  <input id="fileInput" type="file" accept=".xlsx,.xls,.csv"/>
+
+  <button onclick="analisar()">Analisar</button>
+</div>
+
+<div id="preview" class="preview hidden">
+
+  <div class="toolbar">
+    <button onclick="toggleFiltro()">Filtro</button>
+    <button onclick="toggleMap()">Mapear colunas</button>
+    <button onclick="toggleRename()">Renomear cabeçalhos</button>
   </div>
 
-  <div class="wrap">
-    <div class="card">
-      <div class="actions">
-        <div class="file-button-wrap">
-          <div class="btn fake-btn">Escolher arquivo</div>
-          <input id="arquivoInput" type="file" accept=".xls,.xlsx,.csv,.pdf">
-        </div>
-        <button id="btnAnalisar" class="btn" type="button">Analisar</button>
-      </div>
+  <!-- FILTRO -->
+  <div id="filtroPanel" class="panel hidden"></div>
 
-      <div id="arquivoNome" class="statusbar" style="margin-top:10px">Aguardando arquivo...</div>
-      <div class="muted" style="margin-top:8px">Selecione XLS, XLSX, CSV ou PDF.</div>
-      <div id="debugInfo" class="debug-box hidden"></div>
-    </div>
+  <!-- MAP -->
+  <div id="mapPanel" class="panel hidden"></div>
+
+  <!-- RENAME -->
+  <div id="renamePanel" class="panel hidden"></div>
+
+  <div class="table-wrap">
+    <table id="table"></table>
   </div>
 
-  <div id="loadingModal" class="modal-backdrop hidden">
-    <div class="loading-box">
-      <div class="spinner"></div>
-      <div style="font-size:20px;font-weight:800;">Carregando arquivo...</div>
-      <div id="loadingText" class="muted" style="margin-top:8px;">Analisando planilha e preparando pré-visualização.</div>
-      <div class="progress"><div></div></div>
-    </div>
-  </div>
+</div>
 
-  <div id="filterModal" class="modal-backdrop hidden">
-    <div class="modal" style="width:min(92vw,760px)">
-      <div class="modal-header">
-        <h2 class="modal-title">Filtro</h2>
-        <button class="btn secondary small" onclick="fecharFiltro()">Fechar</button>
-      </div>
-      <div class="modal-body">
-        <div class="filter-section">
-          <div class="filter-title">Colunas visíveis</div>
-          <div id="filterList" class="filter-list"></div>
-        </div>
-      </div>
-    </div>
-  </div>
+</div>
 
-  <div id="mapModal" class="modal-backdrop hidden">
-    <div class="modal" style="width:min(92vw,760px)">
-      <div class="modal-header">
-        <h2 class="modal-title">Mapear colunas</h2>
-        <button class="btn secondary small" onclick="fecharMapeamento()">Fechar</button>
-      </div>
-      <div class="modal-body">
-        <div class="filter-section">
-          <div class="filter-title">Mapeamento principal</div>
-          <div id="mappingList" class="filter-list"></div>
-        </div>
-      </div>
-    </div>
-  </div>
+<script>
 
-  <div id="renameModal" class="modal-backdrop hidden">
-    <div class="modal" style="width:min(92vw,760px)">
-      <div class="modal-header">
-        <h2 class="modal-title">Renomear cabeçalhos</h2>
-        <button class="btn secondary small" onclick="fecharRenomear()">Fechar</button>
-      </div>
-      <div class="modal-body">
-        <div class="filter-section">
-          <div class="filter-title">Nomes exibidos na pré-visualização</div>
-          <div id="renameList" class="filter-list"></div>
-        </div>
-      </div>
-    </div>
-  </div>
+let state = {
+  headers: [],
+  data: [],
+  renamed: {}
+};
 
-  <div id="previewModal" class="modal-backdrop hidden">
-    <div class="modal">
-      <div class="modal-header">
-        <h2 class="modal-title">Pré-visualização WMS</h2>
-        <div class="actions" style="margin:0">
-          <button id="btnFiltro" class="btn secondary small">Filtro</button>
-          <button id="btnMapeamento" class="btn secondary small">Mapear colunas</button>
-          <button id="btnRenomear" class="btn secondary small">Renomear cabeçalhos</button>
-          <button class="btn secondary small" onclick="fecharPreview()">Fechar</button>
-        </div>
-      </div>
+// ===== FILE =====
+document.getElementById("fileInput").addEventListener("change", e=>{
+  console.log("Arquivo selecionado:", e.target.files[0]?.name);
+});
 
-      <div class="modal-body">
-        <div class="toolbar-row">
-          <button class="btn small" onclick="selecionarPagina()">Selecionar página</button>
-          <button class="btn secondary small" onclick="desmarcarPagina()">Desmarcar página</button>
-          <button class="btn small" onclick="selecionarTodas()">Selecionar todas</button>
-          <button class="btn secondary small" onclick="desmarcarTodas()">Desmarcar todas</button>
-          <span id="infoLinhas" class="pill">0 linhas</span>
-        </div>
+// ===== ANALISAR =====
+function analisar(){
+  const file = document.getElementById("fileInput").files[0];
 
-        <div class="toolbar-row">
-          <button class="btn secondary small" onclick="moverHorizontal(-1)">◀ Esquerda</button>
-          <button class="btn secondary small" onclick="moverHorizontal(1)">Direita ▶</button>
-          <button class="btn secondary small" onclick="irInicio()">Início</button>
-          <button class="btn secondary small" onclick="irFim()">Fim</button>
-          <div class="hint">Desktop: segure Ctrl e arraste sobre as linhas. Mobile: toque longo na linha e arraste.</div>
-        </div>
+  if(!file){
+    alert("Selecione um arquivo");
+    return;
+  }
 
-        <div class="table-wrap" id="tableWrap">
-          <table>
-            <thead id="thead"></thead>
-            <tbody id="tbody"></tbody>
-          </table>
-        </div>
+  const reader = new FileReader();
 
-        <div class="toolbar-row">
-          <button class="btn secondary small" onclick="paginaAnterior()">Anterior</button>
-          <button class="btn secondary small" onclick="proximaPagina()">Próxima</button>
-          <span id="paginaInfo" class="pill">Página 1</span>
-          <span class="muted">Por página</span>
-          <select id="porPagina" class="select" style="max-width:110px;padding:10px 12px">
-            <option>20</option>
-            <option>50</option>
-            <option selected>100</option>
-            <option>200</option>
-          </select>
-        </div>
+  reader.onload = function(e){
+    const wb = XLSX.read(e.target.result, {type:"binary"});
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const json = XLSX.utils.sheet_to_json(sheet, {header:1});
 
-        <div class="actions" style="margin-top:16px">
-          <button id="btnImportar" class="btn">Importar WMS</button>
-        </div>
+    state.headers = json[0];
+    state.data = json.slice(1);
 
-        <div id="msgFinal" class="statusbar hidden" style="margin-top:12px"></div>
-      </div>
-    </div>
-  </div>
+    render();
+  };
 
-  <script>
-    const state = {
-      arquivo: null,
-      arquivoNome: "",
-      headers: [],
-      rows: [],
-      visibleHeaders: new Set(),
-      renamedHeaders: {},
-      selectedRows: new Set(),
-      pagina: 1,
-      porPagina: 100,
-      dragIndex: null,
-      touchDragIndex: null,
-      touchLongPressTimer: null,
-      ctrlSelecting: false,
-      touchRowSelecting: false,
-      lastRowSelectionState: true,
-      map: {
-        codigo: "",
-        produto: "",
-        endereco: "",
-        quantidade: "",
-        lote: "",
-        fator: ""
-      }
-    };
+  reader.readAsBinaryString(file);
+}
 
-    const mapLabels = {
-      codigo: "Código",
-      produto: "Produto",
-      endereco: "Endereço",
-      quantidade: "Quantidade",
-      lote: "Lote",
-      fator: "Fator"
-    };
+// ===== RENDER =====
+function render(){
+  document.getElementById("preview").classList.remove("hidden");
 
-    const els = {
-      arquivoInput: document.getElementById("arquivoInput"),
-      arquivoNome: document.getElementById("arquivoNome"),
-      btnAnalisar: document.getElementById("btnAnalisar"),
-      btnImportar: document.getElementById("btnImportar"),
-      btnFiltro: document.getElementById("btnFiltro"),
-      btnMapeamento: document.getElementById("btnMapeamento"),
-      btnRenomear: document.getElementById("btnRenomear"),
-      tbody: document.getElementById("tbody"),
-      thead: document.getElementById("thead"),
-      infoLinhas: document.getElementById("infoLinhas"),
-      paginaInfo: document.getElementById("paginaInfo"),
-      porPagina: document.getElementById("porPagina"),
-      msgFinal: document.getElementById("msgFinal"),
-      tableWrap: document.getElementById("tableWrap"),
-      loadingModal: document.getElementById("loadingModal"),
-      filterModal: document.getElementById("filterModal"),
-      mapModal: document.getElementById("mapModal"),
-      renameModal: document.getElementById("renameModal"),
-      previewModal: document.getElementById("previewModal"),
-      filterList: document.getElementById("filterList"),
-      mappingList: document.getElementById("mappingList"),
-      renameList: document.getElementById("renameList"),
-      loadingText: document.getElementById("loadingText"),
-      debugInfo: document.getElementById("debugInfo")
-    };
+  renderTable();
+  renderRename();
+}
 
-    function htmlEscape(str = "") {
-      return String(str)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
+// ===== TABLE =====
+function renderTable(){
+  const table = document.getElementById("table");
 
-    function normalizarCabecalho(valor) {
-      return String(valor || "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/\s+/g, " ")
-        .trim();
-    }
+  table.innerHTML = "";
 
-    function displayHeader(header) {
-      return state.renamedHeaders[header] || header;
-    }
+  // HEAD
+  const thead = document.createElement("tr");
 
-    function showDebug(obj) {
-      els.debugInfo.classList.remove("hidden");
-      els.debugInfo.textContent = typeof obj === "string" ? obj : JSON.stringify(obj, null, 2);
-    }
+  state.headers.forEach(h=>{
+    const th = document.createElement("th");
+    th.innerText = state.renamed[h] || h;
+    thead.appendChild(th);
+  });
 
-    function hideDebug() {
-      els.debugInfo.classList.add("hidden");
-      els.debugInfo.textContent = "";
-    }
+  table.appendChild(thead);
 
-    function abrirLoading(texto = "Analisando planilha e preparando pré-visualização.") {
-      els.loadingText.textContent = texto;
-      els.loadingModal.classList.remove("hidden");
-    }
+  // BODY
+  state.data.slice(0,200).forEach(row=>{
+    const tr = document.createElement("tr");
 
-    function fecharLoading() {
-      els.loadingModal.classList.add("hidden");
-    }
-
-    function abrirPreview() {
-      els.previewModal.classList.remove("hidden");
-    }
-
-    function fecharPreview() {
-      els.previewModal.classList.add("hidden");
-    }
-
-    function abrirFiltro() {
-      renderFiltro();
-      els.filterModal.classList.remove("hidden");
-    }
-
-    function fecharFiltro() {
-      els.filterModal.classList.add("hidden");
-    }
-
-    function abrirMapeamento() {
-      renderMapeamento();
-      els.mapModal.classList.remove("hidden");
-    }
-
-    function fecharMapeamento() {
-      els.mapModal.classList.add("hidden");
-    }
-
-    function abrirRenomear() {
-      renderRenomear();
-      els.renameModal.classList.remove("hidden");
-    }
-
-    function fecharRenomear() {
-      els.renameModal.classList.add("hidden");
-    }
-
-    function normalizeApiPayload(data) {
-      let rows = [];
-      let headers = [];
-
-      if (Array.isArray(data?.dados) && data.dados.length) {
-        rows = data.dados;
-      } else if (Array.isArray(data?.itens) && data.itens.length) {
-        rows = data.itens;
-      } else if (Array.isArray(data?.planilhas?.[data?.abas?.[0]]) && data.planilhas[data.abas[0]].length) {
-        rows = data.planilhas[data.abas[0]];
-      }
-
-      if (Array.isArray(data?.colunas) && data.colunas.length) {
-        headers = data.colunas;
-      } else if (data?.metadados && data?.abas && data.abas[0] && Array.isArray(data.metadados[data.abas[0]]?.cabecalhos)) {
-        headers = data.metadados[data.abas[0]].cabecalhos;
-      } else if (rows.length) {
-        headers = Object.keys(rows[0]);
-      }
-
-      headers = headers.filter(h => h !== "__excelRow");
-      return { rows, headers };
-    }
-
-    function guessMap() {
-      const lista = state.headers.map((h) => ({
-        original: h,
-        norm: normalizarCabecalho(h)
-      }));
-
-      function buscar(possibles = []) {
-        const exato = lista.find((item) => possibles.includes(item.norm));
-        if (exato) return exato.original;
-        const parcial = lista.find((item) => possibles.some((p) => item.norm.includes(p)));
-        return parcial ? parcial.original : "";
-      }
-
-      state.map.codigo ||= buscar(["codigo", "codigo do produto", "código", "item no", "sku", "ref", "id", "cod"]);
-      state.map.produto ||= buscar(["produto", "descricao", "descrição", "description", "nome", "item"]);
-      state.map.endereco ||= buscar(["endereco", "endereço", "local", "location", "rua", "posicao", "posição"]);
-      state.map.quantidade ||= buscar(["quantidade", "qty", "qtd", "quantity", "estoque (un)", "estoque", "t.qty"]);
-      state.map.lote ||= buscar(["lote", "lot", "batch"]);
-      state.map.fator ||= buscar(["q/c", "fator", "qc", "factor"]);
-    }
-
-    function atualizarInfo() {
-      els.infoLinhas.textContent = `${state.rows.length} linhas • ${state.selectedRows.size} selecionadas`;
-    }
-
-    function getVisibleColumns() {
-      return state.headers.filter(h => state.visibleHeaders.has(h));
-    }
-
-    function getRowsPagina() {
-      const ini = (state.pagina - 1) * state.porPagina;
-      const fim = ini + state.porPagina;
-      return state.rows.slice(ini, fim).map((row, idx) => ({ row, realIndex: ini + idx }));
-    }
-
-    function isChecked(realIndex) {
-      return state.selectedRows.has(realIndex);
-    }
-
-    function toggleChecked(realIndex, checked) {
-      if (checked) state.selectedRows.add(realIndex);
-      else state.selectedRows.delete(realIndex);
-      atualizarInfo();
-    }
-
-    function toggleHeaderVisibility(header, checked) {
-      if (checked) state.visibleHeaders.add(header);
-      else state.visibleHeaders.delete(header);
-      renderTabela();
-      renderFiltro();
-    }
-
-    function toggleTodasColunas(checked) {
-      if (checked) state.visibleHeaders = new Set(state.headers);
-      else state.visibleHeaders = new Set();
-      renderTabela();
-      renderFiltro();
-    }
-
-    function setMap(key, value) {
-      state.map[key] = value;
-      renderMapeamento();
-    }
-
-    function renameHeader(header, value) {
-      const texto = String(value || "").trim();
-      if (texto) state.renamedHeaders[header] = texto;
-      else delete state.renamedHeaders[header];
-      renderTabela();
-      renderFiltro();
-      renderMapeamento();
-      renderRenomear();
-    }
-
-    function renderFiltro() {
-      els.filterList.innerHTML = state.headers.map(h => `
-        <label class="filter-item">
-          <input type="checkbox" class="chk" ${state.visibleHeaders.has(h) ? "checked" : ""} onchange="toggleColuna('${String(h).replaceAll("'", "\\'")}', this.checked)">
-          <span>${htmlEscape(displayHeader(h))}</span>
-        </label>
-      `).join("");
-    }
-
-    function renderMapeamento() {
-      let html = "";
-      Object.keys(mapLabels).forEach((key) => {
-        html += `
-          <label class="filter-item">
-            <input type="radio" name="map_${key}" class="chk" ${state.map[key] === "" ? "checked" : ""} onclick="setMapValue('${key}', '')">
-            <span>${mapLabels[key]}: não usar</span>
-          </label>
-        `;
-        state.headers.forEach((h) => {
-          html += `
-            <label class="filter-item">
-              <input type="radio" name="map_${key}" class="chk" ${state.map[key] === h ? "checked" : ""} onclick="setMapValue('${key}', '${String(h).replaceAll("'", "\\'")}')">
-              <span>${mapLabels[key]} → ${htmlEscape(displayHeader(h))}</span>
-            </label>
-          `;
-        });
-      });
-      els.mappingList.innerHTML = html;
-    }
-
-    function renderRenomear() {
-      els.renameList.innerHTML = state.headers.map(h => `
-        <div class="rename-item">
-          <div class="rename-label">${htmlEscape(h)}</div>
-          <input
-            class="rename-input"
-            type="text"
-            value="${htmlEscape(displayHeader(h))}"
-            oninput="renameHeaderJs('${String(h).replaceAll("'", "\\'")}', this.value)"
-            placeholder="Novo nome da coluna"
-          />
-        </div>
-      `).join("");
-    }
-
-    function renderTabela() {
-      const rowsPagina = getRowsPagina();
-      const columns = getVisibleColumns();
-      const allVisible = state.headers.length > 0 && state.visibleHeaders.size === state.headers.length;
-
-      els.thead.innerHTML = `
-        <tr>
-          <th style="width:52px">
-            <input class="chk" type="checkbox" ${allVisible ? "checked" : ""} onchange="toggleTodasColunasJs(this.checked)">
-          </th>
-          ${columns.map((h) => `
-            <th draggable="true"
-                data-index="${state.headers.indexOf(h)}"
-                ondragstart="onDragStartJs(event)"
-                ondragover="onDragOverJs(event)"
-                ondrop="onDropJs(event)"
-                ontouchstart="onTouchStartHeaderJs(event)"
-                ontouchmove="onTouchMoveHeaderJs(event)"
-                ontouchend="onTouchEndHeaderJs()">
-              <div class="th-check">
-                <input class="chk" type="checkbox" checked onchange="toggleColuna('${String(h).replaceAll("'", "\\'")}', this.checked)">
-                <span>${htmlEscape(displayHeader(h))}</span>
-                <span class="drag-handle">↕</span>
-              </div>
-            </th>
-          `).join("")}
-        </tr>
-      `;
-
-      els.tbody.innerHTML = rowsPagina.map(({ row, realIndex }) => `
-        <tr
-          data-row-index="${realIndex}"
-          onmousedown="rowMouseDownJs(event, ${realIndex})"
-          onmouseenter="rowMouseEnterJs(event, ${realIndex})"
-          ontouchstart="rowTouchStartJs(event, ${realIndex})"
-          ontouchmove="rowTouchMoveJs(event)"
-          ontouchend="rowTouchEndJs()">
-          <td>
-            <input class="chk" type="checkbox" ${isChecked(realIndex) ? "checked" : ""} onchange="toggleLinha(${realIndex}, this.checked)">
-          </td>
-          ${columns.map((h) => `<td>${htmlEscape(row[h] ?? "")}</td>`).join("")}
-        </tr>
-      `).join("");
-
-      els.paginaInfo.textContent = `Página ${state.pagina}`;
-      atualizarInfo();
-    }
-
-    function selecionarPagina() {
-      getRowsPagina().forEach(({ realIndex }) => state.selectedRows.add(realIndex));
-      renderTabela();
-    }
-
-    function desmarcarPagina() {
-      getRowsPagina().forEach(({ realIndex }) => state.selectedRows.delete(realIndex));
-      renderTabela();
-    }
-
-    function selecionarTodas() {
-      state.selectedRows = new Set(state.rows.map((_, idx) => idx));
-      renderTabela();
-    }
-
-    function desmarcarTodas() {
-      state.selectedRows.clear();
-      renderTabela();
-    }
-
-    function paginaAnterior() {
-      if (state.pagina > 1) {
-        state.pagina -= 1;
-        renderTabela();
-      }
-    }
-
-    function proximaPagina() {
-      const totalPaginas = Math.max(1, Math.ceil(state.rows.length / state.porPagina));
-      if (state.pagina < totalPaginas) {
-        state.pagina += 1;
-        renderTabela();
-      }
-    }
-
-    function moverHorizontal(dir) {
-      els.tableWrap.scrollLeft += dir * 240;
-    }
-
-    function irInicio() {
-      els.tableWrap.scrollLeft = 0;
-    }
-
-    function irFim() {
-      els.tableWrap.scrollLeft = els.tableWrap.scrollWidth;
-    }
-
-    function onDragStart(ev) {
-      const th = ev.target.closest("th");
-      state.dragIndex = Number(th?.dataset.index);
-    }
-
-    function onDragOver(ev) {
-      ev.preventDefault();
-    }
-
-    function onDrop(ev) {
-      ev.preventDefault();
-      const th = ev.target.closest("th");
-      const targetIndex = Number(th?.dataset.index);
-
-      if (Number.isNaN(state.dragIndex) || Number.isNaN(targetIndex) || state.dragIndex === targetIndex) return;
-
-      const arr = [...state.headers];
-      const [item] = arr.splice(state.dragIndex, 1);
-      arr.splice(targetIndex, 0, item);
-      state.headers = arr;
-      state.visibleHeaders = new Set(arr.filter(h => state.visibleHeaders.has(h)));
-      state.dragIndex = null;
-      renderTabela();
-      renderFiltro();
-      renderMapeamento();
-      renderRenomear();
-    }
-
-    function onTouchStartHeader(ev) {
-      const th = ev.target.closest("th");
-      if (!th) return;
-      const idx = Number(th.dataset.index);
-      clearTimeout(state.touchLongPressTimer);
-      state.touchLongPressTimer = setTimeout(() => {
-        state.touchDragIndex = idx;
-      }, 250);
-    }
-
-    function onTouchMoveHeader(ev) {
-      if (state.touchDragIndex == null) return;
-      const touch = ev.touches[0];
-      const target = document.elementFromPoint(touch.clientX, touch.clientY);
-      const th = target?.closest?.("th");
-      if (!th) return;
-
-      const targetIndex = Number(th.dataset.index);
-      if (Number.isNaN(targetIndex) || targetIndex === state.touchDragIndex) return;
-
-      const arr = [...state.headers];
-      const [item] = arr.splice(state.touchDragIndex, 1);
-      arr.splice(targetIndex, 0, item);
-      state.headers = arr;
-      state.visibleHeaders = new Set(arr.filter(h => state.visibleHeaders.has(h)));
-      state.touchDragIndex = targetIndex;
-      renderTabela();
-      renderFiltro();
-      renderMapeamento();
-      renderRenomear();
-    }
-
-    function onTouchEndHeader() {
-      clearTimeout(state.touchLongPressTimer);
-      state.touchDragIndex = null;
-    }
-
-    function rowMouseDown(ev, realIndex) {
-      if (!ev.ctrlKey) return;
-      state.ctrlSelecting = true;
-      state.lastRowSelectionState = !state.selectedRows.has(realIndex);
-      toggleChecked(realIndex, state.lastRowSelectionState);
-      renderTabela();
-    }
-
-    function rowMouseEnter(_ev, realIndex) {
-      if (!state.ctrlSelecting) return;
-      toggleChecked(realIndex, state.lastRowSelectionState);
-      const checkbox = els.tbody.querySelector(`tr[data-row-index="${realIndex}"] input.chk`);
-      if (checkbox) checkbox.checked = state.lastRowSelectionState;
-    }
-
-    function rowTouchStart(_ev, realIndex) {
-      clearTimeout(state.touchLongPressTimer);
-      state.touchLongPressTimer = setTimeout(() => {
-        state.touchRowSelecting = true;
-        state.lastRowSelectionState = !state.selectedRows.has(realIndex);
-        toggleChecked(realIndex, state.lastRowSelectionState);
-        renderTabela();
-      }, 250);
-    }
-
-    function rowTouchMove(ev) {
-      if (!state.touchRowSelecting) return;
-      const touch = ev.touches[0];
-      const target = document.elementFromPoint(touch.clientX, touch.clientY);
-      const tr = target?.closest?.("tr[data-row-index]");
-      if (!tr) return;
-      const idx = Number(tr.dataset.rowIndex);
-      toggleChecked(idx, state.lastRowSelectionState);
-      const checkbox = tr.querySelector("input.chk");
-      if (checkbox) checkbox.checked = state.lastRowSelectionState;
-    }
-
-    function rowTouchEnd() {
-      clearTimeout(state.touchLongPressTimer);
-      state.touchRowSelecting = false;
-    }
-
-    document.addEventListener("mouseup", () => {
-      state.ctrlSelecting = false;
+    row.forEach(cell=>{
+      const td = document.createElement("td");
+      td.innerText = cell;
+      tr.appendChild(td);
     });
 
-    document.addEventListener("touchend", () => {
-      state.touchRowSelecting = false;
-      clearTimeout(state.touchLongPressTimer);
-    });
+    table.appendChild(tr);
+  });
+}
 
-    async function analisar() {
-      if (!state.arquivo) {
-        alert("Selecione um arquivo primeiro.");
-        return;
-      }
+// ===== RENAME =====
+function toggleRename(){
+  document.getElementById("renamePanel").classList.toggle("hidden");
+}
 
-      hideDebug();
-      els.btnAnalisar.disabled = true;
-      els.btnAnalisar.textContent = "Analisando...";
-      abrirLoading();
+function renderRename(){
+  const panel = document.getElementById("renamePanel");
 
-      try {
-        const fd = new FormData();
-        fd.append("arquivo", state.arquivo);
-        fd.append("file", state.arquivo);
+  panel.innerHTML = "";
 
-        const res = await fetch("/api/importar-wms", {
-          method: "POST",
-          body: fd
-        });
+  state.headers.forEach(h=>{
+    const div = document.createElement("div");
 
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.erro || data.detalhe || "Erro ao analisar WMS.");
+    div.innerHTML = `
+      <label>${h}</label>
+      <input class="rename" value="${state.renamed[h] || h}"
+        oninput="rename('${h}', this.value)" />
+    `;
 
-        const payload = normalizeApiPayload(data);
-        state.rows = payload.rows;
-        state.headers = payload.headers;
-        state.visibleHeaders = new Set(state.headers);
-        state.renamedHeaders = {};
-        state.selectedRows = new Set(state.rows.map((_, idx) => idx));
-        state.pagina = 1;
+    panel.appendChild(div);
+  });
+}
 
-        if (!state.rows.length || !state.headers.length) {
-          showDebug(data);
-          throw new Error("Arquivo vazio ou retorno sem dados reconhecíveis.");
-        }
+function rename(original, value){
+  state.renamed[original] = value;
+  renderTable();
+}
 
-        guessMap();
-        renderTabela();
-        renderFiltro();
-        renderMapeamento();
-        renderRenomear();
-        abrirPreview();
-      } catch (err) {
-        console.error(err);
-        showDebug(err.message || String(err));
-        alert(err.message || "Erro ao analisar WMS.");
-      } finally {
-        fecharLoading();
-        els.btnAnalisar.disabled = false;
-        els.btnAnalisar.textContent = "Analisar";
-      }
-    }
+// ===== FILTRO =====
+function toggleFiltro(){
+  document.getElementById("filtroPanel").classList.toggle("hidden");
+}
 
-    async function importar() {
-      const itens = Array.from(state.selectedRows).map(i => state.rows[i]).filter(Boolean);
-      if (!itens.length) {
-        alert("Nenhum item selecionado.");
-        return;
-      }
+// ===== MAP =====
+function toggleMap(){
+  document.getElementById("mapPanel").classList.toggle("hidden");
+}
 
-      els.btnImportar.disabled = true;
-      els.btnImportar.textContent = "Importando...";
-      abrirLoading("Importando itens selecionados...");
+</script>
 
-      try {
-        const res = await fetch("/api/estoque/wms", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            arquivo: state.arquivoNome,
-            itens,
-            campos: state.map
-          })
-        });
-
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.ok) throw new Error(data.erro || "Erro ao importar WMS.");
-
-        els.msgFinal.classList.remove("hidden");
-        els.msgFinal.textContent = `✔ Importação concluída. ${data.inseridos || 0} itens importados.`;
-      } catch (err) {
-        console.error(err);
-        alert(err.message || "Erro ao importar WMS.");
-      } finally {
-        fecharLoading();
-        els.btnImportar.disabled = false;
-        els.btnImportar.textContent = "Importar WMS";
-      }
-    }
-
-    els.arquivoInput.addEventListener("change", () => {
-      const file = els.arquivoInput.files && els.arquivoInput.files[0];
-      state.arquivo = file || null;
-      state.arquivoNome = file ? file.name : "";
-      els.arquivoNome.textContent = file ? file.name : "Aguardando arquivo...";
-    });
-
-    els.btnAnalisar.addEventListener("click", analisar);
-    els.btnImportar.addEventListener("click", importar);
-    els.btnFiltro.addEventListener("click", abrirFiltro);
-    els.btnMapeamento.addEventListener("click", abrirMapeamento);
-    els.btnRenomear.addEventListener("click", abrirRenomear);
-
-    els.porPagina.addEventListener("change", () => {
-      state.porPagina = Number(els.porPagina.value || 100);
-      state.pagina = 1;
-      renderTabela();
-    });
-
-    window.toggleLinha = (idx, checked) => {
-      toggleChecked(idx, checked);
-      renderTabela();
-    };
-    window.toggleColuna = toggleHeaderVisibility;
-    window.toggleTodasColunasJs = toggleTodasColunas;
-    window.setMapValue = setMap;
-    window.renameHeaderJs = renameHeader;
-    window.onDragStartJs = onDragStart;
-    window.onDragOverJs = onDragOver;
-    window.onDropJs = onDrop;
-    window.onTouchStartHeaderJs = onTouchStartHeader;
-    window.onTouchMoveHeaderJs = onTouchMoveHeader;
-    window.onTouchEndHeaderJs = onTouchEndHeader;
-    window.rowMouseDownJs = rowMouseDown;
-    window.rowMouseEnterJs = rowMouseEnter;
-    window.rowTouchStartJs = rowTouchStart;
-    window.rowTouchMoveJs = rowTouchMove;
-    window.rowTouchEndJs = rowTouchEnd;
-    window.fecharFiltro = fecharFiltro;
-    window.fecharMapeamento = fecharMapeamento;
-    window.fecharRenomear = fecharRenomear;
-    window.fecharPreview = fecharPreview;
-    window.selecionarPagina = selecionarPagina;
-    window.desmarcarPagina = desmarcarPagina;
-    window.selecionarTodas = selecionarTodas;
-    window.desmarcarTodas = desmarcarTodas;
-    window.paginaAnterior = paginaAnterior;
-    window.proximaPagina = proximaPagina;
-    window.moverHorizontal = moverHorizontal;
-    window.irInicio = irInicio;
-    window.irFim = irFim;
-  </script>
 </body>
 </html>
