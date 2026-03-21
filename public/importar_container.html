@@ -13,16 +13,18 @@
       --muted:#b9c7da;
       --btn:#3b73e6;
       --shadow:0 6px 22px rgba(0,0,0,.28);
-      --radius:14px;
     }
     *{box-sizing:border-box}
     body{
-      margin:0;background:linear-gradient(180deg,#041229 0%,#071a36 100%);
-      font-family:Arial,Helvetica,sans-serif;color:var(--text)
+      margin:0;
+      background:linear-gradient(180deg,#041229 0%,#071a36 100%);
+      font-family:Arial,Helvetica,sans-serif;
+      color:var(--text)
     }
     .wrap{max-width:1400px;margin:0 auto;padding:14px}
     .topbar{
-      position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;
+      position:sticky;top:0;z-index:10;
+      display:flex;justify-content:space-between;align-items:center;
       background:#12336b;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.08)
     }
     .topbar h1{margin:0;font-size:18px}
@@ -34,13 +36,14 @@
     .btn.small{padding:8px 12px;font-size:12px;border-radius:10px}
     .btn:disabled{opacity:.55;cursor:not-allowed}
     .card{
-      background:rgba(6,24,54,.96);border:1px solid rgba(255,255,255,.08);
+      background:rgba(6,24,54,.96);
+      border:1px solid rgba(255,255,255,.08);
       border-radius:18px;padding:14px;box-shadow:var(--shadow)
     }
     .section{margin:14px 0}
     .grid{display:grid;grid-template-columns:repeat(2,minmax(180px,1fr));gap:12px 16px}
     .field label{display:block;font-weight:700;margin-bottom:6px}
-    .select,.filebox,.statusbar{
+    .select,.statusbar{
       width:100%;background:#173a6c;color:#fff;border:1px solid #2e548e;border-radius:14px;
       padding:14px 16px;font-size:16px
     }
@@ -50,24 +53,44 @@
       display:inline-flex;align-items:center;gap:8px;background:#183866;border-radius:999px;
       padding:10px 14px;color:#fff
     }
-    .hint{background:#173a6c;border-radius:16px;padding:12px 16px;color:#d9e5ff}
-    .table-wrap{overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:16px;margin-top:12px}
-    table{width:100%;border-collapse:collapse;min-width:1100px;background:#082048}
-    th,td{padding:12px 10px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left;vertical-align:middle}
-    th{position:sticky;top:0;background:#0b2a59;z-index:1;white-space:nowrap}
-    tr:hover td{background:rgba(255,255,255,.02)}
+    .hint{
+      background:#173a6c;border-radius:16px;padding:12px 16px;color:#d9e5ff
+    }
+    .table-wrap{
+      overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:16px;margin-top:12px
+    }
+    table{
+      width:max-content;min-width:100%;border-collapse:collapse;background:#082048
+    }
+    th,td{
+      padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.08);
+      text-align:left;vertical-align:middle;white-space:nowrap
+    }
+    th{
+      position:sticky;top:0;background:#0b2a59;z-index:1
+    }
     .chk{width:18px;height:18px}
+    .th-check{
+      display:flex;align-items:center;gap:8px
+    }
     .img-thumb{
       width:64px;height:64px;object-fit:cover;border-radius:12px;
       border:1px solid rgba(255,255,255,.12);background:#0f2341
     }
     .sem-img{font-size:12px;color:#cfd8ea}
-    .desc-main{display:block;font-weight:800;color:#fff;line-height:1.25}
-    .desc-original{display:block;font-size:12px;color:#b8c7df;line-height:1.25;margin-top:4px}
-    .toolbar-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
-    .pages{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .desc-main{
+      display:block;font-weight:800;color:#fff;line-height:1.25;white-space:normal
+    }
+    .desc-original{
+      display:block;font-size:12px;color:#b8c7df;line-height:1.25;margin-top:4px;white-space:normal
+    }
+    .toolbar-row{
+      display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px
+    }
     .hidden{display:none!important}
-    @media (max-width:900px){.grid{grid-template-columns:1fr 1fr}}
+    @media (max-width:900px){
+      .grid{grid-template-columns:1fr 1fr}
+    }
     @media (max-width:640px){
       .grid{grid-template-columns:1fr}
       .wrap{padding:8px}
@@ -117,12 +140,10 @@
       </div>
 
       <div class="toolbar-row">
-        <div class="pages">
-          <button class="btn secondary small" onclick="moverHorizontal(-1)">◀ Esquerda</button>
-          <button class="btn secondary small" onclick="moverHorizontal(1)">Direita ▶</button>
-          <button class="btn secondary small" onclick="irInicio()">Início</button>
-          <button class="btn secondary small" onclick="irFim()">Fim</button>
-        </div>
+        <button class="btn secondary small" onclick="moverHorizontal(-1)">◀ Esquerda</button>
+        <button class="btn secondary small" onclick="moverHorizontal(1)">Direita ▶</button>
+        <button class="btn secondary small" onclick="irInicio()">Início</button>
+        <button class="btn secondary small" onclick="irFim()">Fim</button>
         <div class="hint">Para mover colunas no celular, toque e segure no cabeçalho por um instante e arraste.</div>
       </div>
 
@@ -169,7 +190,8 @@
       porPagina: 100,
       dragIndex: null,
       touchDragIndex: null,
-      touchLongPressTimer: null
+      touchLongPressTimer: null,
+      visibleHeaders: new Set()
     };
 
     const mapIds = {
@@ -272,6 +294,7 @@
         state.abaAtual = state.abas[0] || "";
         state.rows = state.planilhas[state.abaAtual] || [];
         state.headers = ((state.metadados[state.abaAtual] || {}).cabecalhos || []).filter(h => h !== "__excelRow");
+        state.visibleHeaders = new Set(state.headers);
         state.selecionados = new Set(state.rows.map((_, idx) => idx));
         state.pagina = 1;
 
@@ -287,9 +310,8 @@
     }
 
     function getDisplayDescription(row) {
-      const header = getSelectValue("produto");
-      const original = row.descricao_original || (header ? row[header] : row.DESCRIPTION || row["品名"] || "");
-      const translated = row.descricao_traduzida || row.traducao || "";
+      const translated = (row.descricao_traduzida || row.traducao || "").trim();
+      const original = (row.descricao_original || row.DESCRIPTION || row["品名"] || "").trim();
 
       if (translated && original && translated !== original) {
         return `
@@ -298,12 +320,17 @@
         `;
       }
 
-      return `<span class="desc-main">${htmlEscape(original || translated || "")}</span>`;
+      return `<span class="desc-main">${htmlEscape(translated || original || "")}</span>`;
     }
 
     function getImageHtml(row) {
       const selectedHeader = getSelectValue("imagem");
-      const value = row.imagem || row.Imagem || row.IMAGEM || row.image || row.Image || row.IMAGE || row.picture || row.Picture || row.PICTURE || (selectedHeader ? row[selectedHeader] : "");
+      const value =
+        row.imagem || row.Imagem || row.IMAGEM ||
+        row.image || row.Image || row.IMAGE ||
+        row.picture || row.Picture || row.PICTURE ||
+        (selectedHeader ? row[selectedHeader] : "");
+
       const codigoHeader = getSelectValue("codigo");
       const codigo = codigoHeader ? row[codigoHeader] : row["ITEM NO"] || row.codigo || "";
 
@@ -339,30 +366,55 @@
       return state.rows.slice(ini, fim).map((row, idx) => ({ row, realIndex: ini + idx }));
     }
 
+    function getVisibleColumns() {
+      return state.headers.filter(h => state.visibleHeaders.has(h));
+    }
+
+    function toggleHeaderVisibility(header, checked) {
+      if (checked) state.visibleHeaders.add(header);
+      else state.visibleHeaders.delete(header);
+      renderTabela();
+    }
+
+    function toggleAllColumns(checked) {
+      if (checked) state.visibleHeaders = new Set(state.headers);
+      else state.visibleHeaders = new Set();
+      renderTabela();
+    }
+
     function renderTabela() {
       const rowsPagina = getRowsPagina();
-      const columns = [...state.headers];
+      const columns = getVisibleColumns();
+      const allVisible = state.headers.length > 0 && state.visibleHeaders.size === state.headers.length;
 
       thead.innerHTML = `
         <tr>
-          <th style="width:42px"><input class="chk" type="checkbox" checked onclick="selecionarPagina()"></th>
+          <th style="width:52px">
+            <input class="chk" type="checkbox" ${allVisible ? "checked" : ""} onchange="toggleTodasColunas(this.checked)">
+          </th>
           ${columns.map((h, idx) => `
             <th draggable="true"
-                data-index="${idx}"
+                data-index="${state.headers.indexOf(h)}"
                 ondragstart="onDragStart(event)"
                 ondragover="onDragOver(event)"
                 ondrop="onDrop(event)"
                 ontouchstart="onTouchStartHeader(event)"
                 ontouchend="onTouchEndHeader(event)"
                 ontouchmove="onTouchMoveHeader(event)">
-              ${htmlEscape(h)}
-            </th>`).join("")}
+              <div class="th-check">
+                <input class="chk col-check" type="checkbox" checked onchange="toggleColuna('${String(h).replaceAll("'", "\\'")}', this.checked)">
+                <span>${htmlEscape(h)}</span>
+              </div>
+            </th>
+          `).join("")}
         </tr>
       `;
 
       tbody.innerHTML = rowsPagina.map(({ row, realIndex }) => `
         <tr>
-          <td><input class="chk" type="checkbox" ${isChecked(realIndex) ? "checked" : ""} onchange="toggleLinha(${realIndex}, this.checked)"></td>
+          <td>
+            <input class="chk" type="checkbox" ${isChecked(realIndex) ? "checked" : ""} onchange="toggleLinha(${realIndex}, this.checked)">
+          </td>
           ${columns.map((h) => renderCell(h, row)).join("")}
         </tr>
       `).join("");
@@ -374,7 +426,7 @@
     function renderCell(header, row) {
       const h = String(header || "").toUpperCase();
 
-      if (h === "PICTURE" || h.includes("IMAGE") || h.includes("IMAGEM") || h.includes("PICTURE")) {
+      if (h === "PICTURE" || h.includes("IMAGE") || h.includes("IMAGEM")) {
         return `<td>${getImageHtml(row)}</td>`;
       }
 
@@ -387,8 +439,7 @@
     }
 
     function atualizarInfo() {
-      const total = state.rows.length;
-      infoLinhas.textContent = `${total} linhas • ${state.selecionados.size} selecionadas • aba ${state.abaAtual || "-"}`;
+      infoLinhas.textContent = `${state.rows.length} linhas • ${state.selecionados.size} selecionadas • aba ${state.abaAtual || "-"}`;
     }
 
     function toggleLinha(realIndex, checked) {
@@ -443,7 +494,7 @@
     }
 
     function onDragStart(ev) {
-      state.dragIndex = Number(ev.target.dataset.index);
+      state.dragIndex = Number(ev.target.closest("th")?.dataset.index);
     }
 
     function onDragOver(ev) {
@@ -459,6 +510,7 @@
       const [item] = arr.splice(state.dragIndex, 1);
       arr.splice(targetIndex, 0, item);
       state.headers = arr;
+      state.visibleHeaders = new Set(arr.filter(h => state.visibleHeaders.has(h)));
       state.dragIndex = null;
       renderTabela();
     }
@@ -486,6 +538,7 @@
       const [item] = arr.splice(state.touchDragIndex, 1);
       arr.splice(targetIndex, 0, item);
       state.headers = arr;
+      state.visibleHeaders = new Set(arr.filter(h => state.visibleHeaders.has(h)));
       state.touchDragIndex = targetIndex;
       renderTabela();
     }
@@ -553,6 +606,8 @@
     window.onTouchMoveHeader = onTouchMoveHeader;
     window.onTouchEndHeader = onTouchEndHeader;
     window.fecharPreview = fecharPreview;
+    window.toggleColuna = toggleHeaderVisibility;
+    window.toggleTodasColunas = toggleAllColumns;
   </script>
 </body>
 </html>
