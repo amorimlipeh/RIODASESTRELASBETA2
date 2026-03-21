@@ -38,9 +38,6 @@ const upload = multer({
   },
 });
 
-/* =========================
-   JSON HELPERS
-========================= */
 function readJson(filePath, fallback = []) {
   try {
     if (!fs.existsSync(filePath)) {
@@ -67,9 +64,6 @@ function writeJson(filePath, data) {
   }
 }
 
-/* =========================
-   TEXTO / NORMALIZAÇÃO
-========================= */
 function normalizar(valor = "") {
   return String(valor)
     .normalize("NFD")
@@ -96,7 +90,6 @@ function uniqueHeaders(row = []) {
   return row.map((cell, idx) => {
     let nome = String(cell ?? "").trim();
     if (!nome) nome = `Coluna ${idx + 1}`;
-
     let finalName = nome;
     let seq = 2;
     while (usados.has(finalName)) {
@@ -108,9 +101,6 @@ function uniqueHeaders(row = []) {
   });
 }
 
-/* =========================
-   CACHE / TRADUÇÃO UNIVERSAL HÍBRIDA
-========================= */
 function readTradCache() {
   return readJson(TRADUCOES_FILE, {});
 }
@@ -138,7 +128,6 @@ const DICIONARIO_CH_PT = {
   "长": "comprimento",
   "宽": "largura",
   "高": "altura",
-
   "钥匙扣": "chaveiro",
   "吊坠": "pingente",
   "挂件": "enfeite",
@@ -149,6 +138,8 @@ const DICIONARIO_CH_PT = {
   "发夹": "presilha",
   "贴纸": "adesivo",
   "玩具": "brinquedo",
+  "杯垫": "porta-copo",
+  "冰箱贴": "ímã de geladeira",
   "杯子": "copo",
   "瓶子": "garrafa",
   "盒子": "caixa",
@@ -160,7 +151,6 @@ const DICIONARIO_CH_PT = {
   "扣": "fecho",
   "十字架": "cruz",
   "顶针": "dedal",
-
   "蓝色": "azul",
   "大红": "vermelho escuro",
   "红色": "vermelho",
@@ -177,7 +167,6 @@ const DICIONARIO_CH_PT = {
   "棕色": "marrom",
   "彩色": "colorido",
   "透明": "transparente",
-
   "蓝": "azul",
   "红": "vermelho",
   "粉": "rosa",
@@ -190,7 +179,6 @@ const DICIONARIO_CH_PT = {
   "灰": "cinza",
   "金": "dourado",
   "银": "prata",
-
   "钥匙扣蓝色": "chaveiro azul",
   "钥匙扣大红": "chaveiro vermelho escuro",
   "钥匙扣红色": "chaveiro vermelho",
@@ -204,7 +192,6 @@ const DICIONARIO_CH_PT = {
   "钥匙扣灰色": "chaveiro cinza",
   "钥匙扣金色": "chaveiro dourado",
   "钥匙扣银色": "chaveiro prata",
-
   "顶针蓝色": "dedal azul",
   "顶针红色": "dedal vermelho",
   "顶针粉色": "dedal rosa",
@@ -213,9 +200,9 @@ const DICIONARIO_CH_PT = {
   "顶针黄色": "dedal amarelo",
   "顶针绿色": "dedal verde",
   "顶针紫色": "dedal roxo",
-
-  "客人货号蓝色": "código do cliente azul",
-  "客人货号红色": "código do cliente vermelho"
+  "杯垫蓝色": "porta-copo azul",
+  "杯垫红色": "porta-copo vermelho",
+  "冰箱贴蓝色": "ímã de geladeira azul"
 };
 
 const TERMOS_COMPOSTOS = [
@@ -231,6 +218,8 @@ const TERMOS_COMPOSTOS = [
   ["发夹", "presilha"],
   ["贴纸", "adesivo"],
   ["玩具", "brinquedo"],
+  ["杯垫", "porta-copo"],
+  ["冰箱贴", "ímã de geladeira"],
   ["挂绳", "cordão"],
   ["蓝色", "azul"],
   ["大红", "vermelho escuro"],
@@ -274,7 +263,6 @@ function traduzirUniversal(texto = "", cache = null) {
         traduzido = traduzido.split(orig).join(dest);
       }
     }
-
     const entradas = Object.entries(DICIONARIO_CH_PT).sort((a, b) => b[0].length - a[0].length);
     for (const [orig, dest] of entradas) {
       if (traduzido.includes(orig)) {
@@ -288,16 +276,12 @@ function traduzirUniversal(texto = "", cache = null) {
   return traduzido;
 }
 
-/* =========================
-   DETECÇÃO DE COLUNAS
-========================= */
 function detectarCampos(headers, aliasMap) {
   const detectados = {};
   const normHeaders = headers.map((h) => normalizar(h));
 
   for (const [campo, aliases] of Object.entries(aliasMap)) {
     let encontrado = "";
-
     for (let i = 0; i < normHeaders.length; i += 1) {
       const h = normHeaders[i];
       const ok = aliases.some((alias) => {
@@ -309,7 +293,6 @@ function detectarCampos(headers, aliasMap) {
         break;
       }
     }
-
     detectados[campo] = encontrado;
   }
 
@@ -330,10 +313,8 @@ function findHeaderRow(indexedRows, aliasMap) {
   for (let i = 0; i < limite; i += 1) {
     const row = indexedRows[i].row;
     if (!isMeaningfulRow(row)) continue;
-
     const filled = row.filter((cell) => !isEmptyCell(cell)).length;
     if (filled < 2) continue;
-
     const score = scoreHeaderRow(row, aliasMap);
     if (score > bestScore) {
       bestScore = score;
@@ -430,7 +411,6 @@ function parseWorkbook(buffer, aliasMap) {
 
 function getUploadedFiles(req) {
   const files = [];
-
   if (Array.isArray(req.files)) {
     files.push(...req.files);
   } else if (req.files && typeof req.files === "object") {
@@ -438,7 +418,6 @@ function getUploadedFiles(req) {
       if (Array.isArray(value)) files.push(...value);
     });
   }
-
   if (req.file) files.push(req.file);
   return files.filter(Boolean);
 }
@@ -448,9 +427,6 @@ function getFirstSpreadsheet(req) {
   return files.length ? files[0] : null;
 }
 
-/* =========================
-   ALIASES
-========================= */
 const ALIASES_WMS = {
   codigo: ["codigo", "código", "item no", "item", "sku", "ref", "referencia", "cod", "codigo do produto", "id"],
   produto: ["produto", "description", "descrição", "item name", "descricao", "nome", "desc"],
@@ -471,13 +447,9 @@ const ALIASES_CONTAINER = {
   fator: ["fator", "q/c", "qc", "factor", "packing", "pack"]
 };
 
-/* =========================
-   IMAGEM POR CÓDIGO
-========================= */
 function findImageByCode(codigo = "") {
   const code = String(codigo || "").trim();
   if (!code) return "";
-
   const exts = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
   for (const ext of exts) {
     const abs = path.join(PRODUTOS_IMG_DIR, `${code}${ext}`);
@@ -486,9 +458,6 @@ function findImageByCode(codigo = "") {
   return "";
 }
 
-/* =========================
-   EXTRAÇÃO DE IMAGENS XLSX
-========================= */
 function posixDir(p) {
   const d = path.posix.dirname(p);
   return d === "." ? "" : d;
@@ -583,8 +552,7 @@ async function extractXlsxImagesBySheet(buffer) {
     const drawingRid = parseWorksheetDrawingRid(worksheetXml);
     if (!drawingRid) continue;
 
-    const sheetRelsPath =
-      `${posixDir(worksheetPath)}/_rels/${path.posix.basename(worksheetPath)}.rels`.replace(/^\/+/, "");
+    const sheetRelsPath = `${posixDir(worksheetPath)}/_rels/${path.posix.basename(worksheetPath)}.rels`.replace(/^\/+/, "");
     const sheetRelsXml = await readZipText(entries, sheetRelsPath);
     const sheetRels = parseRelationships(sheetRelsXml);
     const drawingTarget = sheetRels[drawingRid];
@@ -594,8 +562,7 @@ async function extractXlsxImagesBySheet(buffer) {
     const drawingXml = await readZipText(entries, drawingPath);
     if (!drawingXml) continue;
 
-    const drawingRelsPath =
-      `${posixDir(drawingPath)}/_rels/${path.posix.basename(drawingPath)}.rels`.replace(/^\/+/, "");
+    const drawingRelsPath = `${posixDir(drawingPath)}/_rels/${path.posix.basename(drawingPath)}.rels`.replace(/^\/+/, "");
     const drawingRelsXml = await readZipText(entries, drawingRelsPath);
     const drawingRels = parseRelationships(drawingRelsXml);
 
@@ -628,9 +595,6 @@ async function extractXlsxImagesBySheet(buffer) {
   return imagesBySheet;
 }
 
-/* =========================
-   ENRIQUECIMENTO CONTÊINER
-========================= */
 function enrichContainerPreview(planilhas, metadados, imagesBySheet) {
   const tradCache = readTradCache();
 
@@ -685,14 +649,9 @@ function enrichContainerPreview(planilhas, metadados, imagesBySheet) {
 
       if (originalProduto) {
         const traduzido = traduzirUniversal(originalProduto, tradCache);
-
         row.descricao_original = originalProduto;
         row.descricao_traduzida = traduzido;
         row.traducao = traduzido;
-
-        if (containsChinese(originalProduto) && traduzido && traduzido !== originalProduto) {
-          row[produtoHeader] = `${traduzido} | ${originalProduto}`;
-        }
       }
     });
   }
@@ -700,23 +659,17 @@ function enrichContainerPreview(planilhas, metadados, imagesBySheet) {
   writeTradCache(tradCache);
 }
 
-/* =========================
-   MAPEAMENTO FINAL
-========================= */
 function pickBySelectedOrDetected(item, selectedMap = {}, detectedMap = {}, aliases = []) {
   const candidates = [];
-
   if (Array.isArray(aliases)) {
     aliases.forEach((a) => {
       if (selectedMap[a]) candidates.push(selectedMap[a]);
       if (detectedMap[a]) candidates.push(detectedMap[a]);
     });
   }
-
   for (const key of candidates) {
     if (key && Object.prototype.hasOwnProperty.call(item, key)) return item[key];
   }
-
   return "";
 }
 
@@ -800,9 +753,6 @@ function normalizarMapaCampos(mapa) {
   return out;
 }
 
-/* =========================
-   ROTAS
-========================= */
 app.get("/health", (_req, res) => {
   res.json({
     ok: true,
