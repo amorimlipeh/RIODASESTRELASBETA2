@@ -64,7 +64,41 @@ function ler(buffer) {
 
   const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
-  return { json, nomeAba, abas: wb.SheetNames };
+  // 🔥 REMOVE LINHAS VAZIAS
+  const linhasValidas = json.filter(row =>
+    row && row.some(cell => cell !== null && cell !== "")
+  );
+
+  if (!linhasValidas.length) {
+    return { json: [], nomeAba, abas: wb.SheetNames };
+  }
+
+  // 🔥 ENCONTRA CABEÇALHO AUTOMÁTICO
+  let indexHeader = 0;
+
+  for (let i = 0; i < linhasValidas.length; i++) {
+    const row = linhasValidas[i].map(c => normalizar(c));
+
+    const encontrou =
+      row.some(c => c.includes("cod")) ||
+      row.some(c => c.includes("prod")) ||
+      row.some(c => c.includes("qty")) ||
+      row.some(c => c.includes("descr"));
+
+    if (encontrou) {
+      indexHeader = i;
+      break;
+    }
+  }
+
+  const headers = linhasValidas[indexHeader];
+  const dados = linhasValidas.slice(indexHeader + 1);
+
+  return {
+    json: [headers, ...dados],
+    nomeAba,
+    abas: wb.SheetNames
+  };
 }
 
 /* ===============================
