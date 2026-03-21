@@ -6,311 +6,52 @@
   <title>Importador ERP</title>
   <style>
     :root{
-      --bg:#071a36;
-      --panel:#0b2545;
-      --line:#1d3c66;
-      --text:#fff;
-      --muted:#b9c7da;
-      --btn:#3b73e6;
-      --btn2:#24436c;
-      --shadow:0 6px 22px rgba(0,0,0,.28);
+      --bg:#071a36; --panel:#0b2545; --line:#1d3c66; --text:#fff; --muted:#b9c7da;
+      --btn:#3b73e6; --btn2:#24436c; --shadow:0 6px 22px rgba(0,0,0,.28);
     }
-
     *{ box-sizing:border-box; }
-
-    body{
-      margin:0;
-      background:linear-gradient(180deg,#041229 0%,#071a36 100%);
-      font-family:Arial,Helvetica,sans-serif;
-      color:var(--text);
-    }
-
-    .wrap{
-      max-width:1200px;
-      margin:0 auto;
-      padding:14px;
-    }
-
-    .topbar{
-      position:sticky;
-      top:0;
-      z-index:10;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      background:#12336b;
-      padding:16px 18px;
-      border-bottom:1px solid rgba(255,255,255,.08);
-    }
-
-    .topbar h1{
-      margin:0;
-      font-size:18px;
-    }
-
-    .card{
-      background:rgba(6,24,54,.96);
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:18px;
-      padding:14px;
-      box-shadow:var(--shadow);
-      margin:14px 0;
-    }
-
-    .btn{
-      background:var(--btn);
-      color:#fff;
-      border:0;
-      border-radius:12px;
-      padding:12px 16px;
-      font-weight:700;
-      cursor:pointer;
-      box-shadow:var(--shadow);
-    }
-
+    body{ margin:0; background:linear-gradient(180deg,#041229 0%,#071a36 100%); font-family:Arial,Helvetica,sans-serif; color:var(--text); }
+    .wrap{ max-width:1200px; margin:0 auto; padding:14px; }
+    .topbar{ position:sticky; top:0; z-index:10; display:flex; justify-content:space-between; align-items:center; background:#12336b; padding:16px 18px; border-bottom:1px solid rgba(255,255,255,.08); }
+    .topbar h1{ margin:0; font-size:18px; }
+    .card{ background:rgba(6,24,54,.96); border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:14px; box-shadow:var(--shadow); margin:14px 0; }
+    .btn{ background:var(--btn); color:#fff; border:0; border-radius:12px; padding:12px 16px; font-weight:700; cursor:pointer; box-shadow:var(--shadow); }
     .btn.secondary{ background:var(--btn2); }
-    .btn.small{
-      padding:8px 12px;
-      font-size:12px;
-      border-radius:10px;
-    }
-    .btn:disabled{
-      opacity:.55;
-      cursor:not-allowed;
-    }
-
-    .statusbar,
-    .select{
-      width:100%;
-      background:#173a6c;
-      color:#fff;
-      border:1px solid #2e548e;
-      border-radius:14px;
-      padding:14px 16px;
-      font-size:16px;
-    }
-
-    .actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:10px;
-    }
-
+    .btn.small{ padding:8px 12px; font-size:12px; border-radius:10px; }
+    .btn:disabled{ opacity:.55; cursor:not-allowed; }
+    .statusbar,.select,.rename-input{ width:100%; background:#173a6c; color:#fff; border:1px solid #2e548e; border-radius:14px; padding:14px 16px; font-size:16px; }
+    .actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
     .muted{ color:var(--muted); }
     .hidden{ display:none !important; }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      background:#183866;
-      border-radius:999px;
-      padding:10px 14px;
-      color:#fff;
-    }
-
-    .hint{
-      background:#173a6c;
-      border-radius:16px;
-      padding:12px 16px;
-      color:#d9e5ff;
-    }
-
-    .modal-backdrop{
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,.55);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      z-index:999;
-      padding:14px;
-    }
-
-    .modal{
-      width:min(98vw, 1220px);
-      max-height:92vh;
-      overflow:auto;
-      background:#071a36;
-      border:1px solid rgba(255,255,255,.1);
-      border-radius:18px;
-      box-shadow:0 20px 60px rgba(0,0,0,.45);
-    }
-
-    .modal-header{
-      position:sticky;
-      top:0;
-      z-index:3;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      padding:14px 16px;
-      background:#12336b;
-      border-bottom:1px solid rgba(255,255,255,.08);
-    }
-
-    .modal-title{
-      font-size:18px;
-      font-weight:800;
-      margin:0;
-    }
-
-    .modal-body{
-      padding:14px;
-    }
-
-    .toolbar-row{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      margin-top:12px;
-    }
-
-    .table-wrap{
-      overflow:auto;
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:16px;
-      margin-top:12px;
-      max-height:60vh;
-      -webkit-overflow-scrolling:touch;
-    }
-
-    table{
-      width:max-content;
-      min-width:100%;
-      border-collapse:collapse;
-      background:#082048;
-    }
-
-    th,td{
-      padding:10px 10px;
-      border-bottom:1px solid rgba(255,255,255,.08);
-      text-align:left;
-      vertical-align:middle;
-      white-space:nowrap;
-    }
-
-    th{
-      position:sticky;
-      top:0;
-      background:#0b2a59;
-      z-index:2;
-    }
-
-    .chk{
-      width:18px;
-      height:18px;
-    }
-
-    .th-check{
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-
-    .drag-handle{
-      opacity:.7;
-      font-size:12px;
-      margin-left:4px;
-    }
-
-    .loading-box{
-      width:min(92vw,420px);
-      background:#0b2545;
-      border:1px solid rgba(255,255,255,.1);
-      border-radius:18px;
-      padding:22px 18px;
-      box-shadow:0 20px 60px rgba(0,0,0,.45);
-      text-align:center;
-    }
-
-    .spinner{
-      width:56px;
-      height:56px;
-      border:5px solid rgba(255,255,255,.18);
-      border-top-color:#4f8cff;
-      border-radius:50%;
-      margin:0 auto 16px;
-      animation:spin 1s linear infinite;
-    }
-
-    .progress{
-      width:100%;
-      height:12px;
-      border-radius:999px;
-      background:#163153;
-      overflow:hidden;
-      margin-top:14px;
-    }
-
-    .progress > div{
-      height:100%;
-      width:55%;
-      background:linear-gradient(90deg,#2c7be5,#49c6ff);
-      border-radius:999px;
-      animation:progressMove 1.4s ease-in-out infinite;
-    }
-
-    .filter-section{
-      margin-bottom:18px;
-    }
-
-    .filter-title{
-      font-size:14px;
-      font-weight:800;
-      color:#d9e5ff;
-      margin-bottom:10px;
-    }
-
-    .filter-list{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(140px,1fr));
-      gap:10px;
-    }
-
-    .filter-item{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      background:#102a4d;
-      border:1px solid rgba(255,255,255,.08);
-      padding:10px 12px;
-      border-radius:12px;
-    }
-
-    .filter-modal-backdrop{
-      z-index:1001;
-    }
-
-    .debug-box{
-      margin-top:12px;
-      background:#102a4d;
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:12px;
-      padding:10px 12px;
-      color:#d9e5ff;
-      font-size:12px;
-      white-space:pre-wrap;
-      word-break:break-word;
-    }
-
-    @keyframes spin{
-      to{ transform:rotate(360deg); }
-    }
-
-    @keyframes progressMove{
-      0%{ transform:translateX(-55%); }
-      100%{ transform:translateX(180%); }
-    }
-
-    @media (max-width:640px){
-      .wrap{ padding:8px; }
-      .topbar h1{ font-size:16px; }
-      .filter-list{ grid-template-columns:1fr; }
-      .table-wrap{ max-height:58vh; }
-    }
+    .pill{ display:inline-flex; align-items:center; gap:8px; background:#183866; border-radius:999px; padding:10px 14px; color:#fff; }
+    .hint{ background:#173a6c; border-radius:16px; padding:12px 16px; color:#d9e5ff; }
+    .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:999; padding:14px; }
+    .modal{ width:min(98vw, 1220px); max-height:92vh; overflow:auto; background:#071a36; border:1px solid rgba(255,255,255,.1); border-radius:18px; box-shadow:0 20px 60px rgba(0,0,0,.45); }
+    .modal-header{ position:sticky; top:0; z-index:3; display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:#12336b; border-bottom:1px solid rgba(255,255,255,.08); }
+    .modal-title{ font-size:18px; font-weight:800; margin:0; }
+    .modal-body{ padding:14px; }
+    .toolbar-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px; }
+    .table-wrap{ overflow:auto; border:1px solid rgba(255,255,255,.08); border-radius:16px; margin-top:12px; max-height:60vh; -webkit-overflow-scrolling:touch; }
+    table{ width:max-content; min-width:100%; border-collapse:collapse; background:#082048; }
+    th,td{ padding:10px 10px; border-bottom:1px solid rgba(255,255,255,.08); text-align:left; vertical-align:middle; white-space:nowrap; }
+    th{ position:sticky; top:0; background:#0b2a59; z-index:2; }
+    .chk{ width:18px; height:18px; }
+    .th-check{ display:flex; align-items:center; gap:8px; }
+    .drag-handle{ opacity:.7; font-size:12px; margin-left:4px; }
+    .loading-box{ width:min(92vw,420px); background:#0b2545; border:1px solid rgba(255,255,255,.1); border-radius:18px; padding:22px 18px; box-shadow:0 20px 60px rgba(0,0,0,.45); text-align:center; }
+    .spinner{ width:56px; height:56px; border:5px solid rgba(255,255,255,.18); border-top-color:#4f8cff; border-radius:50%; margin:0 auto 16px; animation:spin 1s linear infinite; }
+    .progress{ width:100%; height:12px; border-radius:999px; background:#163153; overflow:hidden; margin-top:14px; }
+    .progress > div{ height:100%; width:55%; background:linear-gradient(90deg,#2c7be5,#49c6ff); border-radius:999px; animation:progressMove 1.4s ease-in-out infinite; }
+    .filter-section{ margin-bottom:18px; }
+    .filter-title{ font-size:14px; font-weight:800; color:#d9e5ff; margin-bottom:10px; }
+    .filter-list{ display:grid; grid-template-columns:repeat(2,minmax(140px,1fr)); gap:10px; }
+    .filter-item,.rename-item{ display:flex; align-items:center; gap:8px; background:#102a4d; border:1px solid rgba(255,255,255,.08); padding:10px 12px; border-radius:12px; }
+    .rename-item{ flex-direction:column; align-items:stretch; }
+    .rename-label{ font-size:13px; color:#d9e5ff; font-weight:700; }
+    .debug-box{ margin-top:12px; background:#102a4d; border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px 12px; color:#d9e5ff; font-size:12px; white-space:pre-wrap; word-break:break-word; }
+    @keyframes spin{ to{ transform:rotate(360deg); } }
+    @keyframes progressMove{ 0%{ transform:translateX(-55%); } 100%{ transform:translateX(180%); } }
+    @media (max-width:640px){ .wrap{ padding:8px; } .topbar h1{ font-size:16px; } .filter-list{ grid-template-columns:1fr; } .table-wrap{ max-height:58vh; } }
   </style>
 </head>
 <body>
@@ -326,14 +67,12 @@
         <input id="arquivoInput" type="file" accept=".xls,.xlsx,.csv,.pdf" class="hidden">
         <button id="btnAnalisar" class="btn">Analisar</button>
       </div>
-
       <div id="arquivoNome" class="statusbar" style="margin-top:10px">Aguardando arquivo...</div>
       <div class="muted" style="margin-top:8px">Selecione XLS, XLSX, CSV ou PDF.</div>
       <div id="debugInfo" class="debug-box hidden"></div>
     </div>
   </div>
 
-  <!-- LOADING -->
   <div id="loadingModal" class="modal-backdrop hidden">
     <div class="loading-box">
       <div class="spinner"></div>
@@ -343,20 +82,28 @@
     </div>
   </div>
 
-  <!-- FILTRO -->
-  <div id="filterModal" class="modal-backdrop filter-modal-backdrop hidden">
+  <div id="filterModal" class="modal-backdrop hidden">
     <div class="modal" style="width:min(92vw,760px)">
       <div class="modal-header">
-        <h2 class="modal-title">Filtro de Colunas</h2>
-        <button class="btn secondary small" onclick="fecharFiltro()">Fechar</button>
+        <h2 class="modal-title">Filtro</h2>
+        <button class="btn secondary small" onclick="importadorPageApi.fecharFiltro()">Fechar</button>
       </div>
-
       <div class="modal-body">
         <div class="filter-section">
           <div class="filter-title">Colunas visíveis</div>
           <div id="filterList" class="filter-list"></div>
         </div>
+      </div>
+    </div>
+  </div>
 
+  <div id="mapModal" class="modal-backdrop hidden">
+    <div class="modal" style="width:min(92vw,760px)">
+      <div class="modal-header">
+        <h2 class="modal-title">Mapear colunas</h2>
+        <button class="btn secondary small" onclick="importadorPageApi.fecharMapeamento()">Fechar</button>
+      </div>
+      <div class="modal-body">
         <div class="filter-section">
           <div class="filter-title">Mapeamento principal</div>
           <div id="mappingList" class="filter-list"></div>
@@ -365,32 +112,48 @@
     </div>
   </div>
 
-  <!-- PRÉVIA -->
+  <div id="renameModal" class="modal-backdrop hidden">
+    <div class="modal" style="width:min(92vw,760px)">
+      <div class="modal-header">
+        <h2 class="modal-title">Renomear cabeçalhos</h2>
+        <button class="btn secondary small" onclick="importadorPageApi.fecharRenomear()">Fechar</button>
+      </div>
+      <div class="modal-body">
+        <div class="filter-section">
+          <div class="filter-title">Nomes exibidos na pré-visualização</div>
+          <div id="renameList" class="filter-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="previewModal" class="modal-backdrop hidden">
     <div class="modal">
       <div class="modal-header">
         <h2 class="modal-title">Pré-visualização ERP</h2>
         <div class="actions" style="margin:0">
-          <button type="button" id="btnFiltro" class="btn secondary small">Filtro</button>
-          <button type="button" class="btn secondary small" onclick="fecharPreview()">Fechar</button>
+          <button id="btnFiltro" class="btn secondary small">Filtro</button>
+          <button id="btnMapeamento" class="btn secondary small">Mapear colunas</button>
+          <button id="btnRenomear" class="btn secondary small">Renomear cabeçalhos</button>
+          <button class="btn secondary small" onclick="importadorPageApi.fecharPreview()">Fechar</button>
         </div>
       </div>
 
       <div class="modal-body">
         <div class="toolbar-row">
-          <button class="btn small" onclick="selecionarPagina()">Selecionar página</button>
-          <button class="btn secondary small" onclick="desmarcarPagina()">Desmarcar página</button>
-          <button class="btn small" onclick="selecionarTodas()">Selecionar todas</button>
-          <button class="btn secondary small" onclick="desmarcarTodas()">Desmarcar todas</button>
+          <button class="btn small" onclick="importadorPageApi.selecionarPagina()">Selecionar página</button>
+          <button class="btn secondary small" onclick="importadorPageApi.desmarcarPagina()">Desmarcar página</button>
+          <button class="btn small" onclick="importadorPageApi.selecionarTodas()">Selecionar todas</button>
+          <button class="btn secondary small" onclick="importadorPageApi.desmarcarTodas()">Desmarcar todas</button>
           <span id="infoLinhas" class="pill">0 linhas</span>
         </div>
 
         <div class="toolbar-row">
-          <button class="btn secondary small" onclick="moverHorizontal(-1)">◀ Esquerda</button>
-          <button class="btn secondary small" onclick="moverHorizontal(1)">Direita ▶</button>
-          <button class="btn secondary small" onclick="irInicio()">Início</button>
-          <button class="btn secondary small" onclick="irFim()">Fim</button>
-          <div class="hint">Para mover colunas no celular, toque e segure no cabeçalho por um instante e arraste.</div>
+          <button class="btn secondary small" onclick="importadorPageApi.moverHorizontal(-1)">◀ Esquerda</button>
+          <button class="btn secondary small" onclick="importadorPageApi.moverHorizontal(1)">Direita ▶</button>
+          <button class="btn secondary small" onclick="importadorPageApi.irInicio()">Início</button>
+          <button class="btn secondary small" onclick="importadorPageApi.irFim()">Fim</button>
+          <div class="hint">Desktop: segure Ctrl e arraste sobre as linhas. Mobile: toque longo na linha e arraste.</div>
         </div>
 
         <div class="table-wrap" id="tableWrap">
@@ -401,8 +164,8 @@
         </div>
 
         <div class="toolbar-row">
-          <button class="btn secondary small" onclick="paginaAnterior()">Anterior</button>
-          <button class="btn secondary small" onclick="proximaPagina()">Próxima</button>
+          <button class="btn secondary small" onclick="importadorPageApi.paginaAnterior()">Anterior</button>
+          <button class="btn secondary small" onclick="importadorPageApi.proximaPagina()">Próxima</button>
           <span id="paginaInfo" class="pill">Página 1</span>
           <span class="muted">Por página</span>
           <select id="porPagina" class="select" style="max-width:110px;padding:10px 12px">
@@ -422,508 +185,27 @@
     </div>
   </div>
 
+  <script src="/js/importador-base.js"></script>
   <script>
-    const state = {
-      arquivo: null,
-      arquivoNome: "",
-      headers: [],
-      rows: [],
-      selecionados: new Set(),
-      pagina: 1,
-      porPagina: 100,
-      dragIndex: null,
-      touchDragIndex: null,
-      touchLongPressTimer: null,
-      visibleHeaders: new Set(),
-      map: {
-        codigo: "",
-        produto: "",
-        quantidade: "",
-        caixas: "",
-        fator: "",
-        lote: "",
-        nf: "",
-        fornecedor: "",
-        endereco: ""
+    criarImportadorBase({
+      analyzeEndpoint: "/api/importar-erp",
+      importEndpoint: "/api/estoque/erp",
+      analyzeErrorText: "Erro ao analisar ERP.",
+      importErrorText: "Erro ao importar ERP.",
+      importButtonText: "Importar ERP",
+      importButtonLoadingText: "Importando...",
+      mapLabels: {
+        codigo: "Código",
+        produto: "Produto",
+        quantidade: "Quantidade",
+        caixas: "Caixas",
+        fator: "Fator",
+        lote: "Lote",
+        nf: "NF",
+        fornecedor: "Fornecedor",
+        endereco: "Endereço"
       }
-    };
-
-    const labelMap = {
-      codigo: "Código",
-      produto: "Produto",
-      quantidade: "Quantidade",
-      caixas: "Caixas",
-      fator: "Fator",
-      lote: "Lote",
-      nf: "NF",
-      fornecedor: "Fornecedor",
-      endereco: "Endereço"
-    };
-
-    const arquivoInput = document.getElementById("arquivoInput");
-    const arquivoNome = document.getElementById("arquivoNome");
-    const btnAnalisar = document.getElementById("btnAnalisar");
-    const btnImportar = document.getElementById("btnImportar");
-    const btnFiltro = document.getElementById("btnFiltro");
-    const tbody = document.getElementById("tbody");
-    const thead = document.getElementById("thead");
-    const infoLinhas = document.getElementById("infoLinhas");
-    const paginaInfo = document.getElementById("paginaInfo");
-    const porPagina = document.getElementById("porPagina");
-    const msgFinal = document.getElementById("msgFinal");
-    const tableWrap = document.getElementById("tableWrap");
-    const loadingModal = document.getElementById("loadingModal");
-    const previewModal = document.getElementById("previewModal");
-    const filterModal = document.getElementById("filterModal");
-    const filterList = document.getElementById("filterList");
-    const mappingList = document.getElementById("mappingList");
-    const debugInfo = document.getElementById("debugInfo");
-
-    arquivoInput.addEventListener("change", () => {
-      state.arquivo = arquivoInput.files[0] || null;
-      state.arquivoNome = state.arquivo ? state.arquivo.name : "";
-      arquivoNome.textContent = state.arquivoNome || "Aguardando arquivo...";
     });
-
-    btnAnalisar.addEventListener("click", analisar);
-    btnImportar.addEventListener("click", importar);
-    btnFiltro.addEventListener("click", abrirFiltro);
-
-    porPagina.addEventListener("change", () => {
-      state.porPagina = Number(porPagina.value || 100);
-      state.pagina = 1;
-      renderTabela();
-    });
-
-    function abrirLoading(texto = "Analisando planilha e preparando pré-visualização.") {
-      document.getElementById("loadingText").textContent = texto;
-      loadingModal.classList.remove("hidden");
-    }
-
-    function fecharLoading() {
-      loadingModal.classList.add("hidden");
-    }
-
-    function abrirPreview() {
-      previewModal.classList.remove("hidden");
-    }
-
-    function fecharPreview() {
-      previewModal.classList.add("hidden");
-    }
-
-    function abrirFiltro() {
-      renderFiltro();
-      filterModal.classList.remove("hidden");
-    }
-
-    function fecharFiltro() {
-      filterModal.classList.add("hidden");
-    }
-
-    function htmlEscape(str = "") {
-      return String(str)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
-
-    function showDebug(obj) {
-      debugInfo.classList.remove("hidden");
-      debugInfo.textContent = typeof obj === "string" ? obj : JSON.stringify(obj, null, 2);
-    }
-
-    function hideDebug() {
-      debugInfo.classList.add("hidden");
-      debugInfo.textContent = "";
-    }
-
-    function normalizeApiPayload(data) {
-      let rows = [];
-      let headers = [];
-
-      if (Array.isArray(data?.dados) && data.dados.length) {
-        rows = data.dados;
-      } else if (Array.isArray(data?.itens) && data.itens.length) {
-        rows = data.itens;
-      } else if (Array.isArray(data?.planilhas?.[data?.abas?.[0]]) && data.planilhas[data.abas[0]].length) {
-        rows = data.planilhas[data.abas[0]];
-      }
-
-      if (Array.isArray(data?.colunas) && data.colunas.length) {
-        headers = data.colunas;
-      } else if (data?.metadados && data?.abas && data.abas[0] && Array.isArray(data.metadados[data.abas[0]]?.cabecalhos)) {
-        headers = data.metadados[data.abas[0]].cabecalhos;
-      } else if (rows.length) {
-        headers = Object.keys(rows[0]);
-      }
-
-      headers = headers.filter(h => h !== "__excelRow");
-      return { rows, headers };
-    }
-
-    function guessMap() {
-      const headers = state.headers;
-      const normalized = headers.map(h => ({
-        raw: h,
-        norm: String(h).toLowerCase().trim()
-      }));
-
-      function findHeader(possibles) {
-        const exact = normalized.find(h => possibles.includes(h.norm));
-        if (exact) return exact.raw;
-        const contains = normalized.find(h => possibles.some(p => h.norm.includes(p)));
-        return contains ? contains.raw : "";
-      }
-
-      state.map.codigo = findHeader(["codigo", "código", "item no", "sku", "ref", "id", "codigo do produto"]) || "";
-      state.map.produto = findHeader(["description", "produto", "descrição", "nome", "item"]) || "";
-      state.map.quantidade = findHeader(["quantidade", "qty", "qtd", "quantity", "t.qty", "estoque (un)", "estoque"]) || "";
-      state.map.caixas = findHeader(["caixas", "ctns", "cartons", "box"]) || "";
-      state.map.fator = findHeader(["q/c", "fator", "qc", "factor"]) || "";
-      state.map.lote = findHeader(["lote", "lot", "batch"]) || "";
-      state.map.nf = findHeader(["nf", "nota", "invoice"]) || "";
-      state.map.fornecedor = findHeader(["fornecedor", "supplier", "vendor"]) || "";
-      state.map.endereco = findHeader(["endereco", "endereço", "location", "local"]) || "";
-    }
-
-    async function analisar() {
-      if (!state.arquivo) {
-        alert("Selecione um arquivo primeiro.");
-        return;
-      }
-
-      hideDebug();
-      btnAnalisar.disabled = true;
-      btnAnalisar.textContent = "Analisando...";
-      abrirLoading();
-
-      try {
-        const fd = new FormData();
-        fd.append("arquivo", state.arquivo);
-        fd.append("file", state.arquivo);
-
-        const res = await fetch("/api/importar-erp", {
-          method: "POST",
-          body: fd
-        });
-
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.erro || data.detalhe || "Erro ao analisar ERP.");
-
-        const payload = normalizeApiPayload(data);
-        state.rows = payload.rows;
-        state.headers = payload.headers;
-        state.visibleHeaders = new Set(state.headers);
-        state.selecionados = new Set(state.rows.map((_, idx) => idx));
-        state.pagina = 1;
-
-        if (!state.rows.length || !state.headers.length) {
-          showDebug(data);
-          throw new Error("Arquivo vazio ou retorno sem dados reconhecíveis.");
-        }
-
-        guessMap();
-        renderTabela();
-        renderFiltro();
-        abrirPreview();
-      } catch (err) {
-        console.error(err);
-        showDebug(err.message || String(err));
-        alert(err.message || "Erro ao analisar ERP.");
-      } finally {
-        fecharLoading();
-        btnAnalisar.disabled = false;
-        btnAnalisar.textContent = "Analisar";
-      }
-    }
-
-    function isChecked(realIndex) {
-      return state.selecionados.has(realIndex);
-    }
-
-    function toggleChecked(realIndex, checked) {
-      if (checked) state.selecionados.add(realIndex);
-      else state.selecionados.delete(realIndex);
-      atualizarInfo();
-    }
-
-    function getRowsPagina() {
-      const ini = (state.pagina - 1) * state.porPagina;
-      const fim = ini + state.porPagina;
-      return state.rows.slice(ini, fim).map((row, idx) => ({ row, realIndex: ini + idx }));
-    }
-
-    function getVisibleColumns() {
-      return state.headers.filter(h => state.visibleHeaders.has(h));
-    }
-
-    function toggleHeaderVisibility(header, checked) {
-      if (checked) state.visibleHeaders.add(header);
-      else state.visibleHeaders.delete(header);
-      renderTabela();
-      renderFiltro();
-    }
-
-    function setMap(key, value) {
-      state.map[key] = value;
-      renderTabela();
-      renderFiltro();
-    }
-
-    function renderFiltro() {
-      filterList.innerHTML = state.headers.map(h => `
-        <label class="filter-item">
-          <input type="checkbox" class="chk" ${state.visibleHeaders.has(h) ? "checked" : ""} onchange="toggleColuna('${String(h).replaceAll("'", "\\'")}', this.checked)">
-          <span>${htmlEscape(h)}</span>
-        </label>
-      `).join("");
-
-      let html = "";
-      Object.keys(labelMap).forEach((key) => {
-        html += `
-          <label class="filter-item">
-            <input type="radio" name="map_${key}" class="chk" ${state.map[key] === "" ? "checked" : ""} onclick="setMapValue('${key}', '')">
-            <span>${labelMap[key]}: não usar</span>
-          </label>
-        `;
-        state.headers.forEach((h) => {
-          html += `
-            <label class="filter-item">
-              <input type="radio" name="map_${key}" class="chk" ${state.map[key] === h ? "checked" : ""} onclick="setMapValue('${key}', '${String(h).replaceAll("'", "\\'")}')">
-              <span>${labelMap[key]} → ${htmlEscape(h)}</span>
-            </label>
-          `;
-        });
-      });
-      mappingList.innerHTML = html;
-    }
-
-    function renderTabela() {
-      const rowsPagina = getRowsPagina();
-      const columns = getVisibleColumns();
-      const allVisible = state.headers.length > 0 && state.visibleHeaders.size === state.headers.length;
-
-      thead.innerHTML = `
-        <tr>
-          <th style="width:52px">
-            <input class="chk" type="checkbox" ${allVisible ? "checked" : ""} onchange="toggleTodasColunas(this.checked)">
-          </th>
-          ${columns.map((h) => `
-            <th draggable="true"
-                data-index="${state.headers.indexOf(h)}"
-                ondragstart="onDragStart(event)"
-                ondragover="onDragOver(event)"
-                ondrop="onDrop(event)"
-                ontouchstart="onTouchStartHeader(event)"
-                ontouchend="onTouchEndHeader(event)"
-                ontouchmove="onTouchMoveHeader(event)">
-              <div class="th-check">
-                <input class="chk" type="checkbox" checked onchange="toggleColuna('${String(h).replaceAll("'", "\\'")}', this.checked)">
-                <span>${htmlEscape(h)}</span>
-                <span class="drag-handle">↕</span>
-              </div>
-            </th>
-          `).join("")}
-        </tr>
-      `;
-
-      tbody.innerHTML = rowsPagina.map(({ row, realIndex }) => `
-        <tr>
-          <td>
-            <input class="chk" type="checkbox" ${isChecked(realIndex) ? "checked" : ""} onchange="toggleLinha(${realIndex}, this.checked)">
-          </td>
-          ${columns.map((h) => `<td>${htmlEscape(row[h] ?? "")}</td>`).join("")}
-        </tr>
-      `).join("");
-
-      paginaInfo.textContent = `Página ${state.pagina}`;
-      atualizarInfo();
-    }
-
-    function atualizarInfo() {
-      infoLinhas.textContent = `${state.rows.length} linhas • ${state.selecionados.size} selecionadas`;
-    }
-
-    function toggleLinha(realIndex, checked) {
-      toggleChecked(realIndex, checked);
-    }
-
-    function toggleTodasColunas(checked) {
-      if (checked) state.visibleHeaders = new Set(state.headers);
-      else state.visibleHeaders = new Set();
-      renderTabela();
-      renderFiltro();
-    }
-
-    function selecionarPagina() {
-      getRowsPagina().forEach(({ realIndex }) => state.selecionados.add(realIndex));
-      renderTabela();
-    }
-
-    function desmarcarPagina() {
-      getRowsPagina().forEach(({ realIndex }) => state.selecionados.delete(realIndex));
-      renderTabela();
-    }
-
-    function selecionarTodas() {
-      state.selecionados = new Set(state.rows.map((_, idx) => idx));
-      renderTabela();
-    }
-
-    function desmarcarTodas() {
-      state.selecionados.clear();
-      renderTabela();
-    }
-
-    function paginaAnterior() {
-      if (state.pagina > 1) {
-        state.pagina -= 1;
-        renderTabela();
-      }
-    }
-
-    function proximaPagina() {
-      const totalPaginas = Math.max(1, Math.ceil(state.rows.length / state.porPagina));
-      if (state.pagina < totalPaginas) {
-        state.pagina += 1;
-        renderTabela();
-      }
-    }
-
-    function moverHorizontal(dir) {
-      tableWrap.scrollLeft += dir * 240;
-    }
-
-    function irInicio() {
-      tableWrap.scrollLeft = 0;
-    }
-
-    function irFim() {
-      tableWrap.scrollLeft = tableWrap.scrollWidth;
-    }
-
-    function onDragStart(ev) {
-      const th = ev.target.closest("th");
-      state.dragIndex = Number(th?.dataset.index);
-    }
-
-    function onDragOver(ev) {
-      ev.preventDefault();
-    }
-
-    function onDrop(ev) {
-      ev.preventDefault();
-      const th = ev.target.closest("th");
-      const targetIndex = Number(th?.dataset.index);
-
-      if (Number.isNaN(state.dragIndex) || Number.isNaN(targetIndex) || state.dragIndex === targetIndex) return;
-
-      const arr = [...state.headers];
-      const [item] = arr.splice(state.dragIndex, 1);
-      arr.splice(targetIndex, 0, item);
-      state.headers = arr;
-      state.visibleHeaders = new Set(arr.filter(h => state.visibleHeaders.has(h)));
-      state.dragIndex = null;
-      renderTabela();
-      renderFiltro();
-    }
-
-    function onTouchStartHeader(ev) {
-      const th = ev.target.closest("th");
-      if (!th) return;
-      const idx = Number(th.dataset.index);
-      clearTimeout(state.touchLongPressTimer);
-      state.touchLongPressTimer = setTimeout(() => {
-        state.touchDragIndex = idx;
-      }, 250);
-    }
-
-    function onTouchMoveHeader(ev) {
-      if (state.touchDragIndex == null) return;
-      const touch = ev.touches[0];
-      const target = document.elementFromPoint(touch.clientX, touch.clientY);
-      const th = target?.closest?.("th");
-      if (!th) return;
-
-      const targetIndex = Number(th.dataset.index);
-      if (Number.isNaN(targetIndex) || targetIndex === state.touchDragIndex) return;
-
-      const arr = [...state.headers];
-      const [item] = arr.splice(state.touchDragIndex, 1);
-      arr.splice(targetIndex, 0, item);
-      state.headers = arr;
-      state.visibleHeaders = new Set(arr.filter(h => state.visibleHeaders.has(h)));
-      state.touchDragIndex = targetIndex;
-      renderTabela();
-      renderFiltro();
-    }
-
-    function onTouchEndHeader() {
-      clearTimeout(state.touchLongPressTimer);
-      state.touchDragIndex = null;
-    }
-
-    async function importar() {
-      const itens = Array.from(state.selecionados).map(i => state.rows[i]).filter(Boolean);
-      if (!itens.length) {
-        alert("Nenhum item selecionado.");
-        return;
-      }
-
-      btnImportar.disabled = true;
-      btnImportar.textContent = "Importando...";
-      abrirLoading("Importando itens selecionados...");
-
-      try {
-        const res = await fetch("/api/estoque/erp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            arquivo: state.arquivoNome,
-            itens,
-            campos: state.map
-          })
-        });
-
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.ok) throw new Error(data.erro || "Erro ao importar ERP.");
-
-        msgFinal.classList.remove("hidden");
-        msgFinal.textContent = `✔ Importação concluída. ${data.inseridos || 0} itens importados.`;
-      } catch (err) {
-        console.error(err);
-        alert(err.message || "Erro ao importar ERP.");
-      } finally {
-        fecharLoading();
-        btnImportar.disabled = false;
-        btnImportar.textContent = "Importar ERP";
-      }
-    }
-
-    window.toggleLinha = toggleLinha;
-    window.selecionarPagina = selecionarPagina;
-    window.desmarcarPagina = desmarcarPagina;
-    window.selecionarTodas = selecionarTodas;
-    window.desmarcarTodas = desmarcarTodas;
-    window.paginaAnterior = paginaAnterior;
-    window.proximaPagina = proximaPagina;
-    window.moverHorizontal = moverHorizontal;
-    window.irInicio = irInicio;
-    window.irFim = irFim;
-    window.toggleColuna = toggleHeaderVisibility;
-    window.fecharFiltro = fecharFiltro;
-    window.fecharPreview = fecharPreview;
-    window.setMapValue = setMap;
-    window.toggleTodasColunas = toggleTodasColunas;
-    window.onDragStart = onDragStart;
-    window.onDragOver = onDragOver;
-    window.onDrop = onDrop;
-    window.onTouchStartHeader = onTouchStartHeader;
-    window.onTouchMoveHeader = onTouchMoveHeader;
-    window.onTouchEndHeader = onTouchEndHeader;
   </script>
 </body>
 </html>
