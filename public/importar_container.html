@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Importador Contêiner</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
   <style>
     :root{
       --bg:#071a36; --panel:#0b2545; --line:#1d3c66; --text:#fff; --muted:#b9c7da;
@@ -11,151 +12,115 @@
     }
     *{ box-sizing:border-box; }
     body{ margin:0; background:linear-gradient(180deg,#041229 0%,#071a36 100%); font-family:Arial,Helvetica,sans-serif; color:var(--text); }
-    .wrap{ max-width:1200px; margin:0 auto; padding:14px; }
-    .topbar{ position:sticky; top:0; z-index:10; display:flex; justify-content:space-between; align-items:center; background:#12336b; padding:16px 18px; border-bottom:1px solid rgba(255,255,255,.08); }
+    .topbar{ position:sticky; top:0; z-index:20; display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:#12336b; border-bottom:1px solid rgba(255,255,255,.08); }
     .topbar h1{ margin:0; font-size:18px; }
-    .card{ background:rgba(6,24,54,.96); border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:14px; box-shadow:var(--shadow); margin:14px 0; }
-    .btn{ background:var(--btn); color:#fff; border:0; border-radius:12px; padding:12px 16px; font-weight:700; cursor:pointer; box-shadow:var(--shadow); }
+    .wrap{ max-width:1200px; margin:0 auto; padding:14px; }
+    .card{ background:rgba(6,24,54,.96); border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:14px; box-shadow:var(--shadow); margin-bottom:14px; }
+    .actions{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .file-button-wrap{ position:relative; display:inline-block; min-width:160px; }
+    .fake-btn,.btn{ background:var(--btn); color:#fff; border:0; border-radius:12px; padding:12px 16px; font-weight:700; cursor:pointer; box-shadow:var(--shadow); display:inline-flex; align-items:center; justify-content:center; min-height:46px; text-align:center; text-decoration:none; user-select:none; }
     .btn.secondary{ background:var(--btn2); }
-    .btn.small{ padding:8px 12px; font-size:12px; border-radius:10px; }
-    .btn:disabled{ opacity:.55; cursor:not-allowed; }
-    .statusbar,.select,.rename-input{ width:100%; background:#173a6c; color:#fff; border:1px solid #2e548e; border-radius:14px; padding:14px 16px; font-size:16px; }
-    .actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
-    .muted{ color:var(--muted); }
+    .btn.small{ padding:8px 12px; min-height:auto; font-size:12px; border-radius:10px; }
+    .btn:disabled{ opacity:.6; cursor:not-allowed; }
+    .file-button-wrap input[type="file"]{ position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:3; }
+    .statusbar,.select{ width:100%; background:#173a6c; color:#fff; border:1px solid #2e548e; border-radius:14px; padding:14px 16px; font-size:15px; }
+    .muted{ color:var(--muted); margin-top:8px; font-size:13px; }
     .hidden{ display:none !important; }
-    .pill{ display:inline-flex; align-items:center; gap:8px; background:#183866; border-radius:999px; padding:10px 14px; color:#fff; }
-    .hint{ background:#173a6c; border-radius:16px; padding:12px 16px; color:#d9e5ff; }
-    .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:999; padding:14px; }
-    .modal{ width:min(98vw, 1220px); max-height:92vh; overflow:auto; background:#071a36; border:1px solid rgba(255,255,255,.1); border-radius:18px; box-shadow:0 20px 60px rgba(0,0,0,.45); }
-    .modal-header{ position:sticky; top:0; z-index:3; display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:#12336b; border-bottom:1px solid rgba(255,255,255,.08); }
-    .modal-title{ font-size:18px; font-weight:800; margin:0; }
-    .modal-body{ padding:14px; }
-    .toolbar-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px; }
-    .table-wrap{ overflow:auto; border:1px solid rgba(255,255,255,.08); border-radius:16px; margin-top:12px; max-height:60vh; -webkit-overflow-scrolling:touch; }
-    table{ width:max-content; min-width:100%; border-collapse:collapse; background:#082048; }
-    th,td{ padding:10px 10px; border-bottom:1px solid rgba(255,255,255,.08); text-align:left; vertical-align:middle; white-space:nowrap; }
-    th{ position:sticky; top:0; background:#0b2a59; z-index:2; }
-    .chk{ width:18px; height:18px; }
-    .th-check{ display:flex; align-items:center; gap:8px; }
-    .drag-handle{ opacity:.7; font-size:12px; margin-left:4px; }
-    .img-thumb{ width:64px; height:64px; object-fit:cover; border-radius:12px; border:1px solid rgba(255,255,255,.12); background:#0f2341; }
-    .sem-img{ font-size:12px; color:#cfd8ea; }
+    .pill{ display:inline-flex; align-items:center; gap:8px; background:#183866; border-radius:999px; padding:10px 14px; color:#fff; font-size:13px; }
+    .hint{ background:#173a6c; border-radius:16px; padding:12px 16px; color:#d9e5ff; font-size:13px; }
+    .loading-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:999; padding:14px; }
     .loading-box{ width:min(92vw,420px); background:#0b2545; border:1px solid rgba(255,255,255,.1); border-radius:18px; padding:22px 18px; box-shadow:0 20px 60px rgba(0,0,0,.45); text-align:center; }
     .spinner{ width:56px; height:56px; border:5px solid rgba(255,255,255,.18); border-top-color:#4f8cff; border-radius:50%; margin:0 auto 16px; animation:spin 1s linear infinite; }
+    @keyframes spin{ to{ transform:rotate(360deg); } }
     .progress{ width:100%; height:12px; border-radius:999px; background:#163153; overflow:hidden; margin-top:14px; }
     .progress > div{ height:100%; width:55%; background:linear-gradient(90deg,#2c7be5,#49c6ff); border-radius:999px; animation:progressMove 1.4s ease-in-out infinite; }
-    .filter-section{ margin-bottom:18px; }
-    .filter-title{ font-size:14px; font-weight:800; color:#d9e5ff; margin-bottom:10px; }
-    .filter-list{ display:grid; grid-template-columns:repeat(2,minmax(140px,1fr)); gap:10px; }
-    .filter-item,.rename-item{ display:flex; align-items:center; gap:8px; background:#102a4d; border:1px solid rgba(255,255,255,.08); padding:10px 12px; border-radius:12px; }
-    .rename-item{ flex-direction:column; align-items:stretch; }
-    .rename-label{ font-size:13px; color:#d9e5ff; font-weight:700; }
-    .debug-box{ margin-top:12px; background:#102a4d; border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px 12px; color:#d9e5ff; font-size:12px; white-space:pre-wrap; word-break:break-word; }
-    @keyframes spin{ to{ transform:rotate(360deg); } }
     @keyframes progressMove{ 0%{ transform:translateX(-55%); } 100%{ transform:translateX(180%); } }
-    @media (max-width:640px){ .wrap{ padding:8px; } .topbar h1{ font-size:16px; } .filter-list{ grid-template-columns:1fr; } .table-wrap{ max-height:58vh; } }
+    .preview-shell{ background:#071a36; border:1px solid rgba(255,255,255,.08); border-radius:18px; overflow:hidden; box-shadow:var(--shadow); }
+    .preview-header{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; background:#12336b; border-bottom:1px solid rgba(255,255,255,.08); }
+    .preview-title{ font-size:18px; font-weight:800; margin:0; }
+    .toolbar{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+    .inner-panel{ background:#102a4d; border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:12px; margin-bottom:12px; }
+    .panel-title{ margin:0 0 10px; font-size:14px; font-weight:800; color:#d9e5ff; }
+    .filter-list{ display:grid; grid-template-columns:repeat(2,minmax(140px,1fr)); gap:10px; }
+    .filter-item,.map-item{ display:flex; align-items:center; gap:8px; background:#16345d; border:1px solid rgba(255,255,255,.08); padding:10px 12px; border-radius:12px; }
+    .chk{ width:18px; height:18px; flex:0 0 auto; }
+    .table-wrap{ overflow:auto; border:1px solid rgba(255,255,255,.08); border-radius:16px; max-height:60vh; -webkit-overflow-scrolling:touch; background:#082048; }
+    table{ width:max-content; min-width:100%; border-collapse:collapse; }
+    th,td{ padding:10px; border-bottom:1px solid rgba(255,255,255,.08); text-align:left; vertical-align:middle; white-space:nowrap; font-size:13px; }
+    th{ position:sticky; top:0; background:#0b2a59; z-index:2; }
+    .th-check{ display:flex; align-items:center; gap:8px; }
+    .drag-handle{ opacity:.7; font-size:12px; margin-left:4px; }
+    .rename-target{ cursor:pointer; padding:4px 6px; border-radius:8px; transition:.15s; display:inline-flex; align-items:center; gap:6px; }
+    .rename-target:hover{ background:rgba(255,255,255,.08); }
+    .rename-edit{ display:flex; align-items:center; gap:6px; }
+    .rename-edit input{ min-width:120px; background:#173a6c; color:#fff; border:1px solid #2e548e; border-radius:10px; padding:8px 10px; font-size:13px; outline:none; }
+    .icon-btn{ border:0; background:#24436c; color:#fff; border-radius:8px; padding:6px 8px; cursor:pointer; font-size:12px; line-height:1; }
+    .icon-btn.ok{ background:#2c7a4b; }
+    .icon-btn.cancel{ background:#7a2c3b; }
+    .msg{ margin-top:12px; }
+    .debug-box{ margin-top:12px; background:#102a4d; border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px 12px; color:#d9e5ff; font-size:12px; white-space:pre-wrap; word-break:break-word; }
+    @media (max-width:640px){
+      .wrap{ padding:8px; } .topbar h1{ font-size:16px; } .filter-list{ grid-template-columns:1fr; } .file-button-wrap{ width:100%; } .actions .btn{ width:100%; }
+      .preview-header{ flex-direction:column; align-items:stretch; } .preview-header .actions{ width:100%; } .preview-header .actions .btn{ width:100%; }
+    }
   </style>
 </head>
 <body>
   <div class="topbar">
     <h1>Pré-visualização Contêiner</h1>
-    <button class="btn secondary small" onclick="window.location.href='/'">Fechar</button>
+    <button class="btn secondary small" type="button" onclick="window.location.href='/'">Fechar</button>
   </div>
 
   <div class="wrap">
     <div class="card">
       <div class="actions">
-        <label class="btn" for="arquivoInput">Escolher arquivo</label>
-        <input id="arquivoInput" type="file" accept=".xls,.xlsx,.csv,.pdf" class="hidden">
-        <button id="btnAnalisar" class="btn">Analisar</button>
+        <div class="file-button-wrap">
+          <div class="fake-btn">Escolher arquivo</div>
+          <input id="arquivoInput" type="file" accept=".xlsx,.xls,.csv" />
+        </div>
+        <button id="btnAnalisar" class="btn" type="button">Analisar</button>
       </div>
-      <div id="arquivoNome" class="statusbar" style="margin-top:10px">Aguardando arquivo...</div>
-      <div class="muted" style="margin-top:8px">Selecione XLS, XLSX, CSV ou PDF.</div>
+
+      <div id="arquivoNome" class="statusbar" style="margin-top:10px;">Aguardando arquivo...</div>
+      <div class="muted">Selecione XLS, XLSX ou CSV.</div>
       <div id="debugInfo" class="debug-box hidden"></div>
     </div>
-  </div>
 
-  <div id="loadingModal" class="modal-backdrop hidden">
-    <div class="loading-box">
-      <div class="spinner"></div>
-      <div style="font-size:20px;font-weight:800;">Carregando arquivo...</div>
-      <div id="loadingText" class="muted" style="margin-top:8px;">Analisando planilha e preparando pré-visualização.</div>
-      <div class="progress"><div></div></div>
-    </div>
-  </div>
-
-  <div id="filterModal" class="modal-backdrop hidden">
-    <div class="modal" style="width:min(92vw,760px)">
-      <div class="modal-header">
-        <h2 class="modal-title">Filtro</h2>
-        <button class="btn secondary small" onclick="importadorPageApi.fecharFiltro()">Fechar</button>
-      </div>
-      <div class="modal-body">
-        <div class="filter-section">
-          <div class="filter-title">Colunas visíveis</div>
-          <div id="filterList" class="filter-list"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="mapModal" class="modal-backdrop hidden">
-    <div class="modal" style="width:min(92vw,760px)">
-      <div class="modal-header">
-        <h2 class="modal-title">Mapear colunas</h2>
-        <button class="btn secondary small" onclick="importadorPageApi.fecharMapeamento()">Fechar</button>
-      </div>
-      <div class="modal-body">
-        <div class="filter-section">
-          <div class="filter-title">Mapeamento principal</div>
-          <div id="mappingList" class="filter-list"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="renameModal" class="modal-backdrop hidden">
-    <div class="modal" style="width:min(92vw,760px)">
-      <div class="modal-header">
-        <h2 class="modal-title">Renomear cabeçalhos</h2>
-        <button class="btn secondary small" onclick="importadorPageApi.fecharRenomear()">Fechar</button>
-      </div>
-      <div class="modal-body">
-        <div class="filter-section">
-          <div class="filter-title">Nomes exibidos na pré-visualização</div>
-          <div id="renameList" class="filter-list"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="previewModal" class="modal-backdrop hidden">
-    <div class="modal">
-      <div class="modal-header">
-        <h2 class="modal-title">Pré-visualização Contêiner</h2>
-        <div class="actions" style="margin:0">
-          <button id="btnFiltro" class="btn secondary small">Filtro</button>
-          <button id="btnMapeamento" class="btn secondary small">Mapear colunas</button>
-          <button id="btnRenomear" class="btn secondary small">Renomear cabeçalhos</button>
-          <button class="btn secondary small" onclick="importadorPageApi.fecharPreview()">Fechar</button>
+    <div id="previewArea" class="preview-shell hidden">
+      <div class="preview-header">
+        <div class="preview-title">Pré-visualização Contêiner</div>
+        <div class="actions" style="margin:0;">
+          <button id="btnFiltro" class="btn secondary small" type="button">Filtro</button>
+          <button id="btnMapeamento" class="btn secondary small" type="button">Mapear colunas</button>
+          <button class="btn secondary small" type="button" onclick="importadorExcelApi.fecharPreview()">Fechar</button>
         </div>
       </div>
 
-      <div class="modal-body">
-        <div class="toolbar-row">
-          <button class="btn small" onclick="importadorPageApi.selecionarPagina()">Selecionar página</button>
-          <button class="btn secondary small" onclick="importadorPageApi.desmarcarPagina()">Desmarcar página</button>
-          <button class="btn small" onclick="importadorPageApi.selecionarTodas()">Selecionar todas</button>
-          <button class="btn secondary small" onclick="importadorPageApi.desmarcarTodas()">Desmarcar todas</button>
+      <div style="padding:14px;">
+        <div class="toolbar">
+          <button class="btn small" type="button" onclick="importadorExcelApi.selecionarPagina()">Selecionar página</button>
+          <button class="btn secondary small" type="button" onclick="importadorExcelApi.desmarcarPagina()">Desmarcar página</button>
+          <button class="btn small" type="button" onclick="importadorExcelApi.selecionarTodas()">Selecionar todas</button>
+          <button class="btn secondary small" type="button" onclick="importadorExcelApi.desmarcarTodas()">Desmarcar todas</button>
           <span id="infoLinhas" class="pill">0 linhas</span>
         </div>
 
-        <div class="toolbar-row">
-          <button class="btn secondary small" onclick="importadorPageApi.moverHorizontal(-1)">◀ Esquerda</button>
-          <button class="btn secondary small" onclick="importadorPageApi.moverHorizontal(1)">Direita ▶</button>
-          <button class="btn secondary small" onclick="importadorPageApi.irInicio()">Início</button>
-          <button class="btn secondary small" onclick="importadorPageApi.irFim()">Fim</button>
-          <div class="hint">Desktop: segure Ctrl e arraste sobre as linhas. Mobile: toque longo na linha e arraste.</div>
+        <div class="toolbar">
+          <button class="btn secondary small" type="button" onclick="importadorExcelApi.moverHorizontal(-1)">◀ Esquerda</button>
+          <button class="btn secondary small" type="button" onclick="importadorExcelApi.moverHorizontal(1)">Direita ▶</button>
+          <button class="btn secondary small" type="button" onclick="importadorExcelApi.irInicio()">Início</button>
+          <button class="btn secondary small" type="button" onclick="importadorExcelApi.irFim()">Fim</button>
+          <div class="hint">Desktop: Ctrl + arrastar nas linhas. Mobile: toque longo + arrastar. Duplo clique no cabeçalho para renomear.</div>
+        </div>
+
+        <div id="panelFiltro" class="inner-panel hidden">
+          <h3 class="panel-title">Filtro</h3>
+          <div id="filterList" class="filter-list"></div>
+        </div>
+
+        <div id="panelMapeamento" class="inner-panel hidden">
+          <h3 class="panel-title">Mapear colunas</h3>
+          <div id="mappingList" class="filter-list"></div>
         </div>
 
         <div class="table-wrap" id="tableWrap">
@@ -165,12 +130,12 @@
           </table>
         </div>
 
-        <div class="toolbar-row">
-          <button class="btn secondary small" onclick="importadorPageApi.paginaAnterior()">Anterior</button>
-          <button class="btn secondary small" onclick="importadorPageApi.proximaPagina()">Próxima</button>
+        <div class="toolbar" style="margin-top:12px;">
+          <button class="btn secondary small" type="button" onclick="importadorExcelApi.paginaAnterior()">Anterior</button>
+          <button class="btn secondary small" type="button" onclick="importadorExcelApi.proximaPagina()">Próxima</button>
           <span id="paginaInfo" class="pill">Página 1</span>
           <span class="muted">Por página</span>
-          <select id="porPagina" class="select" style="max-width:110px;padding:10px 12px">
+          <select id="porPagina" class="select" style="max-width:110px;padding:10px 12px;">
             <option>20</option>
             <option>50</option>
             <option selected>100</option>
@@ -178,22 +143,30 @@
           </select>
         </div>
 
-        <div class="actions" style="margin-top:16px">
-          <button id="btnImportar" class="btn">Importar Contêiner</button>
+        <div class="toolbar" style="margin-top:16px;">
+          <button id="btnImportar" class="btn" type="button">Importar Contêiner</button>
         </div>
 
-        <div id="msgFinal" class="statusbar hidden" style="margin-top:12px"></div>
+        <div id="msgFinal" class="statusbar msg hidden"></div>
       </div>
     </div>
   </div>
 
-  <script src="/js/importador-base.js"></script>
+  <div id="loadingModal" class="loading-backdrop hidden">
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <div style="font-size:20px;font-weight:800;">Carregando arquivo...</div>
+      <div id="loadingText" class="muted">Analisando planilha e preparando pré-visualização.</div>
+      <div class="progress"><div></div></div>
+    </div>
+  </div>
+
+  <script src="/js/importador-excel-base.js"></script>
   <script>
-    criarImportadorBase({
-      analyzeEndpoint: "/api/importar-container",
-      importEndpoint: "/api/estoque/container",
+    criarImportadorExcel({
       analyzeErrorText: "Erro ao analisar contêiner.",
       importErrorText: "Erro ao importar contêiner.",
+      importEndpoint: "/api/estoque/container",
       importButtonText: "Importar Contêiner",
       importButtonLoadingText: "Importando...",
       mapLabels: {
