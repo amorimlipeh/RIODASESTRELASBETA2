@@ -79,10 +79,22 @@
     }
     .sem-img{font-size:12px;color:#cfd8ea}
     .desc-main{
-      display:block;font-weight:800;color:#fff;line-height:1.25;white-space:normal
+      display:block;
+      font-weight:800;
+      color:#fff;
+      line-height:1.2;
+      white-space:normal;
+      max-width:240px;
     }
     .desc-original{
-      display:block;font-size:12px;color:#b8c7df;line-height:1.25;margin-top:4px;white-space:normal
+      display:block;
+      font-size:11px;
+      color:#b8c7df;
+      line-height:1.25;
+      margin-top:4px;
+      white-space:normal;
+      max-width:240px;
+      opacity:.9;
     }
     .toolbar-row{
       display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px
@@ -97,6 +109,7 @@
       .topbar h1{font-size:16px}
       .btn{padding:10px 14px}
       th,td{padding:10px 8px}
+      .desc-main,.desc-original{max-width:180px}
     }
   </style>
 </head>
@@ -309,18 +322,77 @@
       }
     }
 
-    function getDisplayDescription(row) {
-      const translated = (row.descricao_traduzida || row.traducao || "").trim();
-      const original = (row.descricao_original || row.DESCRIPTION || row["品名"] || "").trim();
+    function limparTexto(texto = "") {
+      return String(texto)
+        .replace(/[^\x00-\x7F\u4e00-\u9fa5\s.\-\/]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
 
-      if (translated && original && translated !== original) {
+    function melhorarDescricao(texto = "") {
+      let t = limparTexto(texto);
+
+      t = t.replace(/地图/g, "mapa");
+      t = t.replace(/冰箱贴/g, "ímã de geladeira");
+      t = t.replace(/双面镜/g, "espelho dupla face");
+      t = t.replace(/杯垫/g, "porta-copo");
+      t = t.replace(/钥匙扣/g, "chaveiro");
+      t = t.replace(/顶针/g, "dedal");
+      t = t.replace(/帆布袋/g, "saco de lona");
+      t = t.replace(/帆布包/g, "bolsa de lona");
+      t = t.replace(/桃心镜子/g, "espelho coração");
+      t = t.replace(/塑料/g, "plástico");
+      t = t.replace(/黑色/g, "preto");
+      t = t.replace(/白色/g, "branco");
+      t = t.replace(/蓝色/g, "azul");
+      t = t.replace(/红色/g, "vermelho");
+      t = t.replace(/大红/g, "vermelho escuro");
+      t = t.replace(/粉色/g, "rosa");
+      t = t.replace(/绿色/g, "verde");
+      t = t.replace(/黄色/g, "amarelo");
+      t = t.replace(/紫色/g, "roxo");
+      t = t.replace(/橙色/g, "laranja");
+      t = t.replace(/银色/g, "prata");
+      t = t.replace(/金色/g, "dourado");
+
+      t = t.replace(/7\.5x7\.5prata/g, "7.5x7.5 prata");
+      t = t.replace(/7\.5塑料双面镜/g, "espelho dupla face plástico 7.5");
+      t = t.replace(/地图prata/g, "mapa prata");
+      t = t.replace(/地图.*?冰箱贴/g, "ímã de geladeira mapa");
+      t = t.replace(/地图.*?冰箱/g, "ímã de geladeira mapa");
+      t = t.replace(/双面镜/g, "espelho dupla face");
+      t = t.replace(/镜子/g, "espelho");
+
+      t = t.replace(/(\b\w+\b)(\s+\1)+/gi, "$1");
+      t = t.replace(/\s+/g, " ").trim();
+
+      return t;
+    }
+
+    function getDisplayDescription(row) {
+      const original = (
+        row.descricao_original ||
+        row.DESCRIPTION ||
+        row["品名"] ||
+        ""
+      ).trim();
+
+      const traducaoBackend = (
+        row.descricao_traduzida ||
+        row.traducao ||
+        ""
+      ).trim();
+
+      const traduzido = melhorarDescricao(traducaoBackend || original);
+
+      if (traduzido && original && traduzido !== original) {
         return `
-          <span class="desc-main">${htmlEscape(translated)}</span>
+          <span class="desc-main">${htmlEscape(traduzido.toUpperCase())}</span>
           <span class="desc-original">${htmlEscape(original)}</span>
         `;
       }
 
-      return `<span class="desc-main">${htmlEscape(translated || original || "")}</span>`;
+      return `<span class="desc-main">${htmlEscape((traduzido || original || "").toUpperCase())}</span>`;
     }
 
     function getImageHtml(row) {
@@ -392,7 +464,7 @@
           <th style="width:52px">
             <input class="chk" type="checkbox" ${allVisible ? "checked" : ""} onchange="toggleTodasColunas(this.checked)">
           </th>
-          ${columns.map((h, idx) => `
+          ${columns.map((h) => `
             <th draggable="true"
                 data-index="${state.headers.indexOf(h)}"
                 ondragstart="onDragStart(event)"
