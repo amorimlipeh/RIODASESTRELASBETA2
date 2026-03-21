@@ -1,249 +1,869 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Importador Contêiner</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Importador Contêiner</title>
+  <style>
+    :root{
+      --bg:#071a36;
+      --panel:#0b2545;
+      --line:#1d3c66;
+      --text:#fff;
+      --muted:#b9c7da;
+      --btn:#3b73e6;
+      --btn2:#24436c;
+      --shadow:0 6px 22px rgba(0,0,0,.28);
+    }
 
-<style>
-body{
-  margin:0;
-  font-family:Arial;
-  background:#071a36;
-  color:#fff;
-}
+    *{ box-sizing:border-box; }
 
-.topbar{
-  background:#12336b;
-  padding:14px;
-  display:flex;
-  justify-content:space-between;
-}
+    body{
+      margin:0;
+      background:linear-gradient(180deg,#041229 0%,#071a36 100%);
+      font-family:Arial,Helvetica,sans-serif;
+      color:var(--text);
+    }
 
-.btn{
-  background:#3b73e6;
-  border:none;
-  color:#fff;
-  padding:10px 14px;
-  border-radius:10px;
-  font-weight:bold;
-  cursor:pointer;
-}
+    .wrap{
+      max-width:1200px;
+      margin:0 auto;
+      padding:14px;
+    }
 
-.card{
-  padding:14px;
-}
+    .topbar{
+      position:sticky;
+      top:0;
+      z-index:10;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      background:#12336b;
+      padding:16px 18px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+    }
 
-.modal-backdrop{
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,.6);
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  z-index:999;
-}
+    .topbar h1{
+      margin:0;
+      font-size:18px;
+    }
 
-.modal{
-  background:#071a36;
-  width:95%;
-  max-height:90vh;
-  overflow:auto;
-  border-radius:16px;
-}
+    .card{
+      background:rgba(6,24,54,.96);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:18px;
+      padding:14px;
+      box-shadow:var(--shadow);
+      margin:14px 0;
+    }
 
-.hidden{ display:none }
+    .btn{
+      background:var(--btn);
+      color:#fff;
+      border:0;
+      border-radius:12px;
+      padding:12px 16px;
+      font-weight:700;
+      cursor:pointer;
+      box-shadow:var(--shadow);
+    }
 
-.table-wrap{
-  overflow:auto;
-}
+    .btn.secondary{ background:var(--btn2); }
+    .btn.small{
+      padding:8px 12px;
+      font-size:12px;
+      border-radius:10px;
+    }
+    .btn:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+    }
 
-table{
-  width:100%;
-  border-collapse:collapse;
-}
+    .statusbar,
+    .select{
+      width:100%;
+      background:#173a6c;
+      color:#fff;
+      border:1px solid #2e548e;
+      border-radius:14px;
+      padding:14px 16px;
+      font-size:16px;
+    }
 
-th,td{
-  padding:10px;
-  border-bottom:1px solid rgba(255,255,255,.1);
-}
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
 
-.img-thumb{
-  width:60px;
-  height:60px;
-  border-radius:10px;
-  object-fit:cover;
-}
+    .muted{ color:var(--muted); }
+    .hidden{ display:none !important; }
 
-.desc-main{
-  font-weight:bold;
-}
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      background:#183866;
+      border-radius:999px;
+      padding:10px 14px;
+      color:#fff;
+    }
 
-.desc-original{
-  font-size:11px;
-  opacity:.6;
-}
+    .hint{
+      background:#173a6c;
+      border-radius:16px;
+      padding:12px 16px;
+      color:#d9e5ff;
+    }
 
-.filter-grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-}
+    .modal-backdrop{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.55);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:999;
+      padding:14px;
+    }
 
-select{
-  width:100%;
-  padding:10px;
-  border-radius:10px;
-  background:#12336b;
-  color:#fff;
-  border:none;
-}
-</style>
+    .modal{
+      width:min(98vw, 1220px);
+      max-height:92vh;
+      overflow:auto;
+      background:#071a36;
+      border:1px solid rgba(255,255,255,.1);
+      border-radius:18px;
+      box-shadow:0 20px 60px rgba(0,0,0,.45);
+    }
+
+    .modal-header{
+      position:sticky;
+      top:0;
+      z-index:2;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:14px 16px;
+      background:#12336b;
+      border-bottom:1px solid rgba(255,255,255,.08);
+    }
+
+    .modal-title{
+      font-size:18px;
+      font-weight:800;
+      margin:0;
+    }
+
+    .modal-body{
+      padding:14px;
+    }
+
+    .toolbar-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-top:12px;
+    }
+
+    .table-wrap{
+      overflow:auto;
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:16px;
+      margin-top:12px;
+    }
+
+    table{
+      width:max-content;
+      min-width:100%;
+      border-collapse:collapse;
+      background:#082048;
+    }
+
+    th,td{
+      padding:10px 10px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      text-align:left;
+      vertical-align:middle;
+      white-space:nowrap;
+    }
+
+    th{
+      position:sticky;
+      top:0;
+      background:#0b2a59;
+      z-index:1;
+    }
+
+    .chk{
+      width:18px;
+      height:18px;
+    }
+
+    .img-thumb{
+      width:64px;
+      height:64px;
+      object-fit:cover;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background:#0f2341;
+    }
+
+    .sem-img{
+      font-size:12px;
+      color:#cfd8ea;
+    }
+
+    .desc-main{
+      display:block;
+      font-weight:800;
+      color:#fff;
+      line-height:1.2;
+      white-space:normal;
+      max-width:240px;
+    }
+
+    .desc-original{
+      display:block;
+      font-size:11px;
+      color:#b8c7df;
+      line-height:1.25;
+      margin-top:4px;
+      white-space:normal;
+      max-width:240px;
+      opacity:.9;
+    }
+
+    .loading-box{
+      width:min(92vw,420px);
+      background:#0b2545;
+      border:1px solid rgba(255,255,255,.1);
+      border-radius:18px;
+      padding:22px 18px;
+      box-shadow:0 20px 60px rgba(0,0,0,.45);
+      text-align:center;
+    }
+
+    .spinner{
+      width:56px;
+      height:56px;
+      border:5px solid rgba(255,255,255,.18);
+      border-top-color:#4f8cff;
+      border-radius:50%;
+      margin:0 auto 16px;
+      animation:spin 1s linear infinite;
+    }
+
+    .progress{
+      width:100%;
+      height:12px;
+      border-radius:999px;
+      background:#163153;
+      overflow:hidden;
+      margin-top:14px;
+    }
+
+    .progress > div{
+      height:100%;
+      width:55%;
+      background:linear-gradient(90deg,#2c7be5,#49c6ff);
+      border-radius:999px;
+      animation:progressMove 1.4s ease-in-out infinite;
+    }
+
+    .filter-section{
+      margin-bottom:18px;
+    }
+
+    .filter-title{
+      font-size:14px;
+      font-weight:800;
+      color:#d9e5ff;
+      margin-bottom:10px;
+    }
+
+    .filter-list{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(140px,1fr));
+      gap:10px;
+    }
+
+    .filter-item{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      background:#102a4d;
+      border:1px solid rgba(255,255,255,.08);
+      padding:10px 12px;
+      border-radius:12px;
+    }
+
+    @keyframes spin{
+      to{ transform:rotate(360deg); }
+    }
+
+    @keyframes progressMove{
+      0%{ transform:translateX(-55%); }
+      100%{ transform:translateX(180%); }
+    }
+
+    @media (max-width:640px){
+      .wrap{ padding:8px; }
+      .topbar h1{ font-size:16px; }
+      .filter-list{ grid-template-columns:1fr; }
+      .desc-main,.desc-original{ max-width:180px; }
+    }
+  </style>
 </head>
-
 <body>
-
-<div class="topbar">
-  <b>Importador Contêiner</b>
-</div>
-
-<div class="card">
-  <input type="file" id="file">
-  <button class="btn" onclick="analisar()">Analisar</button>
-</div>
-
-<!-- LOADING -->
-<div id="loading" class="modal-backdrop hidden">
-  <div class="modal" style="padding:30px;text-align:center">
-    <h2>Carregando...</h2>
+  <div class="topbar">
+    <h1>Pré-visualização Contêiner</h1>
+    <button class="btn secondary small" onclick="window.location.href='/'">Fechar</button>
   </div>
-</div>
 
-<!-- PREVIEW -->
-<div id="preview" class="modal-backdrop hidden">
-  <div class="modal">
-
-    <div class="topbar">
-      <b>Pré-visualização</b>
-      <div>
-        <button class="btn" onclick="abrirFiltro()">Filtro</button>
-        <button class="btn" onclick="fecharPreview()">Fechar</button>
-      </div>
-    </div>
-
-    <div class="table-wrap">
-      <table>
-        <thead id="thead"></thead>
-        <tbody id="tbody"></tbody>
-      </table>
-    </div>
-
-  </div>
-</div>
-
-<!-- FILTRO -->
-<div id="filtro" class="modal-backdrop hidden">
-  <div class="modal">
-
-    <div class="topbar">
-      <b>Filtro</b>
-      <button class="btn" onclick="fecharFiltro()">Fechar</button>
-    </div>
-
+  <div class="wrap">
     <div class="card">
-
-      <div class="filter-grid">
-        <select id="codigo"></select>
-        <select id="produto"></select>
-        <select id="imagem"></select>
+      <div class="actions">
+        <label class="btn" for="arquivoInput">Escolher arquivos</label>
+        <input id="arquivoInput" type="file" accept=".xls,.xlsx,.csv,.pdf" class="hidden">
+        <button id="btnAnalisar" class="btn">Analisar</button>
       </div>
 
+      <div id="arquivoNome" class="statusbar" style="margin-top:10px">Aguardando arquivo...</div>
+      <div class="muted" style="margin-top:8px">Selecione XLS, XLSX, CSV ou PDF.</div>
     </div>
-
   </div>
-</div>
 
-<script>
+  <!-- LOADING -->
+  <div id="loadingModal" class="modal-backdrop hidden">
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <div style="font-size:20px;font-weight:800;">Carregando arquivo...</div>
+      <div id="loadingText" class="muted" style="margin-top:8px;">Analisando planilha e preparando pré-visualização.</div>
+      <div class="progress"><div></div></div>
+    </div>
+  </div>
 
-let dados = [];
-let headers = [];
+  <!-- FILTRO -->
+  <div id="filterModal" class="modal-backdrop hidden">
+    <div class="modal" style="width:min(92vw,760px)">
+      <div class="modal-header">
+        <h2 class="modal-title">Filtro</h2>
+        <button class="btn secondary small" onclick="fecharFiltro()">Fechar</button>
+      </div>
 
-function showLoading(v){
-  document.getElementById("loading").classList.toggle("hidden", !v);
-}
+      <div class="modal-body">
+        <div class="filter-section">
+          <div class="filter-title">Escolha as colunas visíveis</div>
+          <div id="filterList" class="filter-list"></div>
+        </div>
 
-function analisar(){
-  const file = document.getElementById("file").files[0];
-  if(!file) return alert("Selecione arquivo");
+        <div class="filter-section">
+          <div class="filter-title">Mapeamento principal</div>
+          <div id="mappingList" class="filter-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  showLoading(true);
+  <!-- PRÉVIA -->
+  <div id="previewModal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title">Pré-visualização Contêiner</h2>
+        <div class="actions" style="margin:0">
+          <button class="btn secondary small" onclick="abrirFiltro()">Filtro</button>
+          <button class="btn secondary small" onclick="fecharPreview()">Fechar</button>
+        </div>
+      </div>
 
-  const fd = new FormData();
-  fd.append("arquivo", file);
+      <div class="modal-body">
+        <div class="toolbar-row">
+          <button class="btn small" onclick="selecionarPagina()">Selecionar página</button>
+          <button class="btn secondary small" onclick="desmarcarPagina()">Desmarcar página</button>
+          <button class="btn small" onclick="selecionarTodas()">Selecionar todas</button>
+          <button class="btn secondary small" onclick="desmarcarTodas()">Desmarcar todas</button>
+          <span id="infoLinhas" class="pill">0 linhas</span>
+        </div>
 
-  fetch("/api/importar-container",{method:"POST",body:fd})
-  .then(r=>r.json())
-  .then(res=>{
-    showLoading(false);
+        <div class="toolbar-row">
+          <button class="btn secondary small" onclick="moverHorizontal(-1)">◀ Esquerda</button>
+          <button class="btn secondary small" onclick="moverHorizontal(1)">Direita ▶</button>
+          <button class="btn secondary small" onclick="irInicio()">Início</button>
+          <button class="btn secondary small" onclick="irFim()">Fim</button>
+          <div class="hint">Para mover colunas no celular, toque e segure no cabeçalho por um instante e arraste.</div>
+        </div>
 
-    dados = res.planilhas[res.abas[0]];
-    headers = Object.keys(dados[0] || {});
+        <div class="table-wrap" id="tableWrap">
+          <table>
+            <thead id="thead"></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
 
-    montarTabela();
-    montarSelects();
+        <div class="toolbar-row">
+          <button class="btn secondary small" onclick="paginaAnterior()">Anterior</button>
+          <button class="btn secondary small" onclick="proximaPagina()">Próxima</button>
+          <span id="paginaInfo" class="pill">Página 1</span>
+          <span class="muted">Por página</span>
+          <select id="porPagina" class="select" style="max-width:110px;padding:10px 12px">
+            <option>20</option>
+            <option>50</option>
+            <option selected>100</option>
+            <option>200</option>
+          </select>
+        </div>
 
-    document.getElementById("preview").classList.remove("hidden");
-  })
-  .catch(()=>{
-    showLoading(false);
-    alert("Erro ao analisar");
-  });
-}
+        <div class="actions" style="margin-top:16px">
+          <button id="btnImportar" class="btn">Importar Contêiner</button>
+        </div>
 
-function montarSelects(){
-  const s1 = document.getElementById("codigo");
-  const s2 = document.getElementById("produto");
-  const s3 = document.getElementById("imagem");
+        <div id="msgFinal" class="statusbar hidden" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </div>
 
-  const opt = headers.map(h=>`<option>${h}</option>`).join("");
+  <script>
+    const state = {
+      arquivo: null,
+      arquivoNome: "",
+      abas: [],
+      abaAtual: "",
+      planilhas: {},
+      metadados: {},
+      headers: [],
+      rows: [],
+      selecionados: new Set(),
+      pagina: 1,
+      porPagina: 100,
+      dragIndex: null,
+      touchDragIndex: null,
+      touchLongPressTimer: null,
+      visibleHeaders: new Set(),
+      map: {
+        codigo: "",
+        produto: "",
+        imagem: "",
+        container: "",
+        lote: "",
+        caixas: "",
+        unidades: "",
+        fator: "",
+        nf: "",
+        fornecedor: ""
+      }
+    };
 
-  s1.innerHTML = opt;
-  s2.innerHTML = opt;
-  s3.innerHTML = opt;
-}
+    const labelMap = {
+      codigo: "Código",
+      produto: "Produto",
+      imagem: "Imagem",
+      container: "Container",
+      lote: "Lote",
+      caixas: "Caixas",
+      unidades: "Unidades",
+      fator: "Fator (Q/C)",
+      nf: "NF",
+      fornecedor: "Fornecedor"
+    };
 
-function montarTabela(){
-  const thead = document.getElementById("thead");
-  const tbody = document.getElementById("tbody");
+    const arquivoInput = document.getElementById("arquivoInput");
+    const arquivoNome = document.getElementById("arquivoNome");
+    const btnAnalisar = document.getElementById("btnAnalisar");
+    const btnImportar = document.getElementById("btnImportar");
+    const tbody = document.getElementById("tbody");
+    const thead = document.getElementById("thead");
+    const infoLinhas = document.getElementById("infoLinhas");
+    const paginaInfo = document.getElementById("paginaInfo");
+    const porPagina = document.getElementById("porPagina");
+    const msgFinal = document.getElementById("msgFinal");
+    const tableWrap = document.getElementById("tableWrap");
+    const loadingModal = document.getElementById("loadingModal");
+    const previewModal = document.getElementById("previewModal");
+    const filterModal = document.getElementById("filterModal");
+    const filterList = document.getElementById("filterList");
+    const mappingList = document.getElementById("mappingList");
 
-  thead.innerHTML = "<tr>" + headers.map(h=>`<th>${h}</th>`).join("") + "</tr>";
+    arquivoInput.addEventListener("change", () => {
+      state.arquivo = arquivoInput.files[0] || null;
+      state.arquivoNome = state.arquivo ? state.arquivo.name : "";
+      arquivoNome.textContent = state.arquivoNome || "Aguardando arquivo...";
+    });
 
-  tbody.innerHTML = dados.map(row=>{
-    return "<tr>" + headers.map(h=>{
-      let val = row[h] || "";
+    btnAnalisar.addEventListener("click", analisar);
+    btnImportar.addEventListener("click", importar);
+    porPagina.addEventListener("change", () => {
+      state.porPagina = Number(porPagina.value || 100);
+      state.pagina = 1;
+      renderTabela();
+    });
 
-      if(h.toLowerCase().includes("picture")){
-        return `<td><img class="img-thumb" src="${val}" onerror="this.style.display='none'"></td>`;
+    function abrirLoading(texto = "Analisando planilha e preparando pré-visualização.") {
+      document.getElementById("loadingText").textContent = texto;
+      loadingModal.classList.remove("hidden");
+    }
+
+    function fecharLoading() {
+      loadingModal.classList.add("hidden");
+    }
+
+    function abrirPreview() {
+      previewModal.classList.remove("hidden");
+    }
+
+    function fecharPreview() {
+      previewModal.classList.add("hidden");
+    }
+
+    function abrirFiltro() {
+      renderFiltro();
+      filterModal.classList.remove("hidden");
+    }
+
+    function fecharFiltro() {
+      filterModal.classList.add("hidden");
+    }
+
+    function htmlEscape(str = "") {
+      return String(str)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function guessMap() {
+      const headers = state.headers;
+      const normalized = headers.map(h => ({
+        raw: h,
+        norm: String(h).toLowerCase().trim()
+      }));
+
+      function findHeader(possibles) {
+        const exact = normalized.find(h => possibles.includes(h.norm));
+        if (exact) return exact.raw;
+
+        const contains = normalized.find(h => possibles.some(p => h.norm.includes(p)));
+        return contains ? contains.raw : "";
       }
 
-      return `<td>${val}</td>`;
-    }).join("") + "</tr>";
-  }).join("");
-}
+      state.map.codigo = findHeader(["item no", "codigo", "código", "货号", "客人货号"]) || state.map.codigo;
+      state.map.produto = findHeader(["description", "produto", "descrição", "品名"]) || state.map.produto;
+      state.map.imagem = findHeader(["picture", "imagem", "image", "产品图片"]) || state.map.imagem;
+      state.map.container = findHeader(["container", "contêiner", "conteiner"]) || state.map.container;
+      state.map.lote = findHeader(["lote", "lot", "batch"]) || state.map.lote;
+      state.map.caixas = findHeader(["ctns", "caixas", "cartons"]) || state.map.caixas;
+      state.map.unidades = findHeader(["t.qty", "unidades", "qty", "数量"]) || state.map.unidades;
+      state.map.fator = findHeader(["q/c", "fator", "qc"]) || state.map.fator;
+      state.map.nf = findHeader(["nf", "nota", "invoice"]) || state.map.nf;
+      state.map.fornecedor = findHeader(["fornecedor", "supplier", "vendor"]) || state.map.fornecedor;
+    }
 
-function abrirFiltro(){
-  document.getElementById("filtro").classList.remove("hidden");
-}
+    async function analisar() {
+      if (!state.arquivo) {
+        alert("Selecione um arquivo primeiro.");
+        return;
+      }
 
-function fecharFiltro(){
-  document.getElementById("filtro").classList.add("hidden");
-}
+      btnAnalisar.disabled = true;
+      btnAnalisar.textContent = "Analisando...";
+      abrirLoading();
 
-function fecharPreview(){
-  document.getElementById("preview").classList.add("hidden");
-}
+      try {
+        const fd = new FormData();
+        fd.append("arquivo", state.arquivo);
+        fd.append("file", state.arquivo);
 
-</script>
+        const res = await fetch("/api/importar-container", {
+          method: "POST",
+          body: fd
+        });
 
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) throw new Error(data.erro || data.detalhe || "Erro ao analisar contêiner.");
+
+        state.abas = Array.isArray(data.abas) ? data.abas : [];
+        state.planilhas = data.planilhas || {};
+        state.metadados = data.metadados || {};
+        state.abaAtual = state.abas[0] || "";
+        state.rows = state.planilhas[state.abaAtual] || [];
+        state.headers = ((state.metadados[state.abaAtual] || {}).cabecalhos || []).filter(h => h !== "__excelRow");
+        state.visibleHeaders = new Set(state.headers);
+        state.selecionados = new Set(state.rows.map((_, idx) => idx));
+        state.pagina = 1;
+
+        guessMap();
+        renderTabela();
+        renderFiltro();
+        abrirPreview();
+      } catch (err) {
+        console.error(err);
+        alert(err.message || "Erro ao analisar contêiner.");
+      } finally {
+        fecharLoading();
+        btnAnalisar.disabled = false;
+        btnAnalisar.textContent = "Analisar";
+      }
+    }
+
+    function getDisplayDescription(row) {
+      const original = (
+        row.descricao_original ||
+        row.DESCRIPTION ||
+        row["品名"] ||
+        row[state.map.produto] ||
+        ""
+      ).trim();
+
+      const traducao = (
+        row.descricao_traduzida ||
+        row.traducao ||
+        ""
+      ).trim();
+
+      if (traducao && original && traducao !== original) {
+        return `
+          <span class="desc-main">${htmlEscape(traducao.toUpperCase())}</span>
+          <span class="desc-original">${htmlEscape(original)}</span>
+        `;
+      }
+
+      if (traducao) {
+        return `<span class="desc-main">${htmlEscape(traducao.toUpperCase())}</span>`;
+      }
+
+      return `<span class="desc-main">${htmlEscape(original)}</span>`;
+    }
+
+    function getImageHtml(row) {
+      const selectedHeader = state.map.imagem;
+      const value =
+        row.imagem || row.Imagem || row.IMAGEM ||
+        row.image || row.Image || row.IMAGE ||
+        row.picture || row.Picture || row.PICTURE ||
+        (selectedHeader ? row[selectedHeader] : "");
+
+      const codigoHeader = state.map.codigo;
+      const codigo = codigoHeader ? row[codigoHeader] : row["ITEM NO"] || row.codigo || "";
+
+      if (value && String(value).trim()) {
+        let src = String(value).trim();
+        if (!src.startsWith("http") && !src.startsWith("/uploads") && !src.startsWith("data:image")) {
+          src = `/uploads/produtos/${src}`;
+        }
+        return `<img class="img-thumb" src="${htmlEscape(src)}" alt="imagem" onerror="this.outerHTML='<span class=&quot;sem-img&quot;>Sem imagem</span>'">`;
+      }
+
+      if (codigo) {
+        const fallback = `/uploads/produtos/${encodeURIComponent(String(codigo).trim())}.png`;
+        return `<img class="img-thumb" src="${htmlEscape(fallback)}" alt="imagem" onerror="this.outerHTML='<span class=&quot;sem-img&quot;>Sem imagem</span>'">`;
+      }
+
+      return `<span class="sem-img">Sem imagem</span>`;
+    }
+
+    function isChecked(realIndex) {
+      return state.selecionados.has(realIndex);
+    }
+
+    function toggleChecked(realIndex, checked) {
+      if (checked) state.selecionados.add(realIndex);
+      else state.selecionados.delete(realIndex);
+      atualizarInfo();
+    }
+
+    function getRowsPagina() {
+      const ini = (state.pagina - 1) * state.porPagina;
+      const fim = ini + state.porPagina;
+      return state.rows.slice(ini, fim).map((row, idx) => ({ row, realIndex: ini + idx }));
+    }
+
+    function getVisibleColumns() {
+      return state.headers.filter(h => state.visibleHeaders.has(h));
+    }
+
+    function toggleHeaderVisibility(header, checked) {
+      if (checked) state.visibleHeaders.add(header);
+      else state.visibleHeaders.delete(header);
+      renderTabela();
+      renderFiltro();
+    }
+
+    function renderFiltro() {
+      filterList.innerHTML = state.headers.map(h => `
+        <label class="filter-item">
+          <input type="checkbox" class="chk" ${state.visibleHeaders.has(h) ? "checked" : ""} onchange="toggleColuna('${String(h).replaceAll("'", "\\'")}', this.checked)">
+          <span>${htmlEscape(h)}</span>
+        </label>
+      `).join("");
+
+      mappingList.innerHTML = Object.keys(labelMap).map(key => `
+        <label class="filter-item">
+          <input type="radio" name="map_${key}" class="chk" ${state.map[key] === "" ? "checked" : ""} onclick="setMap('${key}', '')">
+          <span>${labelMap[key]}: não usar</span>
+        </label>
+      `).join("") + state.headers.map(h => Object.keys(labelMap).map(key => `
+        <label class="filter-item">
+          <input type="radio" name="map_${key}" class="chk" ${state.map[key] === h ? "checked" : ""} onclick="setMap('${key}', '${String(h).replaceAll("'", "\\'")}')">
+          <span>${labelMap[key]} → ${htmlEscape(h)}</span>
+        </label>
+      `).join("")).join("");
+    }
+
+    function setMap(key, value) {
+      state.map[key] = value;
+      renderTabela();
+      renderFiltro();
+    }
+
+    function renderTabela() {
+      const rowsPagina = getRowsPagina();
+      const columns = getVisibleColumns();
+
+      thead.innerHTML = `
+        <tr>
+          <th style="width:52px"></th>
+          ${columns.map((h) => `<th>${htmlEscape(h)}</th>`).join("")}
+        </tr>
+      `;
+
+      tbody.innerHTML = rowsPagina.map(({ row, realIndex }) => `
+        <tr>
+          <td>
+            <input class="chk" type="checkbox" ${isChecked(realIndex) ? "checked" : ""} onchange="toggleLinha(${realIndex}, this.checked)">
+          </td>
+          ${columns.map((h) => renderCell(h, row)).join("")}
+        </tr>
+      `).join("");
+
+      paginaInfo.textContent = `Página ${state.pagina}`;
+      atualizarInfo();
+    }
+
+    function renderCell(header, row) {
+      if (state.map.imagem && header === state.map.imagem) {
+        return `<td>${getImageHtml(row)}</td>`;
+      }
+
+      if (state.map.produto && header === state.map.produto) {
+        return `<td>${getDisplayDescription(row)}</td>`;
+      }
+
+      return `<td>${htmlEscape(row[header] ?? "")}</td>`;
+    }
+
+    function atualizarInfo() {
+      infoLinhas.textContent = `${state.rows.length} linhas • ${state.selecionados.size} selecionadas • aba ${state.abaAtual || "-"}`;
+    }
+
+    function toggleLinha(realIndex, checked) {
+      toggleChecked(realIndex, checked);
+    }
+
+    function selecionarPagina() {
+      getRowsPagina().forEach(({ realIndex }) => state.selecionados.add(realIndex));
+      renderTabela();
+    }
+
+    function desmarcarPagina() {
+      getRowsPagina().forEach(({ realIndex }) => state.selecionados.delete(realIndex));
+      renderTabela();
+    }
+
+    function selecionarTodas() {
+      state.selecionados = new Set(state.rows.map((_, idx) => idx));
+      renderTabela();
+    }
+
+    function desmarcarTodas() {
+      state.selecionados.clear();
+      renderTabela();
+    }
+
+    function paginaAnterior() {
+      if (state.pagina > 1) {
+        state.pagina -= 1;
+        renderTabela();
+      }
+    }
+
+    function proximaPagina() {
+      const totalPaginas = Math.max(1, Math.ceil(state.rows.length / state.porPagina));
+      if (state.pagina < totalPaginas) {
+        state.pagina += 1;
+        renderTabela();
+      }
+    }
+
+    function moverHorizontal(dir) {
+      tableWrap.scrollLeft += dir * 240;
+    }
+
+    function irInicio() {
+      tableWrap.scrollLeft = 0;
+    }
+
+    function irFim() {
+      tableWrap.scrollLeft = tableWrap.scrollWidth;
+    }
+
+    async function importar() {
+      const itens = Array.from(state.selecionados).map(i => state.rows[i]).filter(Boolean);
+      if (!itens.length) {
+        alert("Nenhum item selecionado.");
+        return;
+      }
+
+      btnImportar.disabled = true;
+      btnImportar.textContent = "Importando...";
+      abrirLoading("Importando itens selecionados...");
+
+      try {
+        const res = await fetch("/api/estoque/container", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            arquivo: state.arquivoNome,
+            aba: state.abaAtual,
+            itens,
+            campos: state.map,
+            camposDetectados: ((state.metadados[state.abaAtual] || {}).camposDetectados || {})
+          })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) throw new Error(data.erro || "Erro ao importar.");
+
+        msgFinal.classList.remove("hidden");
+        msgFinal.textContent = `✔ Importação concluída. ${data.inseridos || 0} itens importados.`;
+      } catch (err) {
+        console.error(err);
+        alert(err.message || "Erro ao importar.");
+      } finally {
+        fecharLoading();
+        btnImportar.disabled = false;
+        btnImportar.textContent = "Importar Contêiner";
+      }
+    }
+
+    window.toggleLinha = toggleLinha;
+    window.selecionarPagina = selecionarPagina;
+    window.desmarcarPagina = desmarcarPagina;
+    window.selecionarTodas = selecionarTodas;
+    window.desmarcarTodas = desmarcarTodas;
+    window.paginaAnterior = paginaAnterior;
+    window.proximaPagina = proximaPagina;
+    window.moverHorizontal = moverHorizontal;
+    window.irInicio = irInicio;
+    window.irFim = irFim;
+    window.toggleColuna = toggleHeaderVisibility;
+    window.abrirFiltro = abrirFiltro;
+    window.fecharFiltro = fecharFiltro;
+    window.fecharPreview = fecharPreview;
+    window.setMap = setMap;
+  </script>
 </body>
 </html>
