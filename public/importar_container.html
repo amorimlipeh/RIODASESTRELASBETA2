@@ -1,991 +1,249 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Importador Contêiner</title>
-  <style>
-    :root{
-      --bg:#071a36;
-      --panel:#0b2545;
-      --line:#1d3c66;
-      --text:#fff;
-      --muted:#b9c7da;
-      --btn:#3b73e6;
-      --btn2:#24436c;
-      --shadow:0 6px 22px rgba(0,0,0,.28);
-      --ok:#22c55e;
-      --danger:#ef4444;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Importador Contêiner</title>
 
-    *{ box-sizing:border-box; }
+<style>
+body{
+  margin:0;
+  font-family:Arial;
+  background:#071a36;
+  color:#fff;
+}
 
-    body{
-      margin:0;
-      background:linear-gradient(180deg,#041229 0%,#071a36 100%);
-      font-family:Arial,Helvetica,sans-serif;
-      color:var(--text);
-    }
+.topbar{
+  background:#12336b;
+  padding:14px;
+  display:flex;
+  justify-content:space-between;
+}
 
-    .wrap{
-      max-width:1200px;
-      margin:0 auto;
-      padding:14px;
-    }
+.btn{
+  background:#3b73e6;
+  border:none;
+  color:#fff;
+  padding:10px 14px;
+  border-radius:10px;
+  font-weight:bold;
+  cursor:pointer;
+}
 
-    .topbar{
-      position:sticky;
-      top:0;
-      z-index:10;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      background:#12336b;
-      padding:16px 18px;
-      border-bottom:1px solid rgba(255,255,255,.08);
-    }
+.card{
+  padding:14px;
+}
 
-    .topbar h1{
-      margin:0;
-      font-size:18px;
-    }
+.modal-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.6);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  z-index:999;
+}
 
-    .card{
-      background:rgba(6,24,54,.96);
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:18px;
-      padding:14px;
-      box-shadow:var(--shadow);
-      margin:14px 0;
-    }
+.modal{
+  background:#071a36;
+  width:95%;
+  max-height:90vh;
+  overflow:auto;
+  border-radius:16px;
+}
 
-    .btn{
-      background:var(--btn);
-      color:#fff;
-      border:0;
-      border-radius:12px;
-      padding:12px 16px;
-      font-weight:700;
-      cursor:pointer;
-      box-shadow:var(--shadow);
-    }
+.hidden{ display:none }
 
-    .btn.secondary{ background:var(--btn2); }
-    .btn.small{
-      padding:8px 12px;
-      font-size:12px;
-      border-radius:10px;
-    }
-    .btn:disabled{
-      opacity:.55;
-      cursor:not-allowed;
-    }
+.table-wrap{
+  overflow:auto;
+}
 
-    .statusbar,
-    .select{
-      width:100%;
-      background:#173a6c;
-      color:#fff;
-      border:1px solid #2e548e;
-      border-radius:14px;
-      padding:14px 16px;
-      font-size:16px;
-    }
+table{
+  width:100%;
+  border-collapse:collapse;
+}
 
-    .actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:10px;
-    }
+th,td{
+  padding:10px;
+  border-bottom:1px solid rgba(255,255,255,.1);
+}
 
-    .muted{ color:var(--muted); }
+.img-thumb{
+  width:60px;
+  height:60px;
+  border-radius:10px;
+  object-fit:cover;
+}
 
-    .hidden{ display:none !important; }
+.desc-main{
+  font-weight:bold;
+}
 
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      background:#183866;
-      border-radius:999px;
-      padding:10px 14px;
-      color:#fff;
-    }
+.desc-original{
+  font-size:11px;
+  opacity:.6;
+}
 
-    .hint{
-      background:#173a6c;
-      border-radius:16px;
-      padding:12px 16px;
-      color:#d9e5ff;
-    }
+.filter-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
 
-    .modal-backdrop{
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,.55);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      z-index:999;
-      padding:14px;
-    }
-
-    .modal{
-      width:min(98vw, 1220px);
-      max-height:92vh;
-      overflow:auto;
-      background:#071a36;
-      border:1px solid rgba(255,255,255,.1);
-      border-radius:18px;
-      box-shadow:0 20px 60px rgba(0,0,0,.45);
-    }
-
-    .modal-header{
-      position:sticky;
-      top:0;
-      z-index:2;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      padding:14px 16px;
-      background:#12336b;
-      border-bottom:1px solid rgba(255,255,255,.08);
-    }
-
-    .modal-title{
-      font-size:18px;
-      font-weight:800;
-      margin:0;
-    }
-
-    .modal-body{
-      padding:14px;
-    }
-
-    .toolbar-row{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      margin-top:12px;
-    }
-
-    .table-wrap{
-      overflow:auto;
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:16px;
-      margin-top:12px;
-    }
-
-    table{
-      width:max-content;
-      min-width:100%;
-      border-collapse:collapse;
-      background:#082048;
-    }
-
-    th,td{
-      padding:10px 10px;
-      border-bottom:1px solid rgba(255,255,255,.08);
-      text-align:left;
-      vertical-align:middle;
-      white-space:nowrap;
-    }
-
-    th{
-      position:sticky;
-      top:0;
-      background:#0b2a59;
-      z-index:1;
-    }
-
-    .chk{
-      width:18px;
-      height:18px;
-    }
-
-    .th-check{
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-
-    .img-thumb{
-      width:64px;
-      height:64px;
-      object-fit:cover;
-      border-radius:12px;
-      border:1px solid rgba(255,255,255,.12);
-      background:#0f2341;
-    }
-
-    .sem-img{
-      font-size:12px;
-      color:#cfd8ea;
-    }
-
-    .desc-main{
-      display:block;
-      font-weight:800;
-      color:#fff;
-      line-height:1.2;
-      white-space:normal;
-      max-width:240px;
-    }
-
-    .desc-original{
-      display:block;
-      font-size:11px;
-      color:#b8c7df;
-      line-height:1.25;
-      margin-top:4px;
-      white-space:normal;
-      max-width:240px;
-      opacity:.9;
-    }
-
-    .filter-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(180px,1fr));
-      gap:12px 16px;
-    }
-
-    .field label{
-      display:block;
-      font-weight:700;
-      margin-bottom:6px;
-    }
-
-    .loading-box{
-      width:min(92vw,420px);
-      background:#0b2545;
-      border:1px solid rgba(255,255,255,.1);
-      border-radius:18px;
-      padding:22px 18px;
-      box-shadow:0 20px 60px rgba(0,0,0,.45);
-      text-align:center;
-    }
-
-    .spinner{
-      width:56px;
-      height:56px;
-      border:5px solid rgba(255,255,255,.18);
-      border-top-color:#4f8cff;
-      border-radius:50%;
-      margin:0 auto 16px;
-      animation:spin 1s linear infinite;
-    }
-
-    .progress{
-      width:100%;
-      height:12px;
-      border-radius:999px;
-      background:#163153;
-      overflow:hidden;
-      margin-top:14px;
-    }
-
-    .progress > div{
-      height:100%;
-      width:55%;
-      background:linear-gradient(90deg,#2c7be5,#49c6ff);
-      border-radius:999px;
-      animation:progressMove 1.4s ease-in-out infinite;
-    }
-
-    .filter-list{
-      margin-top:8px;
-      display:grid;
-      grid-template-columns:repeat(2,minmax(120px,1fr));
-      gap:10px;
-    }
-
-    .filter-item{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      background:#102a4d;
-      border:1px solid rgba(255,255,255,.08);
-      padding:10px 12px;
-      border-radius:12px;
-    }
-
-    @keyframes spin{
-      to{ transform:rotate(360deg); }
-    }
-
-    @keyframes progressMove{
-      0%{ transform:translateX(-55%); }
-      100%{ transform:translateX(180%); }
-    }
-
-    @media (max-width:900px){
-      .filter-grid{ grid-template-columns:1fr 1fr; }
-    }
-
-    @media (max-width:640px){
-      .wrap{ padding:8px; }
-      .topbar h1{ font-size:16px; }
-      .filter-grid{ grid-template-columns:1fr; }
-      .desc-main,.desc-original{ max-width:180px; }
-      .filter-list{ grid-template-columns:1fr; }
-    }
-  </style>
+select{
+  width:100%;
+  padding:10px;
+  border-radius:10px;
+  background:#12336b;
+  color:#fff;
+  border:none;
+}
+</style>
 </head>
+
 <body>
-  <div class="topbar">
-    <h1>Pré-visualização Contêiner</h1>
-    <button class="btn secondary small" onclick="window.location.href='/'">Fechar</button>
-  </div>
 
-  <div class="wrap">
+<div class="topbar">
+  <b>Importador Contêiner</b>
+</div>
+
+<div class="card">
+  <input type="file" id="file">
+  <button class="btn" onclick="analisar()">Analisar</button>
+</div>
+
+<!-- LOADING -->
+<div id="loading" class="modal-backdrop hidden">
+  <div class="modal" style="padding:30px;text-align:center">
+    <h2>Carregando...</h2>
+  </div>
+</div>
+
+<!-- PREVIEW -->
+<div id="preview" class="modal-backdrop hidden">
+  <div class="modal">
+
+    <div class="topbar">
+      <b>Pré-visualização</b>
+      <div>
+        <button class="btn" onclick="abrirFiltro()">Filtro</button>
+        <button class="btn" onclick="fecharPreview()">Fechar</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead id="thead"></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- FILTRO -->
+<div id="filtro" class="modal-backdrop hidden">
+  <div class="modal">
+
+    <div class="topbar">
+      <b>Filtro</b>
+      <button class="btn" onclick="fecharFiltro()">Fechar</button>
+    </div>
+
     <div class="card">
-      <div class="actions">
-        <label class="btn" for="arquivoInput">Escolher arquivos</label>
-        <input id="arquivoInput" type="file" accept=".xls,.xlsx,.csv,.pdf" class="hidden">
-        <button id="btnAnalisar" class="btn">Analisar</button>
+
+      <div class="filter-grid">
+        <select id="codigo"></select>
+        <select id="produto"></select>
+        <select id="imagem"></select>
       </div>
 
-      <div id="arquivoNome" class="statusbar" style="margin-top:10px">Aguardando arquivo...</div>
-      <div class="muted" style="margin-top:8px">Selecione XLS, XLSX, CSV ou PDF.</div>
     </div>
+
   </div>
+</div>
 
-  <!-- MODAL CARREGAMENTO -->
-  <div id="loadingModal" class="modal-backdrop hidden">
-    <div class="loading-box">
-      <div class="spinner"></div>
-      <div style="font-size:20px;font-weight:800;">Carregando arquivo...</div>
-      <div id="loadingText" class="muted" style="margin-top:8px;">Analisando planilha e preparando pré-visualização.</div>
-      <div class="progress"><div></div></div>
-    </div>
-  </div>
+<script>
 
-  <!-- MODAL FILTRO -->
-  <div id="filterModal" class="modal-backdrop hidden">
-    <div class="modal" style="width:min(92vw,700px)">
-      <div class="modal-header">
-        <h2 class="modal-title">Filtro de visualização</h2>
-        <button class="btn secondary small" onclick="fecharFiltro()">Fechar</button>
-      </div>
-      <div class="modal-body">
-        <div class="muted" style="margin-bottom:10px;">Escolha quais campos quer deixar visíveis na pré-visualização.</div>
-        <div id="filterList" class="filter-list"></div>
-      </div>
-    </div>
-  </div>
+let dados = [];
+let headers = [];
 
-  <!-- MODAL PRÉ-VISUALIZAÇÃO -->
-  <div id="previewModal" class="modal-backdrop hidden">
-    <div class="modal">
-      <div class="modal-header">
-        <h2 class="modal-title">Pré-visualização Contêiner</h2>
-        <div class="actions" style="margin:0">
-          <button class="btn secondary small" onclick="abrirFiltro()">Filtro</button>
-          <button class="btn secondary small" onclick="fecharPreview()">Fechar</button>
-        </div>
-      </div>
+function showLoading(v){
+  document.getElementById("loading").classList.toggle("hidden", !v);
+}
 
-      <div class="modal-body">
-        <div class="filter-grid">
-          <div class="field"><label>Código</label><select id="mapCodigo" class="select"></select></div>
-          <div class="field"><label>Produto</label><select id="mapProduto" class="select"></select></div>
-          <div class="field"><label>Container</label><select id="mapContainer" class="select"></select></div>
-          <div class="field"><label>Lote</label><select id="mapLote" class="select"></select></div>
-          <div class="field"><label>Caixas</label><select id="mapCaixas" class="select"></select></div>
-          <div class="field"><label>Unidades</label><select id="mapUnidades" class="select"></select></div>
-          <div class="field"><label>Fator (Q/C)</label><select id="mapFator" class="select"></select></div>
-          <div class="field"><label>NF</label><select id="mapNf" class="select"></select></div>
-          <div class="field"><label>Fornecedor</label><select id="mapFornecedor" class="select"></select></div>
-          <div class="field"><label>Imagem</label><select id="mapImagem" class="select"></select></div>
-        </div>
+function analisar(){
+  const file = document.getElementById("file").files[0];
+  if(!file) return alert("Selecione arquivo");
 
-        <div class="toolbar-row">
-          <button class="btn small" onclick="selecionarPagina()">Selecionar página</button>
-          <button class="btn secondary small" onclick="desmarcarPagina()">Desmarcar página</button>
-          <button class="btn small" onclick="selecionarTodas()">Selecionar todas</button>
-          <button class="btn secondary small" onclick="desmarcarTodas()">Desmarcar todas</button>
-          <span id="infoLinhas" class="pill">0 linhas</span>
-        </div>
+  showLoading(true);
 
-        <div class="toolbar-row">
-          <button class="btn secondary small" onclick="moverHorizontal(-1)">◀ Esquerda</button>
-          <button class="btn secondary small" onclick="moverHorizontal(1)">Direita ▶</button>
-          <button class="btn secondary small" onclick="irInicio()">Início</button>
-          <button class="btn secondary small" onclick="irFim()">Fim</button>
-          <div class="hint">Para mover colunas no celular, toque e segure no cabeçalho por um instante e arraste.</div>
-        </div>
+  const fd = new FormData();
+  fd.append("arquivo", file);
 
-        <div class="table-wrap" id="tableWrap">
-          <table>
-            <thead id="thead"></thead>
-            <tbody id="tbody"></tbody>
-          </table>
-        </div>
+  fetch("/api/importar-container",{method:"POST",body:fd})
+  .then(r=>r.json())
+  .then(res=>{
+    showLoading(false);
 
-        <div class="toolbar-row">
-          <button class="btn secondary small" onclick="paginaAnterior()">Anterior</button>
-          <button class="btn secondary small" onclick="proximaPagina()">Próxima</button>
-          <span id="paginaInfo" class="pill">Página 1</span>
-          <span class="muted">Por página</span>
-          <select id="porPagina" class="select" style="max-width:110px;padding:10px 12px">
-            <option>20</option>
-            <option>50</option>
-            <option selected>100</option>
-            <option>200</option>
-          </select>
-        </div>
+    dados = res.planilhas[res.abas[0]];
+    headers = Object.keys(dados[0] || {});
 
-        <div class="actions" style="margin-top:16px">
-          <button id="btnImportar" class="btn">Importar Contêiner</button>
-        </div>
+    montarTabela();
+    montarSelects();
 
-        <div id="msgFinal" class="statusbar hidden" style="margin-top:12px"></div>
-      </div>
-    </div>
-  </div>
+    document.getElementById("preview").classList.remove("hidden");
+  })
+  .catch(()=>{
+    showLoading(false);
+    alert("Erro ao analisar");
+  });
+}
 
-  <script>
-    const state = {
-      arquivo: null,
-      arquivoNome: "",
-      abas: [],
-      abaAtual: "",
-      planilhas: {},
-      metadados: {},
-      headers: [],
-      rows: [],
-      selecionados: new Set(),
-      pagina: 1,
-      porPagina: 100,
-      dragIndex: null,
-      touchDragIndex: null,
-      touchLongPressTimer: null,
-      visibleHeaders: new Set()
-    };
+function montarSelects(){
+  const s1 = document.getElementById("codigo");
+  const s2 = document.getElementById("produto");
+  const s3 = document.getElementById("imagem");
 
-    const mapIds = {
-      codigo: "mapCodigo",
-      produto: "mapProduto",
-      container: "mapContainer",
-      lote: "mapLote",
-      caixas: "mapCaixas",
-      unidades: "mapUnidades",
-      fator: "mapFator",
-      nf: "mapNf",
-      fornecedor: "mapFornecedor",
-      imagem: "mapImagem"
-    };
+  const opt = headers.map(h=>`<option>${h}</option>`).join("");
 
-    const arquivoInput = document.getElementById("arquivoInput");
-    const arquivoNome = document.getElementById("arquivoNome");
-    const btnAnalisar = document.getElementById("btnAnalisar");
-    const btnImportar = document.getElementById("btnImportar");
-    const tbody = document.getElementById("tbody");
-    const thead = document.getElementById("thead");
-    const infoLinhas = document.getElementById("infoLinhas");
-    const paginaInfo = document.getElementById("paginaInfo");
-    const porPagina = document.getElementById("porPagina");
-    const msgFinal = document.getElementById("msgFinal");
-    const tableWrap = document.getElementById("tableWrap");
-    const loadingModal = document.getElementById("loadingModal");
-    const previewModal = document.getElementById("previewModal");
-    const filterModal = document.getElementById("filterModal");
-    const filterList = document.getElementById("filterList");
+  s1.innerHTML = opt;
+  s2.innerHTML = opt;
+  s3.innerHTML = opt;
+}
 
-    arquivoInput.addEventListener("change", () => {
-      state.arquivo = arquivoInput.files[0] || null;
-      state.arquivoNome = state.arquivo ? state.arquivo.name : "";
-      arquivoNome.textContent = state.arquivoNome || "Aguardando arquivo...";
-    });
+function montarTabela(){
+  const thead = document.getElementById("thead");
+  const tbody = document.getElementById("tbody");
 
-    btnAnalisar.addEventListener("click", analisar);
-    btnImportar.addEventListener("click", importar);
-    porPagina.addEventListener("change", () => {
-      state.porPagina = Number(porPagina.value || 100);
-      state.pagina = 1;
-      renderTabela();
-    });
+  thead.innerHTML = "<tr>" + headers.map(h=>`<th>${h}</th>`).join("") + "</tr>";
 
-    function abrirLoading(texto = "Analisando planilha e preparando pré-visualização.") {
-      document.getElementById("loadingText").textContent = texto;
-      loadingModal.classList.remove("hidden");
-    }
+  tbody.innerHTML = dados.map(row=>{
+    return "<tr>" + headers.map(h=>{
+      let val = row[h] || "";
 
-    function fecharLoading() {
-      loadingModal.classList.add("hidden");
-    }
-
-    function abrirPreview() {
-      previewModal.classList.remove("hidden");
-    }
-
-    function fecharPreview() {
-      previewModal.classList.add("hidden");
-    }
-
-    function abrirFiltro() {
-      renderFiltro();
-      filterModal.classList.remove("hidden");
-    }
-
-    function fecharFiltro() {
-      filterModal.classList.add("hidden");
-    }
-
-    function htmlEscape(str = "") {
-      return String(str)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
-
-    function getSelectValue(key) {
-      const el = document.getElementById(mapIds[key]);
-      return el ? el.value : "";
-    }
-
-    function popularMaps() {
-      const headers = state.headers;
-      const detected = ((state.metadados[state.abaAtual] || {}).camposDetectados) || {};
-      const opts = ['<option value="">-- não usar --</option>']
-        .concat(headers.map(h => `<option value="${htmlEscape(h)}">${htmlEscape(h)}</option>`))
-        .join("");
-
-      Object.entries(mapIds).forEach(([campo, id]) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.innerHTML = opts;
-        if (detected[campo]) el.value = detected[campo];
-      });
-    }
-
-    async function analisar() {
-      if (!state.arquivo) {
-        alert("Selecione um arquivo primeiro.");
-        return;
+      if(h.toLowerCase().includes("picture")){
+        return `<td><img class="img-thumb" src="${val}" onerror="this.style.display='none'"></td>`;
       }
 
-      btnAnalisar.disabled = true;
-      btnAnalisar.textContent = "Analisando...";
-      abrirLoading();
+      return `<td>${val}</td>`;
+    }).join("") + "</tr>";
+  }).join("");
+}
 
-      try {
-        const fd = new FormData();
-        fd.append("arquivo", state.arquivo);
-        fd.append("file", state.arquivo);
+function abrirFiltro(){
+  document.getElementById("filtro").classList.remove("hidden");
+}
 
-        const res = await fetch("/api/importar-container", {
-          method: "POST",
-          body: fd
-        });
+function fecharFiltro(){
+  document.getElementById("filtro").classList.add("hidden");
+}
 
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.ok) throw new Error(data.erro || data.detalhe || "Erro ao analisar contêiner.");
+function fecharPreview(){
+  document.getElementById("preview").classList.add("hidden");
+}
 
-        state.abas = Array.isArray(data.abas) ? data.abas : [];
-        state.planilhas = data.planilhas || {};
-        state.metadados = data.metadados || {};
-        state.abaAtual = state.abas[0] || "";
-        state.rows = state.planilhas[state.abaAtual] || [];
-        state.headers = ((state.metadados[state.abaAtual] || {}).cabecalhos || []).filter(h => h !== "__excelRow");
-        state.visibleHeaders = new Set(state.headers);
-        state.selecionados = new Set(state.rows.map((_, idx) => idx));
-        state.pagina = 1;
+</script>
 
-        popularMaps();
-        renderTabela();
-        abrirPreview();
-      } catch (err) {
-        console.error(err);
-        alert(err.message || "Erro ao analisar contêiner.");
-      } finally {
-        fecharLoading();
-        btnAnalisar.disabled = false;
-        btnAnalisar.textContent = "Analisar";
-      }
-    }
-
-    function limparTexto(texto = "") {
-      return String(texto)
-        .replace(/[^\x00-\x7F\u4e00-\u9fa5\s.\-\/]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-    }
-
-    function melhorarDescricao(texto = "") {
-      let t = limparTexto(texto);
-
-      t = t.replace(/地图银箔冰箱贴/g, "ímã de geladeira mapa prata");
-      t = t.replace(/银箔冰箱贴/g, "ímã de geladeira prata");
-      t = t.replace(/地图圆镜冰箱贴/g, "ímã de geladeira mapa com espelho redondo");
-      t = t.replace(/圆镜冰箱贴/g, "ímã de geladeira com espelho redondo");
-      t = t.replace(/铝片车牌冰箱贴/g, "ímã de geladeira placa de carro em alumínio");
-      t = t.replace(/7\.5塑料双面镜/g, "espelho dupla face plástico 7.5 cm");
-      t = t.replace(/7\.5双面镜/g, "espelho dupla face 7.5 cm");
-      t = t.replace(/塑料双面镜/g, "espelho dupla face plástico");
-      t = t.replace(/桃心镜子/g, "espelho coração");
-      t = t.replace(/帆布袋/g, "saco de lona");
-      t = t.replace(/帆布包/g, "bolsa de lona");
-      t = t.replace(/地图/g, "mapa");
-      t = t.replace(/冰箱贴/g, "ímã de geladeira");
-      t = t.replace(/双面镜/g, "espelho dupla face");
-      t = t.replace(/圆镜/g, "espelho redondo");
-      t = t.replace(/镜子/g, "espelho");
-      t = t.replace(/顶针/g, "dedal");
-      t = t.replace(/钥匙扣/g, "chaveiro");
-      t = t.replace(/杯垫/g, "porta-copo");
-      t = t.replace(/蓝色/g, "azul");
-      t = t.replace(/大红/g, "vermelho escuro");
-      t = t.replace(/红色/g, "vermelho");
-      t = t.replace(/粉色/g, "rosa");
-      t = t.replace(/黑色/g, "preto");
-      t = t.replace(/白色/g, "branco");
-      t = t.replace(/黄色/g, "amarelo");
-      t = t.replace(/绿色/g, "verde");
-      t = t.replace(/紫色/g, "roxo");
-      t = t.replace(/橙色/g, "laranja");
-      t = t.replace(/银色/g, "prata");
-      t = t.replace(/金色/g, "dourado");
-
-      t = t.replace(/7\.5x7\.5/gi, "7.5 x 7.5");
-      t = t.replace(/(\b[\wÀ-ÿ.-]+\b)(\s+\1)+/gi, "$1");
-      t = t.replace(/\s+/g, " ").trim();
-
-      return t;
-    }
-
-    function getDisplayDescription(row) {
-      const original = (
-        row.descricao_original ||
-        row.DESCRIPTION ||
-        row["品名"] ||
-        ""
-      ).trim();
-
-      const traducaoBackend = (
-        row.descricao_traduzida ||
-        row.traducao ||
-        ""
-      ).trim();
-
-      const traduzido = melhorarDescricao(traducaoBackend || original);
-
-      if (traduzido && original && traduzido !== original) {
-        return `
-          <span class="desc-main">${htmlEscape(traduzido.toUpperCase())}</span>
-          <span class="desc-original">${htmlEscape(original)}</span>
-        `;
-      }
-
-      return `<span class="desc-main">${htmlEscape((traduzido || original || "").toUpperCase())}</span>`;
-    }
-
-    function getImageHtml(row) {
-      const selectedHeader = getSelectValue("imagem");
-      const value =
-        row.imagem || row.Imagem || row.IMAGEM ||
-        row.image || row.Image || row.IMAGE ||
-        row.picture || row.Picture || row.PICTURE ||
-        (selectedHeader ? row[selectedHeader] : "");
-
-      const codigoHeader = getSelectValue("codigo");
-      const codigo = codigoHeader ? row[codigoHeader] : row["ITEM NO"] || row.codigo || "";
-
-      if (value && String(value).trim()) {
-        let src = String(value).trim();
-        if (!src.startsWith("http") && !src.startsWith("/uploads") && !src.startsWith("data:image")) {
-          src = `/uploads/produtos/${src}`;
-        }
-        return `<img class="img-thumb" src="${htmlEscape(src)}" alt="imagem" onerror="this.outerHTML='<span class=&quot;sem-img&quot;>Sem imagem</span>'">`;
-      }
-
-      if (codigo) {
-        const fallback = `/uploads/produtos/${encodeURIComponent(String(codigo).trim())}.png`;
-        return `<img class="img-thumb" src="${htmlEscape(fallback)}" alt="imagem" onerror="this.outerHTML='<span class=&quot;sem-img&quot;>Sem imagem</span>'">`;
-      }
-
-      return `<span class="sem-img">Sem imagem</span>`;
-    }
-
-    function isChecked(realIndex) {
-      return state.selecionados.has(realIndex);
-    }
-
-    function toggleChecked(realIndex, checked) {
-      if (checked) state.selecionados.add(realIndex);
-      else state.selecionados.delete(realIndex);
-      atualizarInfo();
-    }
-
-    function getRowsPagina() {
-      const ini = (state.pagina - 1) * state.porPagina;
-      const fim = ini + state.porPagina;
-      return state.rows.slice(ini, fim).map((row, idx) => ({ row, realIndex: ini + idx }));
-    }
-
-    function getVisibleColumns() {
-      return state.headers.filter(h => state.visibleHeaders.has(h));
-    }
-
-    function toggleHeaderVisibility(header, checked) {
-      if (checked) state.visibleHeaders.add(header);
-      else state.visibleHeaders.delete(header);
-      renderTabela();
-      renderFiltro();
-    }
-
-    function toggleAllColumns(checked) {
-      if (checked) state.visibleHeaders = new Set(state.headers);
-      else state.visibleHeaders = new Set();
-      renderTabela();
-      renderFiltro();
-    }
-
-    function renderFiltro() {
-      filterList.innerHTML = state.headers.map(h => `
-        <label class="filter-item">
-          <input type="checkbox" class="chk" ${state.visibleHeaders.has(h) ? "checked" : ""} onchange="toggleColuna('${String(h).replaceAll("'", "\\'")}', this.checked)">
-          <span>${htmlEscape(h)}</span>
-        </label>
-      `).join("");
-    }
-
-    function renderTabela() {
-      const rowsPagina = getRowsPagina();
-      const columns = getVisibleColumns();
-      const allVisible = state.headers.length > 0 && state.visibleHeaders.size === state.headers.length;
-
-      thead.innerHTML = `
-        <tr>
-          <th style="width:52px">
-            <input class="chk" type="checkbox" ${allVisible ? "checked" : ""} onchange="toggleTodasColunas(this.checked)">
-          </th>
-          ${columns.map((h) => `
-            <th draggable="true"
-                data-index="${state.headers.indexOf(h)}"
-                ondragstart="onDragStart(event)"
-                ondragover="onDragOver(event)"
-                ondrop="onDrop(event)"
-                ontouchstart="onTouchStartHeader(event)"
-                ontouchend="onTouchEndHeader(event)"
-                ontouchmove="onTouchMoveHeader(event)">
-              <div class="th-check">
-                <input class="chk col-check" type="checkbox" checked onchange="toggleColuna('${String(h).replaceAll("'", "\\'")}', this.checked)">
-                <span>${htmlEscape(h)}</span>
-              </div>
-            </th>
-          `).join("")}
-        </tr>
-      `;
-
-      tbody.innerHTML = rowsPagina.map(({ row, realIndex }) => `
-        <tr>
-          <td>
-            <input class="chk" type="checkbox" ${isChecked(realIndex) ? "checked" : ""} onchange="toggleLinha(${realIndex}, this.checked)">
-          </td>
-          ${columns.map((h) => renderCell(h, row)).join("")}
-        </tr>
-      `).join("");
-
-      paginaInfo.textContent = `Página ${state.pagina}`;
-      atualizarInfo();
-    }
-
-    function renderCell(header, row) {
-      const h = String(header || "").toUpperCase();
-
-      if (h === "PICTURE" || h.includes("IMAGE") || h.includes("IMAGEM")) {
-        return `<td>${getImageHtml(row)}</td>`;
-      }
-
-      const selectedProduto = getSelectValue("produto");
-      if (selectedProduto && header === selectedProduto) {
-        return `<td>${getDisplayDescription(row)}</td>`;
-      }
-
-      return `<td>${htmlEscape(row[header] ?? "")}</td>`;
-    }
-
-    function atualizarInfo() {
-      infoLinhas.textContent = `${state.rows.length} linhas • ${state.selecionados.size} selecionadas • aba ${state.abaAtual || "-"}`;
-    }
-
-    function toggleLinha(realIndex, checked) {
-      toggleChecked(realIndex, checked);
-    }
-
-    function selecionarPagina() {
-      getRowsPagina().forEach(({ realIndex }) => state.selecionados.add(realIndex));
-      renderTabela();
-    }
-
-    function desmarcarPagina() {
-      getRowsPagina().forEach(({ realIndex }) => state.selecionados.delete(realIndex));
-      renderTabela();
-    }
-
-    function selecionarTodas() {
-      state.selecionados = new Set(state.rows.map((_, idx) => idx));
-      renderTabela();
-    }
-
-    function desmarcarTodas() {
-      state.selecionados.clear();
-      renderTabela();
-    }
-
-    function paginaAnterior() {
-      if (state.pagina > 1) {
-        state.pagina -= 1;
-        renderTabela();
-      }
-    }
-
-    function proximaPagina() {
-      const totalPaginas = Math.max(1, Math.ceil(state.rows.length / state.porPagina));
-      if (state.pagina < totalPaginas) {
-        state.pagina += 1;
-        renderTabela();
-      }
-    }
-
-    function moverHorizontal(dir) {
-      tableWrap.scrollLeft += dir * 240;
-    }
-
-    function irInicio() {
-      tableWrap.scrollLeft = 0;
-    }
-
-    function irFim() {
-      tableWrap.scrollLeft = tableWrap.scrollWidth;
-    }
-
-    function onDragStart(ev) {
-      state.dragIndex = Number(ev.target.closest("th")?.dataset.index);
-    }
-
-    function onDragOver(ev) {
-      ev.preventDefault();
-    }
-
-    function onDrop(ev) {
-      ev.preventDefault();
-      const targetIndex = Number(ev.target.closest("th")?.dataset.index);
-      if (Number.isNaN(state.dragIndex) || Number.isNaN(targetIndex) || state.dragIndex === targetIndex) return;
-
-      const arr = [...state.headers];
-      const [item] = arr.splice(state.dragIndex, 1);
-      arr.splice(targetIndex, 0, item);
-      state.headers = arr;
-      state.visibleHeaders = new Set(arr.filter(h => state.visibleHeaders.has(h)));
-      state.dragIndex = null;
-      renderTabela();
-      renderFiltro();
-    }
-
-    function onTouchStartHeader(ev) {
-      const th = ev.target.closest("th");
-      if (!th) return;
-      const idx = Number(th.dataset.index);
-      clearTimeout(state.touchLongPressTimer);
-      state.touchLongPressTimer = setTimeout(() => {
-        state.touchDragIndex = idx;
-      }, 250);
-    }
-
-    function onTouchMoveHeader(ev) {
-      if (state.touchDragIndex == null) return;
-      const touch = ev.touches[0];
-      const target = document.elementFromPoint(touch.clientX, touch.clientY);
-      const th = target?.closest?.("th");
-      if (!th) return;
-      const targetIndex = Number(th.dataset.index);
-      if (Number.isNaN(targetIndex) || targetIndex === state.touchDragIndex) return;
-
-      const arr = [...state.headers];
-      const [item] = arr.splice(state.touchDragIndex, 1);
-      arr.splice(targetIndex, 0, item);
-      state.headers = arr;
-      state.visibleHeaders = new Set(arr.filter(h => state.visibleHeaders.has(h)));
-      state.touchDragIndex = targetIndex;
-      renderTabela();
-      renderFiltro();
-    }
-
-    function onTouchEndHeader() {
-      clearTimeout(state.touchLongPressTimer);
-      state.touchDragIndex = null;
-    }
-
-    async function importar() {
-      const itens = Array.from(state.selecionados).map(i => state.rows[i]).filter(Boolean);
-      if (!itens.length) {
-        alert("Nenhum item selecionado.");
-        return;
-      }
-
-      const campos = {};
-      Object.keys(mapIds).forEach(k => campos[k] = getSelectValue(k));
-      const camposDetectados = ((state.metadados[state.abaAtual] || {}).camposDetectados) || {};
-
-      btnImportar.disabled = true;
-      btnImportar.textContent = "Importando...";
-      abrirLoading("Importando itens selecionados...");
-
-      try {
-        const res = await fetch("/api/estoque/container", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            arquivo: state.arquivoNome,
-            aba: state.abaAtual,
-            itens,
-            campos,
-            camposDetectados
-          })
-        });
-
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.ok) throw new Error(data.erro || "Erro ao importar.");
-
-        msgFinal.classList.remove("hidden");
-        msgFinal.textContent = `✔ Importação concluída. ${data.inseridos || 0} itens importados.`;
-      } catch (err) {
-        console.error(err);
-        alert(err.message || "Erro ao importar.");
-      } finally {
-        fecharLoading();
-        btnImportar.disabled = false;
-        btnImportar.textContent = "Importar Contêiner";
-      }
-    }
-
-    window.toggleLinha = toggleLinha;
-    window.selecionarPagina = selecionarPagina;
-    window.desmarcarPagina = desmarcarPagina;
-    window.selecionarTodas = selecionarTodas;
-    window.desmarcarTodas = desmarcarTodas;
-    window.paginaAnterior = paginaAnterior;
-    window.proximaPagina = proximaPagina;
-    window.moverHorizontal = moverHorizontal;
-    window.irInicio = irInicio;
-    window.irFim = irFim;
-    window.onDragStart = onDragStart;
-    window.onDragOver = onDragOver;
-    window.onDrop = onDrop;
-    window.onTouchStartHeader = onTouchStartHeader;
-    window.onTouchMoveHeader = onTouchMoveHeader;
-    window.onTouchEndHeader = onTouchEndHeader;
-    window.toggleColuna = toggleHeaderVisibility;
-    window.toggleTodasColunas = toggleAllColumns;
-    window.abrirFiltro = abrirFiltro;
-    window.fecharFiltro = fecharFiltro;
-    window.fecharPreview = fecharPreview;
-  </script>
 </body>
 </html>
