@@ -132,7 +132,6 @@ function scoreHeaderRow(row, aliasMap) {
 function findHeaderRow(rows, aliasMap) {
   let bestIndex = -1;
   let bestScore = -1;
-
   const limite = Math.min(rows.length, 25);
 
   for (let i = 0; i < limite; i += 1) {
@@ -225,7 +224,7 @@ function parseWorkbook(buffer, aliasMap) {
     const { dados, cabecalhos, camposDetectados } = rowsToObjects(rows, aliasMap);
     if (!dados.length) continue;
 
-    planilhas[aba] = dados;
+    planilhas[aba] = dados; // IMPORTANTE: linhas originais para a prévia
     metadados[aba] = {
       cabecalhos,
       camposDetectados,
@@ -260,7 +259,7 @@ function getFirstSpreadsheet(req) {
 }
 
 const ALIASES_WMS = {
-  codigo: ["codigo", "código", "item no", "item", "sku", "ref", "referencia", "cod", "codigo do produto"],
+  codigo: ["codigo", "código", "item no", "item", "sku", "ref", "referencia", "cod", "codigo do produto", "id"],
   produto: ["produto", "description", "descrição", "item name", "descricao", "nome", "desc"],
   endereco: ["endereco", "endereço", "location", "address", "locacao", "local", "rua", "posicao"],
   quantidade: ["quantidade", "qty", "qtd", "estoque (un)", "estoque", "unidades", "t.qty", "quantity"],
@@ -270,7 +269,7 @@ const ALIASES_CONTAINER = {
   codigo: ["codigo", "código", "item no", "sku", "ref", "referencia", "cod"],
   produto: ["produto", "description", "descrição", "item name", "descricao", "nome", "desc", "traducao", "tradução"],
   caixas: ["caixas", "cartons", "ctns", "ctn", "boxes", "box", "volume"],
-  unidades: ["unidades", "quantidade", "qty", "qtd", "pcs", "pieces", "estoque (un)", "quantity"],
+  unidades: ["unidades", "quantidade", "qty", "qtd", "pcs", "pieces", "estoque (un)", "quantity", "t.qty"],
   imagem: ["imagem", "image", "images", "picture", "pictures", "foto", "fotos"],
   container: ["container", "contêiner", "conteiner"],
   lote: ["lote", "lot", "batch"],
@@ -279,38 +278,54 @@ const ALIASES_CONTAINER = {
   fator: ["fator", "q/c", "qc", "factor", "packing", "pack"],
 };
 
-function mapearLinhaContainer(item, camposDetectados) {
-  const get = (campo) => {
-    const cabecalho = camposDetectados[campo];
-    return cabecalho ? item[cabecalho] ?? "" : "";
-  };
+function pickBySelectedOrDetected(item, selectedMap = {}, detectedMap = {}, aliases = []) {
+  const candidates = [];
 
+  if (Array.isArray(aliases)) {
+    aliases.forEach((a) => {
+      if (selectedMap[a]) candidates.push(selectedMap[a]);
+      if (detectedMap[a]) candidates.push(detectedMap[a]);
+    });
+  }
+
+  for (const key of candidates) {
+    if (key && Object.prototype.hasOwnProperty.call(item, key)) {
+      return item[key];
+    }
+  }
+
+  return "";
+}
+
+function toNumber(value) {
+  if (value === null || value === undefined || value === "") return 0;
+  const texto = String(value).replace(/\./g, "").replace(",", ".").trim();
+  const num = Number(texto);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function mapearLinhaContainer(item, selectedMap = {}, detectedMap = {}) {
   return {
-    codigo: String(get("codigo") || "").trim(),
-    produto: String(get("produto") || "").trim(),
-    container: String(get("container") || "").trim(),
-    lote: String(get("lote") || "").trim(),
-    caixas: Number(get("caixas") || 0),
-    unidades: Number(get("unidades") || 0),
-    fator: Number(get("fator") || 0),
-    nf: String(get("nf") || "").trim(),
-    fornecedor: String(get("fornecedor") || "").trim(),
-    imagem: String(get("imagem") || "").trim(),
+    codigo: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["codigo"]) || "").trim(),
+    produto: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["produto"]) || "").trim(),
+    container: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["container"]) || "").trim(),
+    lote: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["lote"]) || "").trim(),
+    caixas: toNumber(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["caixas"])),
+    unidades: toNumber(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["unidades"])),
+    fator: toNumber(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["fator"])),
+    nf: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["nf"]) || "").trim(),
+    fornecedor: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["fornecedor"]) || "").trim(),
+    imagem: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["imagem"]) || "").trim(),
     bruto: item,
   };
 }
 
-function mapearLinhaWms(item, camposDetectados) {
-  const get = (campo) => {
-    const cabecalho = camposDetectados[campo];
-    return cabecalho ? item[cabecalho] ?? "" : "";
-  };
-
+function mapearLinhaWms(item, selectedMap = {}, detectedMap = {}) {
   return {
-    codigo: String(get("codigo") || "").trim(),
-    produto: String(get("produto") || "").trim(),
-    endereco: String(get("endereco") || "").trim(),
-    quantidade: Number(get("quantidade") || 0),
+    codigo: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["codigo"]) || "").trim(),
+    produto: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["produto"]) || "").trim(),
+    endereco: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["endereco"]) || "").trim(),
+    quantidade: toNumber(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["quantidade"])),
     bruto: item,
   };
 }
@@ -335,6 +350,15 @@ function criarRegistroBase(item, origemPadrao) {
   };
 }
 
+function normalizarMapaCampos(mapa) {
+  if (!mapa || typeof mapa !== "object" || Array.isArray(mapa)) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(mapa)) {
+    out[k] = typeof v === "string" ? v : "";
+  }
+  return out;
+}
+
 app.get("/health", (_req, res) => {
   res.json({
     ok: true,
@@ -347,6 +371,7 @@ app.get("/health", (_req, res) => {
 app.post("/api/importar-wms", upload.any(), (req, res) => {
   try {
     const file = getFirstSpreadsheet(req);
+
     if (!file || !file.buffer) {
       return res.json({ ok: false, erro: "Arquivo não enviado" });
     }
@@ -357,19 +382,10 @@ app.post("/api/importar-wms", upload.any(), (req, res) => {
       return res.json({ ok: false, erro: "Planilha vazia ou sem dados válidos." });
     }
 
-    const planilhasFormatadas = {};
-    for (const aba of abas) {
-      const meta = metadados[aba] || {};
-      const camposDetectados = meta.camposDetectados || {};
-      planilhasFormatadas[aba] = (planilhas[aba] || []).map((item) =>
-        mapearLinhaWms(item, camposDetectados)
-      );
-    }
-
     return res.json({
       ok: true,
       abas,
-      planilhas: planilhasFormatadas,
+      planilhas, // IMPORTANTE: prévia usa linhas originais
       metadados,
       arquivo: file.originalname || "arquivo",
     });
@@ -385,6 +401,7 @@ app.post("/api/importar-wms", upload.any(), (req, res) => {
 app.post("/api/importar-container", upload.any(), (req, res) => {
   try {
     const file = getFirstSpreadsheet(req);
+
     if (!file || !file.buffer) {
       return res.json({ ok: false, erro: "Arquivo não enviado" });
     }
@@ -395,19 +412,10 @@ app.post("/api/importar-container", upload.any(), (req, res) => {
       return res.json({ ok: false, erro: "Planilha vazia ou sem dados válidos." });
     }
 
-    const planilhasFormatadas = {};
-    for (const aba of abas) {
-      const meta = metadados[aba] || {};
-      const camposDetectados = meta.camposDetectados || {};
-      planilhasFormatadas[aba] = (planilhas[aba] || []).map((item) =>
-        mapearLinhaContainer(item, camposDetectados)
-      );
-    }
-
     return res.json({
       ok: true,
       abas,
-      planilhas: planilhasFormatadas,
+      planilhas, // IMPORTANTE: prévia usa linhas originais
       metadados,
       arquivo: file.originalname || "arquivo",
     });
@@ -471,11 +479,51 @@ app.post("/api/estoque", (req, res) => {
   }
 });
 
+app.post("/api/estoque/wms", (req, res) => {
+  try {
+    const estoque = readJson(ESTOQUE_FILE, []);
+    const body = req.body || {};
+    const itensEntrada = Array.isArray(body.itens) ? body.itens : [];
+    const selectedMap = normalizarMapaCampos(body.campos || body.mapeamento || {});
+    const detectedMap = normalizarMapaCampos(body.camposDetectados || {});
+
+    if (!itensEntrada.length) {
+      return res.status(400).json({
+        ok: false,
+        erro: "Nenhum item recebido para importar WMS.",
+      });
+    }
+
+    const novos = itensEntrada.map((item) =>
+      criarRegistroBase(mapearLinhaWms(item, selectedMap, detectedMap), "WMS")
+    );
+
+    estoque.unshift(...novos);
+    writeJson(ESTOQUE_FILE, estoque);
+
+    return res.json({
+      ok: true,
+      inseridos: novos.length,
+      itens: novos,
+      arquivo: body.arquivo || "",
+      aba: body.aba || "",
+    });
+  } catch (error) {
+    console.error("Erro em POST /api/estoque/wms:", error);
+    return res.status(500).json({
+      ok: false,
+      erro: "Erro ao importar WMS.",
+    });
+  }
+});
+
 app.post("/api/estoque/container", (req, res) => {
   try {
     const estoque = readJson(ESTOQUE_FILE, []);
     const body = req.body || {};
     const itensEntrada = Array.isArray(body.itens) ? body.itens : [];
+    const selectedMap = normalizarMapaCampos(body.campos || body.mapeamento || {});
+    const detectedMap = normalizarMapaCampos(body.camposDetectados || {});
 
     if (!itensEntrada.length) {
       return res.status(400).json({
@@ -484,7 +532,10 @@ app.post("/api/estoque/container", (req, res) => {
       });
     }
 
-    const novos = itensEntrada.map((item) => criarRegistroBase(item, "CONTAINER"));
+    const novos = itensEntrada.map((item) =>
+      criarRegistroBase(mapearLinhaContainer(item, selectedMap, detectedMap), "CONTAINER")
+    );
+
     estoque.unshift(...novos);
     writeJson(ESTOQUE_FILE, estoque);
 
