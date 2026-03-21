@@ -412,26 +412,19 @@
       margin-bottom:12px;
     }
 
-    .produto-cell{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      min-width:220px;
-    }
-
     .thumb{
-      width:46px;
-      height:46px;
-      object-fit:cover;
+      width:44px;
+      height:44px;
       border-radius:10px;
+      object-fit:cover;
+      display:block;
       background:#0a1f43;
       border:1px solid rgba(255,255,255,.08);
-      flex:0 0 auto;
     }
 
     .thumb-placeholder{
-      width:46px;
-      height:46px;
+      width:44px;
+      height:44px;
       border-radius:10px;
       display:flex;
       align-items:center;
@@ -443,28 +436,22 @@
       text-align:center;
       line-height:1.1;
       padding:4px;
-      flex:0 0 auto;
     }
 
-    .produto-texto{
-      display:flex;
-      flex-direction:column;
-      min-width:0;
-    }
-
-    .produto-traduzido{
-      font-weight:700;
-      color:#fff;
+    .descricao-traduzida{
       white-space:normal;
       line-height:1.2;
+      color:#fff;
+      font-weight:700;
+      min-width:160px;
     }
 
-    .produto-original{
+    .descricao-original{
+      white-space:normal;
+      line-height:1.2;
       color:#b9c7da;
       font-size:11px;
-      margin-top:3px;
-      white-space:normal;
-      line-height:1.2;
+      min-width:160px;
     }
 
     .msg{
@@ -630,6 +617,7 @@
       map: {
         codigo: "",
         produto: "",
+        original: "__produto_original",
         container: "",
         lote: "",
         caixas: "",
@@ -637,13 +625,14 @@
         fator: "",
         nf: "",
         fornecedor: "",
-        imagem: ""
+        imagem: "__imagem"
       }
     };
 
     const mapLabels = {
       codigo: "Código",
-      produto: "Produto",
+      produto: "Descrição",
+      original: "Original",
       container: "Container",
       lote: "Lote",
       caixas: "Caixas",
@@ -653,6 +642,9 @@
       fornecedor: "Fornecedor",
       imagem: "Imagem"
     };
+
+    const TECH_HEADERS = new Set(["__checked"]);
+    const FORCE_VISIBLE = ["__imagem", "__produto_original"];
 
     const els = {
       arquivoInput: document.getElementById("arquivoInput"),
@@ -703,7 +695,27 @@
     }
 
     function displayHeader(header) {
-      return state.renamedHeaders[header] || header;
+      const custom = state.renamedHeaders[header];
+      if (custom) return custom;
+
+      if (header === "__imagem") return "Imagem";
+      if (header === "__produto_original") return "Original";
+      return header;
+    }
+
+    function isIgnorableHeader(header) {
+      if (!header) return true;
+      if (TECH_HEADERS.has(header)) return true;
+      if (/^_empty/i.test(header)) return true;
+      return false;
+    }
+
+    function sanitizeHeaders(headers = []) {
+      const base = headers.filter((h) => !isIgnorableHeader(h));
+      FORCE_VISIBLE.forEach((forced) => {
+        if (!base.includes(forced)) base.push(forced);
+      });
+      return base;
     }
 
     function showDebug(obj) {
@@ -778,7 +790,8 @@
       state.map.fator ||= buscar(["q/c", "fator", "qc", "factor", "装箱"]);
       state.map.nf ||= buscar(["nf", "nota", "invoice"]);
       state.map.fornecedor ||= buscar(["fornecedor", "supplier", "vendor"]);
-      state.map.imagem ||= "__imagem";
+      state.map.imagem = "__imagem";
+      state.map.original = "__produto_original";
     }
 
     function atualizarInfo() {
@@ -910,16 +923,17 @@
     function renderMapeamento() {
       let html = "";
       Object.keys(mapLabels).forEach((key) => {
+        const value = state.map[key] || "";
         html += `
           <label class="map-item">
-            <input type="radio" name="map_${key}" class="chk" ${state.map[key] === "" ? "checked" : ""} onclick="setMapValue('${key}', '')">
+            <input type="radio" name="map_${key}" class="chk" ${value === "" ? "checked" : ""} onclick="setMapValue('${key}', '')">
             <span>${mapLabels[key]}: não usar</span>
           </label>
         `;
         state.headers.forEach((h) => {
           html += `
             <label class="map-item">
-              <input type="radio" name="map_${key}" class="chk" ${state.map[key] === h ? "checked" : ""} onclick="setMapValue('${key}', '${String(h).replaceAll("'", "\\'")}')">
+              <input type="radio" name="map_${key}" class="chk" ${value === h ? "checked" : ""} onclick="setMapValue('${key}', '${String(h).replaceAll("'", "\\'")}')">
               <span>${mapLabels[key]} → ${htmlEscape(displayHeader(h))}</span>
             </label>
           `;
@@ -933,39 +947,17 @@
 
       if (header === "__imagem") {
         if (valor) {
-          return `
-            <div class="produto-cell">
-              <img class="thumb" src="${htmlEscape(valor)}" alt="imagem do produto" />
-              <div class="produto-texto">
-                <div class="produto-traduzido">Imagem</div>
-                <div class="produto-original">${htmlEscape(valor)}</div>
-              </div>
-            </div>
-          `;
+          return `<img class="thumb" src="${htmlEscape(valor)}" alt="imagem do produto">`;
         }
+        return `<div class="thumb-placeholder">Sem imagem</div>`;
+      }
 
-        return `
-          <div class="thumb-placeholder">Sem imagem</div>
-        `;
+      if (header === "__produto_original") {
+        return `<div class="descricao-original">${htmlEscape(valor || "")}</div>`;
       }
 
       if (state.map.produto && header === state.map.produto) {
-        const traduzido = row.__produto_traduzido || valor || "";
-        const original = row.__produto_original || "";
-
-        return `
-          <div class="produto-cell">
-            ${
-              row.__imagem
-                ? `<img class="thumb" src="${htmlEscape(row.__imagem)}" alt="imagem do produto" />`
-                : `<div class="thumb-placeholder">Sem imagem</div>`
-            }
-            <div class="produto-texto">
-              <div class="produto-traduzido">${htmlEscape(traduzido)}</div>
-              ${original && original !== traduzido ? `<div class="produto-original">${htmlEscape(original)}</div>` : ""}
-            </div>
-          </div>
-        `;
+        return `<div class="descricao-traduzida">${htmlEscape(valor || "")}</div>`;
       }
 
       return htmlEscape(valor);
@@ -1154,13 +1146,7 @@
         }
 
         state.rows = Array.isArray(data.dados) ? data.dados : [];
-        state.headers = Array.isArray(data.colunas)
-          ? data.colunas.filter((h) => !/^_empty/i.test(h))
-          : [];
-
-        if (!state.headers.includes("__imagem")) {
-          state.headers.unshift("__imagem");
-        }
+        state.headers = sanitizeHeaders(Array.isArray(data.colunas) ? data.colunas : Object.keys(state.rows[0] || {}));
 
         state.visibleHeaders = new Set(state.headers);
         state.renamedHeaders = {};
