@@ -109,7 +109,7 @@ function uniqueHeaders(row = []) {
 }
 
 /* =========================
-   CACHE / TRADUÇÃO LOCAL
+   CACHE / TRADUÇÃO UNIVERSAL HÍBRIDA
 ========================= */
 function readTradCache() {
   return readJson(TRADUCOES_FILE, {});
@@ -122,10 +122,49 @@ function writeTradCache(cache) {
 const DICIONARIO_CH_PT = {
   "品名": "nome do produto",
   "产品图片": "imagem do produto",
+  "客人货号": "código do cliente",
+  "货号": "código",
+  "出货清单": "lista de embarque",
   "件数": "quantidade",
-  "大红": "vermelho escuro",
-  "粉色": "rosa",
+  "数量": "quantidade",
+  "包装": "embalagem",
+  "材质": "material",
+  "型号": "modelo",
+  "颜色": "cor",
+  "规格": "especificação",
+  "净重": "peso líquido",
+  "毛重": "peso bruto",
+  "尺寸": "medidas",
+  "长": "comprimento",
+  "宽": "largura",
+  "高": "altura",
+
+  "钥匙扣": "chaveiro",
+  "吊坠": "pingente",
+  "挂件": "enfeite",
+  "手链": "pulseira",
+  "项链": "colar",
+  "耳环": "brinco",
+  "戒指": "anel",
+  "发夹": "presilha",
+  "贴纸": "adesivo",
+  "玩具": "brinquedo",
+  "杯子": "copo",
+  "瓶子": "garrafa",
+  "盒子": "caixa",
+  "包": "bolsa",
+  "袋": "saco",
+  "绳": "cordão",
+  "链": "corrente",
+  "挂绳": "cordão",
+  "扣": "fecho",
+  "十字架": "cruz",
+  "顶针": "dedal",
+
   "蓝色": "azul",
+  "大红": "vermelho escuro",
+  "红色": "vermelho",
+  "粉色": "rosa",
   "黑色": "preto",
   "白色": "branco",
   "黄色": "amarelo",
@@ -133,34 +172,91 @@ const DICIONARIO_CH_PT = {
   "紫色": "roxo",
   "橙色": "laranja",
   "灰色": "cinza",
-  "钥匙扣": "chaveiro",
+  "金色": "dourado",
+  "银色": "prata",
+  "棕色": "marrom",
+  "彩色": "colorido",
+  "透明": "transparente",
+
+  "蓝": "azul",
+  "红": "vermelho",
+  "粉": "rosa",
+  "黑": "preto",
+  "白": "branco",
+  "黄": "amarelo",
+  "绿": "verde",
+  "紫": "roxo",
+  "橙": "laranja",
+  "灰": "cinza",
+  "金": "dourado",
+  "银": "prata",
+
   "钥匙扣蓝色": "chaveiro azul",
   "钥匙扣大红": "chaveiro vermelho escuro",
+  "钥匙扣红色": "chaveiro vermelho",
   "钥匙扣粉色": "chaveiro rosa",
   "钥匙扣黑色": "chaveiro preto",
   "钥匙扣白色": "chaveiro branco",
   "钥匙扣黄色": "chaveiro amarelo",
   "钥匙扣绿色": "chaveiro verde",
   "钥匙扣紫色": "chaveiro roxo",
-  "客人货号": "código do cliente",
-  "出货清单": "lista de embarque",
-  "货号": "código",
-  "颜色": "cor",
-  "数量": "quantidade",
-  "包装": "embalagem",
-  "材质": "material",
-  "型号": "modelo",
-  "红": "vermelho",
-  "蓝": "azul",
-  "粉": "rosa",
-  "黑": "preto",
-  "白": "branco",
-  "黄": "amarelo",
-  "绿": "verde",
-  "紫": "roxo"
+  "钥匙扣橙色": "chaveiro laranja",
+  "钥匙扣灰色": "chaveiro cinza",
+  "钥匙扣金色": "chaveiro dourado",
+  "钥匙扣银色": "chaveiro prata",
+
+  "顶针蓝色": "dedal azul",
+  "顶针红色": "dedal vermelho",
+  "顶针粉色": "dedal rosa",
+  "顶针黑色": "dedal preto",
+  "顶针白色": "dedal branco",
+  "顶针黄色": "dedal amarelo",
+  "顶针绿色": "dedal verde",
+  "顶针紫色": "dedal roxo",
+
+  "客人货号蓝色": "código do cliente azul",
+  "客人货号红色": "código do cliente vermelho"
 };
 
-function traduzirChinesLocal(texto = "", cache = null) {
+const TERMOS_COMPOSTOS = [
+  ["钥匙扣", "chaveiro"],
+  ["顶针", "dedal"],
+  ["十字架", "cruz"],
+  ["吊坠", "pingente"],
+  ["挂件", "enfeite"],
+  ["手链", "pulseira"],
+  ["项链", "colar"],
+  ["耳环", "brinco"],
+  ["戒指", "anel"],
+  ["发夹", "presilha"],
+  ["贴纸", "adesivo"],
+  ["玩具", "brinquedo"],
+  ["挂绳", "cordão"],
+  ["蓝色", "azul"],
+  ["大红", "vermelho escuro"],
+  ["红色", "vermelho"],
+  ["粉色", "rosa"],
+  ["黑色", "preto"],
+  ["白色", "branco"],
+  ["黄色", "amarelo"],
+  ["绿色", "verde"],
+  ["紫色", "roxo"],
+  ["橙色", "laranja"],
+  ["灰色", "cinza"],
+  ["金色", "dourado"],
+  ["银色", "prata"]
+];
+
+function limparTraducao(texto = "") {
+  return String(texto)
+    .replace(/\s+/g, " ")
+    .replace(/\s+\|/g, " |")
+    .replace(/\|\s+/g, "| ")
+    .replace(/\s+([,.;:])/g, "$1")
+    .trim();
+}
+
+function traduzirUniversal(texto = "", cache = null) {
   const valor = String(texto || "").trim();
   if (!valor) return "";
   if (!containsChinese(valor)) return valor;
@@ -173,6 +269,12 @@ function traduzirChinesLocal(texto = "", cache = null) {
   if (DICIONARIO_CH_PT[valor]) {
     traduzido = DICIONARIO_CH_PT[valor];
   } else {
+    for (const [orig, dest] of TERMOS_COMPOSTOS) {
+      if (traduzido.includes(orig)) {
+        traduzido = traduzido.split(orig).join(dest);
+      }
+    }
+
     const entradas = Object.entries(DICIONARIO_CH_PT).sort((a, b) => b[0].length - a[0].length);
     for (const [orig, dest] of entradas) {
       if (traduzido.includes(orig)) {
@@ -181,11 +283,7 @@ function traduzirChinesLocal(texto = "", cache = null) {
     }
   }
 
-  traduzido = String(traduzido)
-    .replace(/\s+/g, " ")
-    .replace(/\s+([,.;:])/g, "$1")
-    .trim();
-
+  traduzido = limparTraducao(traduzido);
   tradCache[valor] = traduzido;
   return traduzido;
 }
@@ -370,7 +468,7 @@ const ALIASES_CONTAINER = {
   lote: ["lote", "lot", "batch"],
   nf: ["nf", "nota", "nota fiscal", "invoice"],
   fornecedor: ["fornecedor", "supplier", "vendor", "fabricante", "marca"],
-  fator: ["fator", "q/c", "qc", "factor", "packing", "pack"],
+  fator: ["fator", "q/c", "qc", "factor", "packing", "pack"]
 };
 
 /* =========================
@@ -408,9 +506,7 @@ function resolveZipTarget(baseFile, target) {
 async function zipEntriesMap(buffer) {
   const zip = await unzipper.Open.buffer(buffer);
   const map = new Map();
-  for (const entry of zip.files) {
-    map.set(entry.path, entry);
-  }
+  for (const entry of zip.files) map.set(entry.path, entry);
   return map;
 }
 
@@ -430,9 +526,7 @@ function parseRelationships(xml = "") {
   const rels = {};
   const regex = /<Relationship\b[^>]*Id="([^"]+)"[^>]*Target="([^"]+)"[^>]*\/?>/g;
   let m;
-  while ((m = regex.exec(xml))) {
-    rels[m[1]] = m[2];
-  }
+  while ((m = regex.exec(xml))) rels[m[1]] = m[2];
   return rels;
 }
 
@@ -440,9 +534,7 @@ function parseWorkbookSheets(xml = "") {
   const sheets = [];
   const regex = /<sheet\b[^>]*name="([^"]+)"[^>]*r:id="([^"]+)"[^>]*\/?>/g;
   let m;
-  while ((m = regex.exec(xml))) {
-    sheets.push({ name: m[1], rid: m[2] });
-  }
+  while ((m = regex.exec(xml))) sheets.push({ name: m[1], rid: m[2] });
   return sheets;
 }
 
@@ -537,7 +629,7 @@ async function extractXlsxImagesBySheet(buffer) {
 }
 
 /* =========================
-   ENRIQUECIMENTO DO CONTÊINER
+   ENRIQUECIMENTO CONTÊINER
 ========================= */
 function enrichContainerPreview(planilhas, metadados, imagesBySheet) {
   const tradCache = readTradCache();
@@ -570,9 +662,7 @@ function enrichContainerPreview(planilhas, metadados, imagesBySheet) {
           row.PICTURE ||
           (imageHeader ? row[imageHeader] : "");
 
-        if (direto && String(direto).trim()) {
-          imagem = String(direto).trim();
-        }
+        if (direto && String(direto).trim()) imagem = String(direto).trim();
       }
 
       if (!imagem) {
@@ -594,17 +684,14 @@ function enrichContainerPreview(planilhas, metadados, imagesBySheet) {
       ).trim();
 
       if (originalProduto) {
-        const traduzido = traduzirChinesLocal(originalProduto, tradCache);
+        const traduzido = traduzirUniversal(originalProduto, tradCache);
+
         row.descricao_original = originalProduto;
         row.descricao_traduzida = traduzido;
         row.traducao = traduzido;
 
-        if (
-          containsChinese(originalProduto) &&
-          traduzido &&
-          traduzido !== originalProduto
-        ) {
-          row[produtoHeader] = `${originalProduto} | ${traduzido}`;
+        if (containsChinese(originalProduto) && traduzido && traduzido !== originalProduto) {
+          row[produtoHeader] = `${traduzido} | ${originalProduto}`;
         }
       }
     });
@@ -650,18 +737,20 @@ function mapearLinhaContainer(item, selectedMap = {}, detectedMap = {}) {
       findImageByCode(codigo);
   }
 
+  const produtoTraduzido = String(item.descricao_traduzida || item.traducao || "").trim();
+  const produtoOriginal = String(item.descricao_original || "").trim();
+
   const produtoBase = String(
+    produtoTraduzido ||
     pickBySelectedOrDetected(item, selectedMap, detectedMap, ["produto"]) ||
-    item.traducao ||
-    item.descricao_traduzida ||
     ""
   ).trim();
 
   return {
     codigo,
     produto: produtoBase,
-    produto_original: String(item.descricao_original || "").trim(),
-    produto_traduzido: String(item.descricao_traduzida || item.traducao || produtoBase || "").trim(),
+    produto_original: produtoOriginal,
+    produto_traduzido: produtoTraduzido || produtoBase,
     container: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["container"]) || "").trim(),
     lote: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["lote"]) || "").trim(),
     caixas: toNumber(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["caixas"])),
@@ -707,9 +796,7 @@ function criarRegistroBase(item, origemPadrao) {
 function normalizarMapaCampos(mapa) {
   if (!mapa || typeof mapa !== "object" || Array.isArray(mapa)) return {};
   const out = {};
-  for (const [k, v] of Object.entries(mapa)) {
-    out[k] = typeof v === "string" ? v : "";
-  }
+  for (const [k, v] of Object.entries(mapa)) out[k] = typeof v === "string" ? v : "";
   return out;
 }
 
