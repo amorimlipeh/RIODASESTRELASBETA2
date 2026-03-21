@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Importador ERP</title>
+  <style>
+    :root{
+      --bg:#071a36; --panel:#0b2545; --panel2:#102d52; --line:#1d3c66;
+      --text:#fff; --muted:#b9c7da; --btn:#3b73e6; --btn2:#295ec9;
+      --shadow:0 6px 22px rgba(0,0,0,.28); --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,sans-serif}
+    .header{background:#0d2b5c;padding:16px;font-size:20px;font-weight:700;position:sticky;top:0;z-index:20;box-shadow:var(--shadow)}
+    .page{padding:14px;max-width:1280px;margin:0 auto}
+    .card{background:var(--panel);border-radius:var(--radius);padding:16px;margin-bottom:14px;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.04)}
+    .title{font-size:16px;font-weight:700;margin-bottom:10px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    button{border:0;background:linear-gradient(180deg,var(--btn),var(--btn2));color:#fff;padding:10px 14px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,.18)}
+    button.small{padding:6px 10px;font-size:12px;border-radius:8px}
+    button.ghost{background:#17345c}
+    button:disabled{opacity:.45;cursor:not-allowed}
+    .progress{margin-top:12px;width:100%;height:10px;background:#0b1830;border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,.05)}
+    .progress-bar{width:0%;height:100%;background:linear-gradient(90deg,#22c55e,#16a34a);transition:.25s}
+    .status{margin-top:8px;font-size:13px;color:var(--muted)}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .tab{background:#17345c}
+    .tab.active{background:linear-gradient(180deg,#22c55e,#15803d)}
+    .logs .log-item{background:var(--panel2);border:1px solid rgba(255,255,255,.05);border-radius:10px;padding:10px;margin-top:8px;font-size:13px}
+    .badge,.pill,.tag{display:inline-block;padding:7px 10px;border-radius:999px;background:#17345c;font-size:12px;color:#fff}
+    .modal{position:fixed;inset:0;display:none;background:rgba(0,0,0,.88);z-index:50;flex-direction:column}
+    .modal.show{display:flex}
+    .modal-header{background:#0d2b5c;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;font-weight:700;box-shadow:var(--shadow)}
+    .modal-body{padding:12px;overflow:auto;flex:1}
+    .table-wrap{overflow:auto;border-radius:12px;border:1px solid rgba(255,255,255,.05);background:#0a1b35}
+    table{width:max-content;min-width:100%;border-collapse:collapse;font-size:12px}
+    th,td{border-bottom:1px solid var(--line);padding:8px 10px;white-space:nowrap;text-align:left;vertical-align:top}
+    th{background:#0d1c33;position:sticky;top:0;z-index:2}
+    td{color:#eef4ff}
+    .top-actions{margin:8px 0 10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+    .pager{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+    .pager-left,.pager-right{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    select{background:#17345c;color:#fff;border:1px solid #2b4a75;border-radius:8px;padding:8px 10px}
+    .success-box{width:min(360px,92vw);margin:40px auto;background:#10381f;border:1px solid rgba(34,197,94,.45);border-radius:16px;padding:18px;text-align:center;box-shadow:var(--shadow)}
+    .overlay{position:fixed;inset:0;background:rgba(2,9,22,.82);display:none;align-items:center;justify-content:center;z-index:999}
+    .overlay.show{display:flex}
+    .overlay-card{width:min(420px,94vw);background:#0b2545;border-radius:18px;padding:22px;box-shadow:var(--shadow);text-align:left;border:1px solid rgba(255,255,255,.06)}
+    .spinner{width:42px;height:42px;border-radius:50%;border:4px solid rgba(255,255,255,.18);border-top-color:#3b73e6;margin:0 auto 14px;animation:spin .9s linear infinite}
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .overlay-title{font-size:20px;font-weight:700;margin-bottom:10px}
+    .overlay-text{font-size:14px;color:#c9d6ea;margin-bottom:12px}
+    .overlay-progress{width:100%;height:12px;background:#0b1830;border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,.05);margin-bottom:12px}
+    .overlay-progress-bar{width:0%;height:100%;background:linear-gradient(90deg,#22c55e,#16a34a);transition:.25s}
+    .overlay-percent{font-size:28px;font-weight:700;margin-bottom:12px}
+    .overlay-grid{display:grid;grid-template-columns:1fr;gap:8px;font-size:14px;color:#e6eefb}
+    .overlay-grid strong{color:#fff}
+  </style>
+</head>
+<body>
+  <div class="header">📊 Importador ERP</div>
+
+  <div class="page">
+    <div class="card">
+      <div class="title">Enviar relatório ERP</div>
+      <div class="row">
+        <input type="file" id="file" multiple accept="*/*" />
+        <button id="btnAnalisar" onclick="analisar()">Analisar</button>
+      </div>
+      <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="status" id="status">Aguardando arquivo...</div>
+      <div class="status" id="fileInfo">Aceita qualquer arquivo para seleção. A leitura automática atual funciona melhor com XLS, XLSX e CSV.</div>
+    </div>
+
+    <div class="card">
+      <div class="title">Abas encontradas</div>
+      <div class="tabs" id="abas"></div>
+    </div>
+
+    <div class="card">
+      <div class="title">Histórico de importações</div>
+      <div class="logs" id="logs"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="previewModal">
+    <div class="modal-header">
+      <span>Pré-visualização ERP</span>
+      <button class="small ghost" onclick="fecharPreview()">Fechar</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="top-actions">
+        <div class="row">
+          <button class="small" onclick="selecionarLinhasPagina()">Selecionar página</button>
+          <button class="small ghost" onclick="desmarcarLinhasPagina()">Desmarcar página</button>
+          <button class="small" onclick="selecionarTodasLinhas()">Selecionar todas</button>
+          <button class="small ghost" onclick="desmarcarTodasLinhas()">Desmarcar todas</button>
+        </div>
+        <span class="pill" id="previewInfo">0 linhas</span>
+      </div>
+
+      <div class="table-wrap">
+        <table id="tabela"></table>
+      </div>
+
+      <div class="pager">
+        <div class="pager-left">
+          <button class="small ghost" id="btnPrev" onclick="paginaAnterior()">Anterior</button>
+          <button class="small ghost" id="btnNext" onclick="proximaPagina()">Próxima</button>
+          <span class="badge" id="pageInfo">Página 1</span>
+        </div>
+        <div class="pager-right">
+          <label>Por página</label>
+          <select id="perPage" onchange="alterarPorPagina()">
+            <option value="20">20</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="top-actions" style="margin-top:12px;">
+        <button id="btnImportar" onclick="importar()">Importar ERP</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="successModal">
+    <div class="modal-body">
+      <div class="success-box">
+        <h2>✔ Importação concluída</h2>
+        <div id="successText">0 itens importados.</div>
+        <div class="top-actions" style="justify-content:center; margin-top:14px;">
+          <button onclick="fecharSucesso()">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="loadingOverlay">
+    <div class="overlay-card">
+      <div class="spinner"></div>
+      <div class="overlay-title" id="overlayTitle">Iniciando...</div>
+      <div class="overlay-text" id="overlayText">Preparando leitura da planilha.</div>
+      <div class="overlay-progress"><div class="overlay-progress-bar" id="overlayProgressBar"></div></div>
+      <div class="overlay-percent" id="overlayPercent">0%</div>
+      <div class="overlay-grid">
+        <div><strong>Arquivo:</strong> <span id="overlayArquivo"></span></div>
+        <div><strong>Etapa:</strong> <span id="overlayEtapa">Iniciando...</span></div>
+        <div><strong>Linhas:</strong> <span id="overlayLinhas">-</span></div>
+        <div><strong>Colunas:</strong> <span id="overlayColunas">-</span></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let planilhas = {};
+    let dados = [];
+    let colunas = [];
+    let abaAtual = "";
+    let paginaAtual = 1;
+    let itensPorPagina = 50;
+    let rowSelections = {};
+    let nomeArquivoAtual = "";
+    let progressTimer = null;
+
+    function setStatus(txt) { document.getElementById("status").innerText = txt; }
+    function setBar(percent) { document.getElementById("progressBar").style.width = percent + "%"; }
+    function abrirOverlay() { document.getElementById("loadingOverlay").classList.add("show"); }
+    function fecharOverlay() { document.getElementById("loadingOverlay").classList.remove("show"); }
+
+    function atualizarOverlay(percent, etapa, arquivo = "", linhas = "-", colunasInfo = "-") {
+      document.getElementById("overlayProgressBar").style.width = percent + "%";
+      document.getElementById("overlayPercent").innerText = percent + "%";
+      document.getElementById("overlayEtapa").innerText = etapa || "";
+      if (arquivo) document.getElementById("overlayArquivo").innerText = arquivo;
+      document.getElementById("overlayLinhas").innerText = linhas;
+      document.getElementById("overlayColunas").innerText = colunasInfo;
+      document.getElementById("overlayTitle").innerText = etapa || "Processando...";
+      document.getElementById("overlayText").innerText = `Etapa atual: ${etapa || "Processando..."}`;
+    }
+
+    function iniciarProgressoFake(nomeArquivo) {
+      let p = 0;
+      atualizarOverlay(0, "Iniciando...", nomeArquivo, "-", "-");
+      clearInterval(progressTimer);
+      progressTimer = setInterval(() => {
+        if (p < 15) p += 5;
+        else if (p < 35) p += 3;
+        else if (p < 55) p += 2;
+        else if (p < 70) p += 1;
+        else return;
+        atualizarOverlay(p, "Lendo arquivo...", nomeArquivo, "-", "-");
+      }, 250);
+    }
+
+    function pararProgressoFake() { clearInterval(progressTimer); }
+
+    function escapeHtml(str) {
+      return String(str).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+    }
+
+    function totalPaginas() { return Math.max(1, Math.ceil(dados.length / itensPorPagina)); }
+    function inicioPagina() { return (paginaAtual - 1) * itensPorPagina; }
+    function fimPagina() { return Math.min(inicioPagina() + itensPorPagina, dados.length); }
+
+    async function analisar() {
+      const files = document.getElementById("file").files;
+      if (!files.length) return alert("Selecione pelo menos um arquivo.");
+
+      nomeArquivoAtual = files[0].name || "arquivo ERP";
+      document.getElementById("fileInfo").innerText = `${files.length} arquivo(s) selecionado(s).`;
+
+      const form = new FormData();
+      for (const f of files) form.append("arquivo", f);
+
+      const btn = document.getElementById("btnAnalisar");
+      btn.disabled = true;
+
+      abrirOverlay();
+      iniciarProgressoFake(nomeArquivoAtual);
+
+      try {
+        setStatus("Enviando relatório ERP...");
+        setBar(20);
+        atualizarOverlay(15, "Enviando arquivo...", nomeArquivoAtual, "-", "-");
+
+        const res = await fetch("/api/importar-erp", {
+          method: "POST",
+          body: form
+        });
+
+        atualizarOverlay(55, "Lendo planilha...", nomeArquivoAtual, "-", "-");
+        setBar(60);
+
+        const data = await res.json();
+
+        if (!data.ok) {
+          pararProgressoFake();
+          fecharOverlay();
+          setBar(0);
+          alert(data.erro || "Erro ao analisar ERP.");
+          btn.disabled = false;
+          return;
+        }
+
+        planilhas = data.planilhas || {};
+
+        const primeiraAba = (data.abas && data.abas.length) ? data.abas[0] : "";
+        const linhas = primeiraAba ? (planilhas[primeiraAba]?.length || 0) : 0;
+        const cols = primeiraAba && planilhas[primeiraAba]?.length ? Object.keys(planilhas[primeiraAba][0]).length : 0;
+
+        atualizarOverlay(80, "Processando dados...", nomeArquivoAtual, linhas, cols);
+        setBar(85);
+
+        renderAbas(data.abas || []);
+        setStatus("Relatório ERP carregado.");
+        setBar(100);
+
+        if (data.abas?.length) selecionarAba(data.abas[0]);
+
+        atualizarOverlay(100, "Finalizado", nomeArquivoAtual, linhas, cols);
+
+        setTimeout(() => {
+          pararProgressoFake();
+          fecharOverlay();
+          setBar(0);
+        }, 500);
+      } catch (err) {
+        console.error(err);
+        pararProgressoFake();
+        fecharOverlay();
+        setBar(0);
+        alert("Erro ao enviar/analisar ERP. Se for PDF, imagem ou outro formato não-planilha, a leitura automática ainda não está pronta.");
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function renderAbas(abas) {
+      const box = document.getElementById("abas");
+      box.innerHTML = "";
+      abas.forEach((nome, idx) => {
+        const btn = document.createElement("button");
+        btn.className = "tab" + (idx === 0 ? " active" : "");
+        btn.textContent = nome;
+        btn.onclick = () => selecionarAba(nome);
+        box.appendChild(btn);
+      });
+    }
+
+    function selecionarAba(nome) {
+      abaAtual = nome;
+      dados = planilhas[nome] || [];
+      if (!dados.length) return alert("Aba vazia.");
+
+      colunas = Object.keys(dados[0] || {});
+      paginaAtual = 1;
+      itensPorPagina = Number(document.getElementById("perPage")?.value || 50);
+
+      rowSelections = {};
+      for (let i = 0; i < dados.length; i++) rowSelections[i] = true;
+
+      document.querySelectorAll(".tab").forEach((el) => {
+        el.classList.toggle("active", el.textContent === nome);
+      });
+
+      atualizarInfoPreview();
+      abrirPreview();
+      renderTabela();
+    }
+
+    function atualizarInfoPreview() {
+      const selecionadas = Object.values(rowSelections).filter(Boolean).length;
+      document.getElementById("previewInfo").innerText = `${dados.length} linhas • ${selecionadas} selecionadas • aba ${abaAtual}`;
+    }
+
+    function abrirPreview() { document.getElementById("previewModal").classList.add("show"); }
+    function fecharPreview() { document.getElementById("previewModal").classList.remove("show"); }
+
+    function renderCell(col, val) {
+      if (col === "local" && val) return `<span class="tag">${escapeHtml(val)}</span>`;
+      if (col === "grupo" && val) return `<span class="tag">${escapeHtml(val)}</span>`;
+      return escapeHtml(val ?? "");
+    }
+
+    function renderTabela() {
+      const start = inicioPagina();
+      const end = fimPagina();
+
+      let html = "<tr>";
+      html += `<th><input type="checkbox" id="checkAllCols" checked onchange="toggleCols()"></th>`;
+      colunas.forEach((c) => {
+        html += `<th><input type="checkbox" class="col-check" data-col="${escapeHtml(c)}" checked onchange="syncGlobalCols()"> ${escapeHtml(c)}</th>`;
+      });
+      html += "</tr>";
+
+      html += `<tr><td colspan="${colunas.length + 1}"><div class="top-actions"><button class="small" onclick="selecionarLinhasPagina()">Selecionar página</button><button class="small ghost" onclick="desmarcarLinhasPagina()">Desmarcar página</button></div></td></tr>`;
+
+      for (let i = start; i < end; i++) {
+        const linha = dados[i];
+        html += `<tr>`;
+        html += `<td><input type="checkbox" class="row-check" data-i="${i}" ${rowSelections[i] ? "checked" : ""}></td>`;
+        colunas.forEach((c) => { html += `<td>${renderCell(c, linha[c])}</td>`; });
+        html += `</tr>`;
+      }
+
+      document.getElementById("tabela").innerHTML = html;
+
+      document.querySelectorAll(".row-check").forEach((el) => {
+        el.addEventListener("change", (e) => {
+          const idx = Number(e.target.getAttribute("data-i"));
+          rowSelections[idx] = e.target.checked;
+          atualizarInfoPreview();
+        });
+      });
+
+      document.getElementById("pageInfo").innerText = `Página ${paginaAtual} de ${totalPaginas()}`;
+      document.getElementById("btnPrev").disabled = paginaAtual <= 1;
+      document.getElementById("btnNext").disabled = paginaAtual >= totalPaginas();
+      atualizarInfoPreview();
+    }
+
+    function toggleCols() {
+      const checked = document.getElementById("checkAllCols").checked;
+      document.querySelectorAll(".col-check").forEach((c) => c.checked = checked);
+    }
+
+    function syncGlobalCols() {
+      const cols = [...document.querySelectorAll(".col-check")];
+      document.getElementById("checkAllCols").checked = cols.length && cols.every((c) => c.checked);
+    }
+
+    function selecionarLinhasPagina() { for (let i = inicioPagina(); i < fimPagina(); i++) rowSelections[i] = true; renderTabela(); }
+    function desmarcarLinhasPagina() { for (let i = inicioPagina(); i < fimPagina(); i++) rowSelections[i] = false; renderTabela(); }
+    function selecionarTodasLinhas() { for (let i = 0; i < dados.length; i++) rowSelections[i] = true; renderTabela(); }
+    function desmarcarTodasLinhas() { for (let i = 0; i < dados.length; i++) rowSelections[i] = false; renderTabela(); }
+    function paginaAnterior() { if (paginaAtual > 1) { paginaAtual--; renderTabela(); } }
+    function proximaPagina() { if (paginaAtual < totalPaginas()) { paginaAtual++; renderTabela(); } }
+    function alterarPorPagina() { itensPorPagina = Number(document.getElementById("perPage").value || 50); paginaAtual = 1; renderTabela(); }
+
+    async function importar() {
+      try {
+        const colSelecionadas = [...document.querySelectorAll(".col-check:checked")].map((c) => c.getAttribute("data-col"));
+        const linhasSelecionadas = Object.keys(rowSelections).filter((k) => rowSelections[k]).map((k) => Number(k));
+
+        if (!colSelecionadas.length) return alert("Selecione pelo menos uma coluna.");
+        if (!linhasSelecionadas.length) return alert("Selecione pelo menos uma linha.");
+
+        const itens = [];
+        linhasSelecionadas.forEach((i) => {
+          const origem = dados[i];
+          const obj = {};
+          colSelecionadas.forEach((col) => { obj[col] = origem[col]; });
+          itens.push(obj);
+        });
+
+        const btn = document.getElementById("btnImportar");
+        btn.disabled = true;
+
+        abrirOverlay();
+        atualizarOverlay(20, "Preparando importação...", nomeArquivoAtual, itens.length, colSelecionadas.length);
+
+        setStatus("Importando ERP...");
+        setBar(35);
+
+        const res = await fetch("/api/estoque/erp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            arquivo: nomeArquivoAtual,
+            aba: abaAtual,
+            itens
+          })
+        });
+
+        atualizarOverlay(75, "Salvando itens...", nomeArquivoAtual, itens.length, colSelecionadas.length);
+        setBar(80);
+
+        const data = await res.json();
+
+        if (!data.ok) {
+          fecharOverlay();
+          setBar(0);
+          btn.disabled = false;
+          alert(data.erro || "Erro ao importar ERP.");
+          return;
+        }
+
+        atualizarOverlay(100, "Finalizado", nomeArquivoAtual, data.inseridos || itens.length, colSelecionadas.length);
+        setBar(100);
+
+        abrirSucesso(data.inseridos || itens.length);
+        addLog(data.inseridos || itens.length);
+
+        setTimeout(() => {
+          fecharOverlay();
+          setBar(0);
+        }, 500);
+
+        btn.disabled = false;
+      } catch (err) {
+        console.error(err);
+        fecharOverlay();
+        setBar(0);
+        document.getElementById("btnImportar").disabled = false;
+        alert("Erro ao importar ERP.");
+      }
+    }
+
+    function abrirSucesso(qtd) {
+      document.getElementById("successText").innerText = `${qtd} itens ERP importados com sucesso.`;
+      document.getElementById("successModal").classList.add("show");
+    }
+
+    function fecharSucesso() { document.getElementById("successModal").classList.remove("show"); }
+
+    function addLog(qtd) {
+      const logs = document.getElementById("logs");
+      const div = document.createElement("div");
+      div.className = "log-item";
+      div.textContent = `📊 ERP • ${qtd} itens • ${new Date().toLocaleString("pt-BR")}`;
+      logs.prepend(div);
+    }
+  </script>
+</body>
+</html>
