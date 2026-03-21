@@ -12,72 +12,219 @@
       --text:#fff;
       --muted:#b9c7da;
       --btn:#3b73e6;
+      --btn2:#24436c;
       --shadow:0 6px 22px rgba(0,0,0,.28);
+      --ok:#22c55e;
+      --danger:#ef4444;
     }
-    *{box-sizing:border-box}
+
+    *{ box-sizing:border-box; }
+
     body{
       margin:0;
       background:linear-gradient(180deg,#041229 0%,#071a36 100%);
       font-family:Arial,Helvetica,sans-serif;
-      color:var(--text)
+      color:var(--text);
     }
-    .wrap{max-width:1400px;margin:0 auto;padding:14px}
+
+    .wrap{
+      max-width:1200px;
+      margin:0 auto;
+      padding:14px;
+    }
+
     .topbar{
-      position:sticky;top:0;z-index:10;
-      display:flex;justify-content:space-between;align-items:center;
-      background:#12336b;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.08)
+      position:sticky;
+      top:0;
+      z-index:10;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      background:#12336b;
+      padding:16px 18px;
+      border-bottom:1px solid rgba(255,255,255,.08);
     }
-    .topbar h1{margin:0;font-size:18px}
-    .btn{
-      background:var(--btn);color:#fff;border:0;border-radius:12px;padding:12px 16px;
-      font-weight:700;cursor:pointer;box-shadow:var(--shadow)
+
+    .topbar h1{
+      margin:0;
+      font-size:18px;
     }
-    .btn.secondary{background:#24436c}
-    .btn.small{padding:8px 12px;font-size:12px;border-radius:10px}
-    .btn:disabled{opacity:.55;cursor:not-allowed}
+
     .card{
       background:rgba(6,24,54,.96);
       border:1px solid rgba(255,255,255,.08);
-      border-radius:18px;padding:14px;box-shadow:var(--shadow)
+      border-radius:18px;
+      padding:14px;
+      box-shadow:var(--shadow);
+      margin:14px 0;
     }
-    .section{margin:14px 0}
-    .grid{display:grid;grid-template-columns:repeat(2,minmax(180px,1fr));gap:12px 16px}
-    .field label{display:block;font-weight:700;margin-bottom:6px}
-    .select,.statusbar{
-      width:100%;background:#173a6c;color:#fff;border:1px solid #2e548e;border-radius:14px;
-      padding:14px 16px;font-size:16px
+
+    .btn{
+      background:var(--btn);
+      color:#fff;
+      border:0;
+      border-radius:12px;
+      padding:12px 16px;
+      font-weight:700;
+      cursor:pointer;
+      box-shadow:var(--shadow);
     }
-    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
-    .muted{color:var(--muted)}
+
+    .btn.secondary{ background:var(--btn2); }
+    .btn.small{
+      padding:8px 12px;
+      font-size:12px;
+      border-radius:10px;
+    }
+    .btn:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+    }
+
+    .statusbar,
+    .select{
+      width:100%;
+      background:#173a6c;
+      color:#fff;
+      border:1px solid #2e548e;
+      border-radius:14px;
+      padding:14px 16px;
+      font-size:16px;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
+    .muted{ color:var(--muted); }
+
+    .hidden{ display:none !important; }
+
     .pill{
-      display:inline-flex;align-items:center;gap:8px;background:#183866;border-radius:999px;
-      padding:10px 14px;color:#fff
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      background:#183866;
+      border-radius:999px;
+      padding:10px 14px;
+      color:#fff;
     }
+
     .hint{
-      background:#173a6c;border-radius:16px;padding:12px 16px;color:#d9e5ff
+      background:#173a6c;
+      border-radius:16px;
+      padding:12px 16px;
+      color:#d9e5ff;
     }
+
+    .modal-backdrop{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.55);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:999;
+      padding:14px;
+    }
+
+    .modal{
+      width:min(98vw, 1220px);
+      max-height:92vh;
+      overflow:auto;
+      background:#071a36;
+      border:1px solid rgba(255,255,255,.1);
+      border-radius:18px;
+      box-shadow:0 20px 60px rgba(0,0,0,.45);
+    }
+
+    .modal-header{
+      position:sticky;
+      top:0;
+      z-index:2;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:14px 16px;
+      background:#12336b;
+      border-bottom:1px solid rgba(255,255,255,.08);
+    }
+
+    .modal-title{
+      font-size:18px;
+      font-weight:800;
+      margin:0;
+    }
+
+    .modal-body{
+      padding:14px;
+    }
+
+    .toolbar-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-top:12px;
+    }
+
     .table-wrap{
-      overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:16px;margin-top:12px
+      overflow:auto;
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:16px;
+      margin-top:12px;
     }
+
     table{
-      width:max-content;min-width:100%;border-collapse:collapse;background:#082048
+      width:max-content;
+      min-width:100%;
+      border-collapse:collapse;
+      background:#082048;
     }
+
     th,td{
-      padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.08);
-      text-align:left;vertical-align:middle;white-space:nowrap
+      padding:10px 10px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      text-align:left;
+      vertical-align:middle;
+      white-space:nowrap;
     }
+
     th{
-      position:sticky;top:0;background:#0b2a59;z-index:1
+      position:sticky;
+      top:0;
+      background:#0b2a59;
+      z-index:1;
     }
-    .chk{width:18px;height:18px}
+
+    .chk{
+      width:18px;
+      height:18px;
+    }
+
     .th-check{
-      display:flex;align-items:center;gap:8px
+      display:flex;
+      align-items:center;
+      gap:8px;
     }
+
     .img-thumb{
-      width:64px;height:64px;object-fit:cover;border-radius:12px;
-      border:1px solid rgba(255,255,255,.12);background:#0f2341
+      width:64px;
+      height:64px;
+      object-fit:cover;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background:#0f2341;
     }
-    .sem-img{font-size:12px;color:#cfd8ea}
+
+    .sem-img{
+      font-size:12px;
+      color:#cfd8ea;
+    }
+
     .desc-main{
       display:block;
       font-weight:800;
@@ -86,6 +233,7 @@
       white-space:normal;
       max-width:240px;
     }
+
     .desc-original{
       display:block;
       font-size:11px;
@@ -96,95 +244,205 @@
       max-width:240px;
       opacity:.9;
     }
-    .toolbar-row{
-      display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px
+
+    .filter-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(180px,1fr));
+      gap:12px 16px;
     }
-    .hidden{display:none!important}
+
+    .field label{
+      display:block;
+      font-weight:700;
+      margin-bottom:6px;
+    }
+
+    .loading-box{
+      width:min(92vw,420px);
+      background:#0b2545;
+      border:1px solid rgba(255,255,255,.1);
+      border-radius:18px;
+      padding:22px 18px;
+      box-shadow:0 20px 60px rgba(0,0,0,.45);
+      text-align:center;
+    }
+
+    .spinner{
+      width:56px;
+      height:56px;
+      border:5px solid rgba(255,255,255,.18);
+      border-top-color:#4f8cff;
+      border-radius:50%;
+      margin:0 auto 16px;
+      animation:spin 1s linear infinite;
+    }
+
+    .progress{
+      width:100%;
+      height:12px;
+      border-radius:999px;
+      background:#163153;
+      overflow:hidden;
+      margin-top:14px;
+    }
+
+    .progress > div{
+      height:100%;
+      width:55%;
+      background:linear-gradient(90deg,#2c7be5,#49c6ff);
+      border-radius:999px;
+      animation:progressMove 1.4s ease-in-out infinite;
+    }
+
+    .filter-list{
+      margin-top:8px;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(120px,1fr));
+      gap:10px;
+    }
+
+    .filter-item{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      background:#102a4d;
+      border:1px solid rgba(255,255,255,.08);
+      padding:10px 12px;
+      border-radius:12px;
+    }
+
+    @keyframes spin{
+      to{ transform:rotate(360deg); }
+    }
+
+    @keyframes progressMove{
+      0%{ transform:translateX(-55%); }
+      100%{ transform:translateX(180%); }
+    }
+
     @media (max-width:900px){
-      .grid{grid-template-columns:1fr 1fr}
+      .filter-grid{ grid-template-columns:1fr 1fr; }
     }
+
     @media (max-width:640px){
-      .grid{grid-template-columns:1fr}
-      .wrap{padding:8px}
-      .topbar h1{font-size:16px}
-      .btn{padding:10px 14px}
-      th,td{padding:10px 8px}
-      .desc-main,.desc-original{max-width:180px}
+      .wrap{ padding:8px; }
+      .topbar h1{ font-size:16px; }
+      .filter-grid{ grid-template-columns:1fr; }
+      .desc-main,.desc-original{ max-width:180px; }
+      .filter-list{ grid-template-columns:1fr; }
     }
   </style>
 </head>
 <body>
   <div class="topbar">
     <h1>Pré-visualização Contêiner</h1>
-    <button class="btn secondary small" onclick="fecharPreview()">Fechar</button>
+    <button class="btn secondary small" onclick="window.location.href='/'">Fechar</button>
   </div>
 
   <div class="wrap">
-    <div class="card section">
+    <div class="card">
       <div class="actions">
         <label class="btn" for="arquivoInput">Escolher arquivos</label>
         <input id="arquivoInput" type="file" accept=".xls,.xlsx,.csv,.pdf" class="hidden">
         <button id="btnAnalisar" class="btn">Analisar</button>
       </div>
+
       <div id="arquivoNome" class="statusbar" style="margin-top:10px">Aguardando arquivo...</div>
       <div class="muted" style="margin-top:8px">Selecione XLS, XLSX, CSV ou PDF.</div>
     </div>
+  </div>
 
-    <div class="card section">
-      <div class="grid">
-        <div class="field"><label>Código</label><select id="mapCodigo" class="select"></select></div>
-        <div class="field"><label>Produto</label><select id="mapProduto" class="select"></select></div>
-        <div class="field"><label>Container</label><select id="mapContainer" class="select"></select></div>
-        <div class="field"><label>Lote</label><select id="mapLote" class="select"></select></div>
-        <div class="field"><label>Caixas</label><select id="mapCaixas" class="select"></select></div>
-        <div class="field"><label>Unidades</label><select id="mapUnidades" class="select"></select></div>
-        <div class="field"><label>Fator (Q/C)</label><select id="mapFator" class="select"></select></div>
-        <div class="field"><label>NF</label><select id="mapNf" class="select"></select></div>
-        <div class="field"><label>Fornecedor</label><select id="mapFornecedor" class="select"></select></div>
-        <div class="field"><label>Imagem</label><select id="mapImagem" class="select"></select></div>
+  <!-- MODAL CARREGAMENTO -->
+  <div id="loadingModal" class="modal-backdrop hidden">
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <div style="font-size:20px;font-weight:800;">Carregando arquivo...</div>
+      <div id="loadingText" class="muted" style="margin-top:8px;">Analisando planilha e preparando pré-visualização.</div>
+      <div class="progress"><div></div></div>
+    </div>
+  </div>
+
+  <!-- MODAL FILTRO -->
+  <div id="filterModal" class="modal-backdrop hidden">
+    <div class="modal" style="width:min(92vw,700px)">
+      <div class="modal-header">
+        <h2 class="modal-title">Filtro de visualização</h2>
+        <button class="btn secondary small" onclick="fecharFiltro()">Fechar</button>
+      </div>
+      <div class="modal-body">
+        <div class="muted" style="margin-bottom:10px;">Escolha quais campos quer deixar visíveis na pré-visualização.</div>
+        <div id="filterList" class="filter-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PRÉ-VISUALIZAÇÃO -->
+  <div id="previewModal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title">Pré-visualização Contêiner</h2>
+        <div class="actions" style="margin:0">
+          <button class="btn secondary small" onclick="abrirFiltro()">Filtro</button>
+          <button class="btn secondary small" onclick="fecharPreview()">Fechar</button>
+        </div>
       </div>
 
-      <div class="toolbar-row">
-        <button class="btn small" onclick="selecionarPagina()">Selecionar página</button>
-        <button class="btn secondary small" onclick="desmarcarPagina()">Desmarcar página</button>
-        <button class="btn small" onclick="selecionarTodas()">Selecionar todas</button>
-        <button class="btn secondary small" onclick="desmarcarTodas()">Desmarcar todas</button>
-        <span id="infoLinhas" class="pill">0 linhas</span>
-      </div>
+      <div class="modal-body">
+        <div class="filter-grid">
+          <div class="field"><label>Código</label><select id="mapCodigo" class="select"></select></div>
+          <div class="field"><label>Produto</label><select id="mapProduto" class="select"></select></div>
+          <div class="field"><label>Container</label><select id="mapContainer" class="select"></select></div>
+          <div class="field"><label>Lote</label><select id="mapLote" class="select"></select></div>
+          <div class="field"><label>Caixas</label><select id="mapCaixas" class="select"></select></div>
+          <div class="field"><label>Unidades</label><select id="mapUnidades" class="select"></select></div>
+          <div class="field"><label>Fator (Q/C)</label><select id="mapFator" class="select"></select></div>
+          <div class="field"><label>NF</label><select id="mapNf" class="select"></select></div>
+          <div class="field"><label>Fornecedor</label><select id="mapFornecedor" class="select"></select></div>
+          <div class="field"><label>Imagem</label><select id="mapImagem" class="select"></select></div>
+        </div>
 
-      <div class="toolbar-row">
-        <button class="btn secondary small" onclick="moverHorizontal(-1)">◀ Esquerda</button>
-        <button class="btn secondary small" onclick="moverHorizontal(1)">Direita ▶</button>
-        <button class="btn secondary small" onclick="irInicio()">Início</button>
-        <button class="btn secondary small" onclick="irFim()">Fim</button>
-        <div class="hint">Para mover colunas no celular, toque e segure no cabeçalho por um instante e arraste.</div>
-      </div>
+        <div class="toolbar-row">
+          <button class="btn small" onclick="selecionarPagina()">Selecionar página</button>
+          <button class="btn secondary small" onclick="desmarcarPagina()">Desmarcar página</button>
+          <button class="btn small" onclick="selecionarTodas()">Selecionar todas</button>
+          <button class="btn secondary small" onclick="desmarcarTodas()">Desmarcar todas</button>
+          <span id="infoLinhas" class="pill">0 linhas</span>
+        </div>
 
-      <div class="table-wrap" id="tableWrap">
-        <table>
-          <thead id="thead"></thead>
-          <tbody id="tbody"></tbody>
-        </table>
-      </div>
+        <div class="toolbar-row">
+          <button class="btn secondary small" onclick="moverHorizontal(-1)">◀ Esquerda</button>
+          <button class="btn secondary small" onclick="moverHorizontal(1)">Direita ▶</button>
+          <button class="btn secondary small" onclick="irInicio()">Início</button>
+          <button class="btn secondary small" onclick="irFim()">Fim</button>
+          <div class="hint">Para mover colunas no celular, toque e segure no cabeçalho por um instante e arraste.</div>
+        </div>
 
-      <div class="toolbar-row">
-        <button class="btn secondary small" onclick="paginaAnterior()">Anterior</button>
-        <button class="btn secondary small" onclick="proximaPagina()">Próxima</button>
-        <span id="paginaInfo" class="pill">Página 1</span>
-        <span class="muted">Por página</span>
-        <select id="porPagina" class="select" style="max-width:110px;padding:10px 12px">
-          <option>20</option>
-          <option>50</option>
-          <option selected>100</option>
-          <option>200</option>
-        </select>
-      </div>
+        <div class="table-wrap" id="tableWrap">
+          <table>
+            <thead id="thead"></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
 
-      <div class="actions" style="margin-top:16px">
-        <button id="btnImportar" class="btn">Importar Contêiner</button>
-      </div>
+        <div class="toolbar-row">
+          <button class="btn secondary small" onclick="paginaAnterior()">Anterior</button>
+          <button class="btn secondary small" onclick="proximaPagina()">Próxima</button>
+          <span id="paginaInfo" class="pill">Página 1</span>
+          <span class="muted">Por página</span>
+          <select id="porPagina" class="select" style="max-width:110px;padding:10px 12px">
+            <option>20</option>
+            <option>50</option>
+            <option selected>100</option>
+            <option>200</option>
+          </select>
+        </div>
 
-      <div id="msgFinal" class="statusbar hidden" style="margin-top:12px"></div>
+        <div class="actions" style="margin-top:16px">
+          <button id="btnImportar" class="btn">Importar Contêiner</button>
+        </div>
+
+        <div id="msgFinal" class="statusbar hidden" style="margin-top:12px"></div>
+      </div>
     </div>
   </div>
 
@@ -231,6 +489,10 @@
     const porPagina = document.getElementById("porPagina");
     const msgFinal = document.getElementById("msgFinal");
     const tableWrap = document.getElementById("tableWrap");
+    const loadingModal = document.getElementById("loadingModal");
+    const previewModal = document.getElementById("previewModal");
+    const filterModal = document.getElementById("filterModal");
+    const filterList = document.getElementById("filterList");
 
     arquivoInput.addEventListener("change", () => {
       state.arquivo = arquivoInput.files[0] || null;
@@ -246,8 +508,30 @@
       renderTabela();
     });
 
+    function abrirLoading(texto = "Analisando planilha e preparando pré-visualização.") {
+      document.getElementById("loadingText").textContent = texto;
+      loadingModal.classList.remove("hidden");
+    }
+
+    function fecharLoading() {
+      loadingModal.classList.add("hidden");
+    }
+
+    function abrirPreview() {
+      previewModal.classList.remove("hidden");
+    }
+
     function fecharPreview() {
-      window.location.href = "/";
+      previewModal.classList.add("hidden");
+    }
+
+    function abrirFiltro() {
+      renderFiltro();
+      filterModal.classList.remove("hidden");
+    }
+
+    function fecharFiltro() {
+      filterModal.classList.add("hidden");
     }
 
     function htmlEscape(str = "") {
@@ -287,6 +571,7 @@
 
       btnAnalisar.disabled = true;
       btnAnalisar.textContent = "Analisando...";
+      abrirLoading();
 
       try {
         const fd = new FormData();
@@ -299,7 +584,7 @@
         });
 
         const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.ok) throw new Error(data.erro || "Erro ao analisar contêiner.");
+        if (!res.ok || !data.ok) throw new Error(data.erro || data.detalhe || "Erro ao analisar contêiner.");
 
         state.abas = Array.isArray(data.abas) ? data.abas : [];
         state.planilhas = data.planilhas || {};
@@ -313,10 +598,12 @@
 
         popularMaps();
         renderTabela();
+        abrirPreview();
       } catch (err) {
         console.error(err);
-        alert(err.message || "Erro ao analisar.");
+        alert(err.message || "Erro ao analisar contêiner.");
       } finally {
+        fecharLoading();
         btnAnalisar.disabled = false;
         btnAnalisar.textContent = "Analisar";
       }
@@ -332,38 +619,40 @@
     function melhorarDescricao(texto = "") {
       let t = limparTexto(texto);
 
+      t = t.replace(/地图银箔冰箱贴/g, "ímã de geladeira mapa prata");
+      t = t.replace(/银箔冰箱贴/g, "ímã de geladeira prata");
+      t = t.replace(/地图圆镜冰箱贴/g, "ímã de geladeira mapa com espelho redondo");
+      t = t.replace(/圆镜冰箱贴/g, "ímã de geladeira com espelho redondo");
+      t = t.replace(/铝片车牌冰箱贴/g, "ímã de geladeira placa de carro em alumínio");
+      t = t.replace(/7\.5塑料双面镜/g, "espelho dupla face plástico 7.5 cm");
+      t = t.replace(/7\.5双面镜/g, "espelho dupla face 7.5 cm");
+      t = t.replace(/塑料双面镜/g, "espelho dupla face plástico");
+      t = t.replace(/桃心镜子/g, "espelho coração");
+      t = t.replace(/帆布袋/g, "saco de lona");
+      t = t.replace(/帆布包/g, "bolsa de lona");
       t = t.replace(/地图/g, "mapa");
       t = t.replace(/冰箱贴/g, "ímã de geladeira");
       t = t.replace(/双面镜/g, "espelho dupla face");
-      t = t.replace(/杯垫/g, "porta-copo");
-      t = t.replace(/钥匙扣/g, "chaveiro");
+      t = t.replace(/圆镜/g, "espelho redondo");
+      t = t.replace(/镜子/g, "espelho");
       t = t.replace(/顶针/g, "dedal");
-      t = t.replace(/帆布袋/g, "saco de lona");
-      t = t.replace(/帆布包/g, "bolsa de lona");
-      t = t.replace(/桃心镜子/g, "espelho coração");
-      t = t.replace(/塑料/g, "plástico");
+      t = t.replace(/钥匙扣/g, "chaveiro");
+      t = t.replace(/杯垫/g, "porta-copo");
+      t = t.replace(/蓝色/g, "azul");
+      t = t.replace(/大红/g, "vermelho escuro");
+      t = t.replace(/红色/g, "vermelho");
+      t = t.replace(/粉色/g, "rosa");
       t = t.replace(/黑色/g, "preto");
       t = t.replace(/白色/g, "branco");
-      t = t.replace(/蓝色/g, "azul");
-      t = t.replace(/红色/g, "vermelho");
-      t = t.replace(/大红/g, "vermelho escuro");
-      t = t.replace(/粉色/g, "rosa");
-      t = t.replace(/绿色/g, "verde");
       t = t.replace(/黄色/g, "amarelo");
+      t = t.replace(/绿色/g, "verde");
       t = t.replace(/紫色/g, "roxo");
       t = t.replace(/橙色/g, "laranja");
       t = t.replace(/银色/g, "prata");
       t = t.replace(/金色/g, "dourado");
 
-      t = t.replace(/7\.5x7\.5prata/g, "7.5x7.5 prata");
-      t = t.replace(/7\.5塑料双面镜/g, "espelho dupla face plástico 7.5");
-      t = t.replace(/地图prata/g, "mapa prata");
-      t = t.replace(/地图.*?冰箱贴/g, "ímã de geladeira mapa");
-      t = t.replace(/地图.*?冰箱/g, "ímã de geladeira mapa");
-      t = t.replace(/双面镜/g, "espelho dupla face");
-      t = t.replace(/镜子/g, "espelho");
-
-      t = t.replace(/(\b\w+\b)(\s+\1)+/gi, "$1");
+      t = t.replace(/7\.5x7\.5/gi, "7.5 x 7.5");
+      t = t.replace(/(\b[\wÀ-ÿ.-]+\b)(\s+\1)+/gi, "$1");
       t = t.replace(/\s+/g, " ").trim();
 
       return t;
@@ -446,12 +735,23 @@
       if (checked) state.visibleHeaders.add(header);
       else state.visibleHeaders.delete(header);
       renderTabela();
+      renderFiltro();
     }
 
     function toggleAllColumns(checked) {
       if (checked) state.visibleHeaders = new Set(state.headers);
       else state.visibleHeaders = new Set();
       renderTabela();
+      renderFiltro();
+    }
+
+    function renderFiltro() {
+      filterList.innerHTML = state.headers.map(h => `
+        <label class="filter-item">
+          <input type="checkbox" class="chk" ${state.visibleHeaders.has(h) ? "checked" : ""} onchange="toggleColuna('${String(h).replaceAll("'", "\\'")}', this.checked)">
+          <span>${htmlEscape(h)}</span>
+        </label>
+      `).join("");
     }
 
     function renderTabela() {
@@ -585,6 +885,7 @@
       state.visibleHeaders = new Set(arr.filter(h => state.visibleHeaders.has(h)));
       state.dragIndex = null;
       renderTabela();
+      renderFiltro();
     }
 
     function onTouchStartHeader(ev) {
@@ -613,6 +914,7 @@
       state.visibleHeaders = new Set(arr.filter(h => state.visibleHeaders.has(h)));
       state.touchDragIndex = targetIndex;
       renderTabela();
+      renderFiltro();
     }
 
     function onTouchEndHeader() {
@@ -633,6 +935,7 @@
 
       btnImportar.disabled = true;
       btnImportar.textContent = "Importando...";
+      abrirLoading("Importando itens selecionados...");
 
       try {
         const res = await fetch("/api/estoque/container", {
@@ -656,6 +959,7 @@
         console.error(err);
         alert(err.message || "Erro ao importar.");
       } finally {
+        fecharLoading();
         btnImportar.disabled = false;
         btnImportar.textContent = "Importar Contêiner";
       }
@@ -677,9 +981,11 @@
     window.onTouchStartHeader = onTouchStartHeader;
     window.onTouchMoveHeader = onTouchMoveHeader;
     window.onTouchEndHeader = onTouchEndHeader;
-    window.fecharPreview = fecharPreview;
     window.toggleColuna = toggleHeaderVisibility;
     window.toggleTodasColunas = toggleAllColumns;
+    window.abrirFiltro = abrirFiltro;
+    window.fecharFiltro = fecharFiltro;
+    window.fecharPreview = fecharPreview;
   </script>
 </body>
 </html>
