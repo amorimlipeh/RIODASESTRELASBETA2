@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Importador WMS</title>
+  <title>Importador ERP</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
   <style>
     :root{
@@ -67,7 +67,7 @@
 </head>
 <body>
   <div class="topbar">
-    <h1>Pré-visualização WMS</h1>
+    <h1>Pré-visualização ERP</h1>
     <button class="btn secondary small" type="button" onclick="window.location.href='/'">Fechar</button>
   </div>
 
@@ -88,7 +88,7 @@
 
     <div id="previewArea" class="preview-shell hidden">
       <div class="preview-header">
-        <div class="preview-title">Pré-visualização WMS</div>
+        <div class="preview-title">Pré-visualização ERP</div>
         <div class="actions" style="margin:0;">
           <button id="btnFiltro" class="btn secondary small" type="button">Filtro</button>
           <button id="btnMapeamento" class="btn secondary small" type="button">Mapear colunas</button>
@@ -144,7 +144,7 @@
         </div>
 
         <div class="toolbar" style="margin-top:16px;">
-          <button id="btnImportar" class="btn" type="button">Importar WMS</button>
+          <button id="btnImportar" class="btn" type="button">Importar ERP</button>
         </div>
 
         <div id="msgFinal" class="statusbar msg hidden"></div>
@@ -164,18 +164,21 @@
   <script src="/js/importador-excel-base.js"></script>
   <script>
     criarImportadorExcel({
-      analyzeErrorText: "Erro ao analisar WMS.",
-      importErrorText: "Erro ao importar WMS.",
-      importEndpoint: "/api/estoque/wms",
-      importButtonText: "Importar WMS",
+      analyzeErrorText: "Erro ao analisar ERP.",
+      importErrorText: "Erro ao importar ERP.",
+      importEndpoint: "/api/estoque/erp",
+      importButtonText: "Importar ERP",
       importButtonLoadingText: "Importando...",
       mapLabels: {
         codigo: "Código",
         produto: "Produto",
-        endereco: "Endereço",
         quantidade: "Quantidade",
+        caixas: "Caixas",
+        fator: "Fator",
         lote: "Lote",
-        fator: "Fator"
+        nf: "NF",
+        fornecedor: "Fornecedor",
+        endereco: "Endereço"
       }
     });
   </script>
