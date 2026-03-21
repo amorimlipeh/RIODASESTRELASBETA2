@@ -4,7 +4,6 @@ const fs = require("fs");
 const multer = require("multer");
 const XLSX = require("xlsx");
 const unzipper = require("unzipper");
-const axios = require("axios");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -302,26 +301,29 @@ async function traduzirOnline(texto) {
 
   for (const url of endpoints) {
     try {
-      const res = await axios.post(
-        url,
-        {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
           q: texto,
           source: "auto",
           target: "pt",
           format: "text"
-        },
-        {
-          timeout: 10000,
-          headers: { "Content-Type": "application/json" }
-        }
-      );
+        })
+      });
 
-      const traduzido = res?.data?.translatedText;
+      if (!res.ok) continue;
+
+      const data = await res.json().catch(() => ({}));
+      const traduzido = data?.translatedText;
+
       if (traduzido && typeof traduzido === "string") {
         return traduzido.trim();
       }
     } catch (e) {
-      // tenta próximo endpoint
+      // tenta o próximo endpoint
     }
   }
 
@@ -769,10 +771,10 @@ async function enrichContainerPreview(planilhas, metadados, imagesBySheet) {
 
       const originalProduto = String(
         row[produtoHeader] ||
-        row.produto ||
-        row.DESCRIPTION ||
-        row["品名"] ||
-        ""
+          row.produto ||
+          row.DESCRIPTION ||
+          row["品名"] ||
+          ""
       ).trim();
 
       if (originalProduto) {
@@ -820,8 +822,18 @@ function mapearLinhaContainer(item, selectedMap = {}, detectedMap = {}) {
 
   if (!imagem) {
     imagem =
-      String(item.imagem || item.Imagem || item.IMAGEM || item.image || item.Image || item.IMAGE || item.picture || item.Picture || item.PICTURE || "").trim() ||
-      findImageByCode(codigo);
+      String(
+        item.imagem ||
+          item.Imagem ||
+          item.IMAGEM ||
+          item.image ||
+          item.Image ||
+          item.IMAGE ||
+          item.picture ||
+          item.Picture ||
+          item.PICTURE ||
+          ""
+      ).trim() || findImageByCode(codigo);
   }
 
   const produtoTraduzido = String(item.descricao_traduzida || item.traducao || "").trim();
@@ -829,8 +841,8 @@ function mapearLinhaContainer(item, selectedMap = {}, detectedMap = {}) {
 
   const produtoBase = String(
     produtoTraduzido ||
-    pickBySelectedOrDetected(item, selectedMap, detectedMap, ["produto"]) ||
-    ""
+      pickBySelectedOrDetected(item, selectedMap, detectedMap, ["produto"]) ||
+      ""
   ).trim();
 
   return {
@@ -960,7 +972,8 @@ app.post("/api/importar-container", upload.any(), async (req, res) => {
     console.error("Erro em /api/importar-container:", error);
     return res.status(500).json({
       ok: false,
-      erro: "Erro ao enviar/analisar contêiner.",
+      erro: "Erro ao analisar contêiner.",
+      detalhe: error.message
     });
   }
 });
