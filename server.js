@@ -21,6 +21,7 @@ function ensureDir(dirPath) {
 ensureDir(PUBLIC_DIR);
 ensureDir(DATA_DIR);
 ensureDir(UPLOADS_DIR);
+ensureDir(path.join(UPLOADS_DIR, "produtos"));
 
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
@@ -30,7 +31,7 @@ app.use(express.static(PUBLIC_DIR));
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 25 * 1024 * 1024,
+    fileSize: 30 * 1024 * 1024,
     files: 10,
   },
 });
@@ -278,23 +279,39 @@ const ALIASES_CONTAINER = {
   fator: ["fator", "q/c", "qc", "factor", "packing", "pack"],
 };
 
-function respostaImportacao(file, aliasMap) {
-  if (!file || !file.buffer) {
-    return { ok: false, erro: "Arquivo não enviado" };
-  }
-
-  const { abas, planilhas, metadados } = parseWorkbook(file.buffer, aliasMap);
-
-  if (!abas.length) {
-    return { ok: false, erro: "Planilha vazia ou sem dados válidos." };
-  }
+function mapearLinhaContainer(item, camposDetectados) {
+  const get = (campo) => {
+    const cabecalho = camposDetectados[campo];
+    return cabecalho ? item[cabecalho] ?? "" : "";
+  };
 
   return {
-    ok: true,
-    abas,
-    planilhas,
-    metadados,
-    arquivo: file.originalname || "arquivo",
+    codigo: String(get("codigo") || "").trim(),
+    produto: String(get("produto") || "").trim(),
+    container: String(get("container") || "").trim(),
+    lote: String(get("lote") || "").trim(),
+    caixas: Number(get("caixas") || 0),
+    unidades: Number(get("unidades") || 0),
+    fator: Number(get("fator") || 0),
+    nf: String(get("nf") || "").trim(),
+    fornecedor: String(get("fornecedor") || "").trim(),
+    imagem: String(get("imagem") || "").trim(),
+    bruto: item,
+  };
+}
+
+function mapearLinhaWms(item, camposDetectados) {
+  const get = (campo) => {
+    const cabecalho = camposDetectados[campo];
+    return cabecalho ? item[cabecalho] ?? "" : "";
+  };
+
+  return {
+    codigo: String(get("codigo") || "").trim(),
+    produto: String(get("produto") || "").trim(),
+    endereco: String(get("endereco") || "").trim(),
+    quantidade: Number(get("quantidade") || 0),
+    bruto: item,
   };
 }
 
@@ -330,8 +347,32 @@ app.get("/health", (_req, res) => {
 app.post("/api/importar-wms", upload.any(), (req, res) => {
   try {
     const file = getFirstSpreadsheet(req);
-    const resultado = respostaImportacao(file, ALIASES_WMS);
-    return res.json(resultado);
+    if (!file || !file.buffer) {
+      return res.json({ ok: false, erro: "Arquivo não enviado" });
+    }
+
+    const { abas, planilhas, metadados } = parseWorkbook(file.buffer, ALIASES_WMS);
+
+    if (!abas.length) {
+      return res.json({ ok: false, erro: "Planilha vazia ou sem dados válidos." });
+    }
+
+    const planilhasFormatadas = {};
+    for (const aba of abas) {
+      const meta = metadados[aba] || {};
+      const camposDetectados = meta.camposDetectados || {};
+      planilhasFormatadas[aba] = (planilhas[aba] || []).map((item) =>
+        mapearLinhaWms(item, camposDetectados)
+      );
+    }
+
+    return res.json({
+      ok: true,
+      abas,
+      planilhas: planilhasFormatadas,
+      metadados,
+      arquivo: file.originalname || "arquivo",
+    });
   } catch (error) {
     console.error("Erro em /api/importar-wms:", error);
     return res.status(500).json({
@@ -344,8 +385,32 @@ app.post("/api/importar-wms", upload.any(), (req, res) => {
 app.post("/api/importar-container", upload.any(), (req, res) => {
   try {
     const file = getFirstSpreadsheet(req);
-    const resultado = respostaImportacao(file, ALIASES_CONTAINER);
-    return res.json(resultado);
+    if (!file || !file.buffer) {
+      return res.json({ ok: false, erro: "Arquivo não enviado" });
+    }
+
+    const { abas, planilhas, metadados } = parseWorkbook(file.buffer, ALIASES_CONTAINER);
+
+    if (!abas.length) {
+      return res.json({ ok: false, erro: "Planilha vazia ou sem dados válidos." });
+    }
+
+    const planilhasFormatadas = {};
+    for (const aba of abas) {
+      const meta = metadados[aba] || {};
+      const camposDetectados = meta.camposDetectados || {};
+      planilhasFormatadas[aba] = (planilhas[aba] || []).map((item) =>
+        mapearLinhaContainer(item, camposDetectados)
+      );
+    }
+
+    return res.json({
+      ok: true,
+      abas,
+      planilhas: planilhasFormatadas,
+      metadados,
+      arquivo: file.originalname || "arquivo",
+    });
   } catch (error) {
     console.error("Erro em /api/importar-container:", error);
     return res.status(500).json({
