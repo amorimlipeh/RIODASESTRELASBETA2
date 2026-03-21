@@ -1,308 +1,183 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Importador WMS</title>
-
-<style>
-body{
-  margin:0;
-  font-family:Arial;
-  background:#071a36;
-  color:#fff;
-}
-
-.top{
-  padding:15px;
-  background:#0b2545;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-}
-
-.btn{
-  background:#3b73e6;
-  border:none;
-  padding:10px 14px;
-  border-radius:8px;
-  color:#fff;
-}
-
-.box{
-  padding:15px;
-}
-
-.badge{
-  background:#1d3c66;
-  padding:8px 12px;
-  border-radius:20px;
-  display:inline-block;
-}
-
-.actions{
-  position:relative;
-  display:inline-block;
-}
-
-.menu{
-  display:none;
-  position:absolute;
-  background:#0b2545;
-  padding:10px;
-  border-radius:10px;
-  top:40px;
-  left:0;
-  z-index:10;
-  width:200px;
-}
-
-.menu button{
-  width:100%;
-  margin-bottom:6px;
-  background:#102d52;
-  border:none;
-  padding:10px;
-  border-radius:6px;
-  color:#fff;
-}
-
-.menu.show{
-  display:block;
-}
-
-.table{
-  margin-top:10px;
-  overflow:auto;
-  max-height:60vh;
-}
-
-table{
-  width:100%;
-  border-collapse:collapse;
-}
-
-th, td{
-  padding:10px;
-  border-bottom:1px solid #1d3c66;
-  text-align:left;
-}
-
-th{
-  background:#0b2545;
-  position:sticky;
-  top:0;
-}
-
-th input{
-  width:100%;
-  background:#102d52;
-  border:none;
-  color:#fff;
-  padding:4px;
-  border-radius:4px;
-}
-
-tr.selected{
-  background:#123a6b;
-}
-
-.loader{
-  position:fixed;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-  background:rgba(0,0,0,0.6);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  display:none;
-}
-
-.loader.show{
-  display:flex;
-}
-
-.loader-box{
-  background:#0b2545;
-  padding:20px;
-  border-radius:10px;
-}
-</style>
-</head>
-
-<body>
-
-<div class="top">
-  <div>Pré-visualização WMS</div>
-  <button class="btn" onclick="fechar()">Fechar</button>
-</div>
-
-<div class="box">
-
-<input type="file" id="file" hidden>
-
-<button class="btn" onclick="document.getElementById('file').click()">Escolher arquivo</button>
-<button class="btn" onclick="analisar()">Analisar</button>
-
-<div id="fileName"></div>
-
-<br><br>
-
-<div class="actions">
-  <button class="btn" onclick="toggleMenu()">Ações</button>
-
-  <div id="menu" class="menu">
-    <button onclick="selecionarPagina()">Selecionar página</button>
-    <button onclick="desmarcarPagina()">Desmarcar página</button>
-    <button onclick="selecionarTudo()">Selecionar todas</button>
-    <button onclick="desmarcarTudo()">Desmarcar todas</button>
-    <hr>
-    <button onclick="scrollLeft()">⬅ Esquerda</button>
-    <button onclick="scrollRight()">Direita ➡</button>
-    <button onclick="scrollTopo()">Início</button>
-    <button onclick="scrollFim()">Fim</button>
-  </div>
-</div>
-
-<span class="badge" id="contador">0 linhas</span>
-
-<div style="margin-top:10px;font-size:12px;">
-Desktop: segure Ctrl e arraste. Mobile: segure e arraste.
-</div>
-
-<div class="table">
-  <table id="tabela"></table>
-</div>
-
-</div>
-
-<div id="loader" class="loader">
-  <div class="loader-box">Carregando arquivo...</div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-
-<script>
-
-let dados = []
-let selecionados = new Set()
-
-document.getElementById('file').addEventListener('change', e=>{
-  document.getElementById('fileName').innerText = e.target.files[0].name
-})
-
-function toggleMenu(){
-  document.getElementById('menu').classList.toggle('show')
-}
-
-function analisar(){
-  let file = document.getElementById('file').files[0]
-  if(!file) return alert("Escolha um arquivo")
-
-  document.getElementById('loader').classList.add('show')
-
-  let reader = new FileReader()
-
-  reader.onload = function(e){
-    let wb = XLSX.read(e.target.result, {type:'binary'})
-    let ws = wb.Sheets[wb.SheetNames[0]]
-    dados = XLSX.utils.sheet_to_json(ws, {header:1})
-
-    renderTabela()
-    document.getElementById('loader').classList.remove('show')
-  }
-
-  reader.readAsBinaryString(file)
-}
-
-function renderTabela(){
-  let table = document.getElementById('tabela')
-  table.innerHTML = ""
-
-  let header = dados[0]
-
-  let tr = document.createElement('tr')
-
-  header.forEach((h,i)=>{
-    let th = document.createElement('th')
-
-    let input = document.createElement('input')
-    input.value = h
-    input.onchange = ()=> header[i] = input.value
-
-    th.appendChild(input)
-    tr.appendChild(th)
-  })
-
-  table.appendChild(tr)
-
-  dados.slice(1).forEach((row,idx)=>{
-    let tr = document.createElement('tr')
-
-    tr.onclick = ()=>{
-      if(selecionados.has(idx)){
-        selecionados.delete(idx)
-        tr.classList.remove('selected')
-      }else{
-        selecionados.add(idx)
-        tr.classList.add('selected')
-      }
-      atualizarContador()
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Importador WMS</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <style>
+    :root{
+      --bg:#071a36; --panel:#0b2545; --line:#1d3c66; --text:#fff; --muted:#b9c7da;
+      --btn:#3b73e6; --btn2:#24436c; --shadow:0 6px 22px rgba(0,0,0,.28);
     }
+    *{ box-sizing:border-box; }
+    body{ margin:0; background:linear-gradient(180deg,#041229 0%,#071a36 100%); font-family:Arial,Helvetica,sans-serif; color:var(--text); }
+    .topbar{ position:sticky; top:0; z-index:20; display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:#12336b; border-bottom:1px solid rgba(255,255,255,.08); }
+    .topbar h1{ margin:0; font-size:18px; }
+    .wrap{ max-width:1200px; margin:0 auto; padding:14px; }
+    .card{ background:rgba(6,24,54,.96); border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:14px; box-shadow:var(--shadow); margin-bottom:14px; }
+    .actions{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .file-button-wrap{ position:relative; display:inline-block; min-width:160px; }
+    .fake-btn,.btn{ background:var(--btn); color:#fff; border:0; border-radius:12px; padding:12px 16px; font-weight:700; cursor:pointer; box-shadow:var(--shadow); display:inline-flex; align-items:center; justify-content:center; min-height:46px; text-align:center; text-decoration:none; user-select:none; }
+    .btn.secondary{ background:var(--btn2); }
+    .btn.small{ padding:8px 12px; min-height:auto; font-size:12px; border-radius:10px; }
+    .btn:disabled{ opacity:.6; cursor:not-allowed; }
+    .file-button-wrap input[type="file"]{ position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:3; }
+    .statusbar,.select{ width:100%; background:#173a6c; color:#fff; border:1px solid #2e548e; border-radius:14px; padding:14px 16px; font-size:15px; }
+    .muted{ color:var(--muted); margin-top:8px; font-size:13px; }
+    .hidden{ display:none !important; }
+    .pill{ display:inline-flex; align-items:center; gap:8px; background:#183866; border-radius:999px; padding:10px 14px; color:#fff; font-size:13px; }
+    .hint{ background:#173a6c; border-radius:16px; padding:12px 16px; color:#d9e5ff; font-size:13px; }
+    .loading-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:999; padding:14px; }
+    .loading-box{ width:min(92vw,420px); background:#0b2545; border:1px solid rgba(255,255,255,.1); border-radius:18px; padding:22px 18px; box-shadow:0 20px 60px rgba(0,0,0,.45); text-align:center; }
+    .spinner{ width:56px; height:56px; border:5px solid rgba(255,255,255,.18); border-top-color:#4f8cff; border-radius:50%; margin:0 auto 16px; animation:spin 1s linear infinite; }
+    @keyframes spin{ to{ transform:rotate(360deg); } }
+    .progress{ width:100%; height:12px; border-radius:999px; background:#163153; overflow:hidden; margin-top:14px; }
+    .progress > div{ height:100%; width:55%; background:linear-gradient(90deg,#2c7be5,#49c6ff); border-radius:999px; animation:progressMove 1.4s ease-in-out infinite; }
+    @keyframes progressMove{ 0%{ transform:translateX(-55%); } 100%{ transform:translateX(180%); } }
+    .preview-shell{ background:#071a36; border:1px solid rgba(255,255,255,.08); border-radius:18px; overflow:hidden; box-shadow:var(--shadow); }
+    .preview-header{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; background:#12336b; border-bottom:1px solid rgba(255,255,255,.08); }
+    .preview-title{ font-size:18px; font-weight:800; margin:0; }
+    .toolbar{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+    .inner-panel{ background:#102a4d; border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:12px; margin-bottom:12px; }
+    .panel-title{ margin:0 0 10px; font-size:14px; font-weight:800; color:#d9e5ff; }
+    .filter-list{ display:grid; grid-template-columns:repeat(2,minmax(140px,1fr)); gap:10px; }
+    .filter-item,.map-item{ display:flex; align-items:center; gap:8px; background:#16345d; border:1px solid rgba(255,255,255,.08); padding:10px 12px; border-radius:12px; }
+    .chk{ width:18px; height:18px; flex:0 0 auto; }
+    .table-wrap{ overflow:auto; border:1px solid rgba(255,255,255,.08); border-radius:16px; max-height:60vh; -webkit-overflow-scrolling:touch; background:#082048; }
+    table{ width:max-content; min-width:100%; border-collapse:collapse; }
+    th,td{ padding:10px; border-bottom:1px solid rgba(255,255,255,.08); text-align:left; vertical-align:middle; white-space:nowrap; font-size:13px; }
+    th{ position:sticky; top:0; background:#0b2a59; z-index:2; }
+    .th-check{ display:flex; align-items:center; gap:8px; }
+    .drag-handle{ opacity:.7; font-size:12px; margin-left:4px; }
+    .rename-target{ cursor:pointer; padding:4px 6px; border-radius:8px; transition:.15s; display:inline-flex; align-items:center; gap:6px; }
+    .rename-target:hover{ background:rgba(255,255,255,.08); }
+    .rename-edit{ display:flex; align-items:center; gap:6px; }
+    .rename-edit input{ min-width:120px; background:#173a6c; color:#fff; border:1px solid #2e548e; border-radius:10px; padding:8px 10px; font-size:13px; outline:none; }
+    .icon-btn{ border:0; background:#24436c; color:#fff; border-radius:8px; padding:6px 8px; cursor:pointer; font-size:12px; line-height:1; }
+    .icon-btn.ok{ background:#2c7a4b; }
+    .icon-btn.cancel{ background:#7a2c3b; }
+    .msg{ margin-top:12px; }
+    .debug-box{ margin-top:12px; background:#102a4d; border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px 12px; color:#d9e5ff; font-size:12px; white-space:pre-wrap; word-break:break-word; }
+    @media (max-width:640px){
+      .wrap{ padding:8px; } .topbar h1{ font-size:16px; } .filter-list{ grid-template-columns:1fr; } .file-button-wrap{ width:100%; } .actions .btn{ width:100%; }
+      .preview-header{ flex-direction:column; align-items:stretch; } .preview-header .actions{ width:100%; } .preview-header .actions .btn{ width:100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>Pré-visualização WMS</h1>
+    <button class="btn secondary small" type="button" onclick="window.location.href='/'">Fechar</button>
+  </div>
 
-    row.forEach(cell=>{
-      let td = document.createElement('td')
-      td.innerText = cell
-      tr.appendChild(td)
-    })
+  <div class="wrap">
+    <div class="card">
+      <div class="actions">
+        <div class="file-button-wrap">
+          <div class="fake-btn">Escolher arquivo</div>
+          <input id="arquivoInput" type="file" accept=".xlsx,.xls,.csv" />
+        </div>
+        <button id="btnAnalisar" class="btn" type="button">Analisar</button>
+      </div>
 
-    table.appendChild(tr)
-  })
+      <div id="arquivoNome" class="statusbar" style="margin-top:10px;">Aguardando arquivo...</div>
+      <div class="muted">Selecione XLS, XLSX ou CSV.</div>
+      <div id="debugInfo" class="debug-box hidden"></div>
+    </div>
 
-  atualizarContador()
-}
+    <div id="previewArea" class="preview-shell hidden">
+      <div class="preview-header">
+        <div class="preview-title">Pré-visualização WMS</div>
+        <div class="actions" style="margin:0;">
+          <button id="btnFiltro" class="btn secondary small" type="button">Filtro</button>
+          <button id="btnMapeamento" class="btn secondary small" type="button">Mapear colunas</button>
+          <button class="btn secondary small" type="button" onclick="importadorExcelApi.fecharPreview()">Fechar</button>
+        </div>
+      </div>
 
-function atualizarContador(){
-  document.getElementById('contador').innerText =
-    `${dados.length-1} linhas • ${selecionados.size} selecionadas`
-}
+      <div style="padding:14px;">
+        <div class="toolbar">
+          <button class="btn small" type="button" onclick="importadorExcelApi.selecionarPagina()">Selecionar página</button>
+          <button class="btn secondary small" type="button" onclick="importadorExcelApi.desmarcarPagina()">Desmarcar página</button>
+          <button class="btn small" type="button" onclick="importadorExcelApi.selecionarTodas()">Selecionar todas</button>
+          <button class="btn secondary small" type="button" onclick="importadorExcelApi.desmarcarTodas()">Desmarcar todas</button>
+          <span id="infoLinhas" class="pill">0 linhas</span>
+        </div>
 
-function selecionarTudo(){
-  selecionados = new Set(dados.slice(1).map((_,i)=>i))
-  renderTabela()
-}
+        <div class="toolbar">
+          <button class="btn secondary small" type="button" onclick="importadorExcelApi.moverHorizontal(-1)">◀ Esquerda</button>
+          <button class="btn secondary small" type="button" onclick="importadorExcelApi.moverHorizontal(1)">Direita ▶</button>
+          <button class="btn secondary small" type="button" onclick="importadorExcelApi.irInicio()">Início</button>
+          <button class="btn secondary small" type="button" onclick="importadorExcelApi.irFim()">Fim</button>
+          <div class="hint">Desktop: Ctrl + arrastar nas linhas. Mobile: toque longo + arrastar. Duplo clique no cabeçalho para renomear.</div>
+        </div>
 
-function desmarcarTudo(){
-  selecionados.clear()
-  renderTabela()
-}
+        <div id="panelFiltro" class="inner-panel hidden">
+          <h3 class="panel-title">Filtro</h3>
+          <div id="filterList" class="filter-list"></div>
+        </div>
 
-function selecionarPagina(){ selecionarTudo() }
-function desmarcarPagina(){ desmarcarTudo() }
+        <div id="panelMapeamento" class="inner-panel hidden">
+          <h3 class="panel-title">Mapear colunas</h3>
+          <div id="mappingList" class="filter-list"></div>
+        </div>
 
-function scrollLeft(){
-  document.querySelector('.table').scrollLeft -= 200
-}
+        <div class="table-wrap" id="tableWrap">
+          <table>
+            <thead id="thead"></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
 
-function scrollRight(){
-  document.querySelector('.table').scrollLeft += 200
-}
+        <div class="toolbar" style="margin-top:12px;">
+          <button class="btn secondary small" type="button" onclick="importadorExcelApi.paginaAnterior()">Anterior</button>
+          <button class="btn secondary small" type="button" onclick="importadorExcelApi.proximaPagina()">Próxima</button>
+          <span id="paginaInfo" class="pill">Página 1</span>
+          <span class="muted">Por página</span>
+          <select id="porPagina" class="select" style="max-width:110px;padding:10px 12px;">
+            <option>20</option>
+            <option>50</option>
+            <option selected>100</option>
+            <option>200</option>
+          </select>
+        </div>
 
-function scrollTopo(){
-  document.querySelector('.table').scrollTop = 0
-}
+        <div class="toolbar" style="margin-top:16px;">
+          <button id="btnImportar" class="btn" type="button">Importar WMS</button>
+        </div>
 
-function scrollFim(){
-  document.querySelector('.table').scrollTop = 99999
-}
+        <div id="msgFinal" class="statusbar msg hidden"></div>
+      </div>
+    </div>
+  </div>
 
-function fechar(){
-  location.reload()
-}
+  <div id="loadingModal" class="loading-backdrop hidden">
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <div style="font-size:20px;font-weight:800;">Carregando arquivo...</div>
+      <div id="loadingText" class="muted">Analisando planilha e preparando pré-visualização.</div>
+      <div class="progress"><div></div></div>
+    </div>
+  </div>
 
-</script>
-
+  <script src="/js/importador-excel-base.js"></script>
+  <script>
+    criarImportadorExcel({
+      analyzeErrorText: "Erro ao analisar WMS.",
+      importErrorText: "Erro ao importar WMS.",
+      importEndpoint: "/api/estoque/wms",
+      importButtonText: "Importar WMS",
+      importButtonLoadingText: "Importando...",
+      mapLabels: {
+        codigo: "Código",
+        produto: "Produto",
+        endereco: "Endereço",
+        quantidade: "Quantidade",
+        lote: "Lote",
+        fator: "Fator"
+      }
+    });
+  </script>
 </body>
 </html>
