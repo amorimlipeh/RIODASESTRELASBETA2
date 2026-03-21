@@ -413,7 +413,7 @@
 <body>
   <div class="topbar">
     <h1>Pré-visualização WMS</h1>
-    <button class="btn secondary small" type="button" onclick="fecharPreview()">Fechar</button>
+    <button class="btn secondary small" type="button" onclick="fecharTela()">Fechar</button>
   </div>
 
   <div class="wrap">
@@ -437,7 +437,7 @@
         <div class="actions" style="margin:0;">
           <button id="btnFiltro" class="btn secondary small" type="button">Filtro</button>
           <button id="btnMapeamento" class="btn secondary small" type="button">Mapear colunas</button>
-          <button class="btn secondary small" type="button" onclick="fecharPreview()">Fechar</button>
+          <button class="btn secondary small" type="button" onclick="fecharTela()">Fechar</button>
         </div>
       </div>
 
@@ -617,8 +617,36 @@
       els.previewArea.classList.remove("hidden");
     }
 
-    function fecharPreview() {
+    function fecharPreview(reset = false) {
       els.previewArea.classList.add("hidden");
+      els.panelFiltro.classList.add("hidden");
+      els.panelMapeamento.classList.add("hidden");
+      els.msgFinal.classList.add("hidden");
+      els.msgFinal.textContent = "";
+
+      if (reset) {
+        state.headers = [];
+        state.rows = [];
+        state.visibleHeaders = new Set();
+        state.renamedHeaders = {};
+        state.selectedRows = new Set();
+        state.pagina = 1;
+        state.editingHeader = null;
+        state.editingValue = "";
+
+        els.thead.innerHTML = "";
+        els.tbody.innerHTML = "";
+        els.infoLinhas.textContent = "0 linhas";
+        els.paginaInfo.textContent = "Página 1";
+      }
+    }
+
+    function fecharTela() {
+      if (!els.previewArea.classList.contains("hidden")) {
+        fecharPreview(false);
+        return;
+      }
+      window.location.href = "/";
     }
 
     function togglePanel(panel) {
@@ -642,10 +670,7 @@
             const sheet = workbook.Sheets[aba];
             const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
-            if (!rows.length) {
-              return reject(new Error("Arquivo sem linhas válidas."));
-            }
-
+            if (!rows.length) return reject(new Error("Arquivo sem linhas válidas."));
             const headers = Object.keys(rows[0] || {}).filter(h => h !== "__excelRow");
             resolve({ rows, headers });
           } catch (err) {
@@ -1155,6 +1180,7 @@
     window.rowTouchMoveJs = rowTouchMove;
     window.rowTouchEndJs = rowTouchEnd;
     window.fecharPreview = fecharPreview;
+    window.fecharTela = fecharTela;
     window.selecionarPagina = selecionarPagina;
     window.desmarcarPagina = desmarcarPagina;
     window.selecionarTodas = selecionarTodas;
