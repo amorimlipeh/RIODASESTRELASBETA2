@@ -141,7 +141,7 @@
     .modal-header{
       position:sticky;
       top:0;
-      z-index:2;
+      z-index:3;
       display:flex;
       align-items:center;
       justify-content:space-between;
@@ -173,6 +173,8 @@
       border:1px solid rgba(255,255,255,.08);
       border-radius:16px;
       margin-top:12px;
+      max-height:60vh;
+      -webkit-overflow-scrolling:touch;
     }
 
     table{
@@ -194,12 +196,24 @@
       position:sticky;
       top:0;
       background:#0b2a59;
-      z-index:1;
+      z-index:2;
     }
 
     .chk{
       width:18px;
       height:18px;
+    }
+
+    .th-check{
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .drag-handle{
+      opacity:.7;
+      font-size:12px;
+      margin-left:4px;
     }
 
     .img-thumb{
@@ -300,6 +314,10 @@
       border-radius:12px;
     }
 
+    .filter-modal-backdrop{
+      z-index:1001;
+    }
+
     @keyframes spin{
       to{ transform:rotate(360deg); }
     }
@@ -314,6 +332,7 @@
       .topbar h1{ font-size:16px; }
       .filter-list{ grid-template-columns:1fr; }
       .desc-main,.desc-original{ max-width:180px; }
+      .table-wrap{ max-height:58vh; }
     }
   </style>
 </head>
@@ -347,7 +366,7 @@
   </div>
 
   <!-- FILTRO -->
-  <div id="filterModal" class="modal-backdrop hidden">
+  <div id="filterModal" class="modal-backdrop filter-modal-backdrop hidden">
     <div class="modal" style="width:min(92vw,760px)">
       <div class="modal-header">
         <h2 class="modal-title">Filtro</h2>
@@ -356,7 +375,7 @@
 
       <div class="modal-body">
         <div class="filter-section">
-          <div class="filter-title">Escolha as colunas visíveis</div>
+          <div class="filter-title">Colunas visíveis</div>
           <div id="filterList" class="filter-list"></div>
         </div>
 
@@ -374,8 +393,8 @@
       <div class="modal-header">
         <h2 class="modal-title">Pré-visualização Contêiner</h2>
         <div class="actions" style="margin:0">
-          <button class="btn secondary small" onclick="abrirFiltro()">Filtro</button>
-          <button class="btn secondary small" onclick="fecharPreview()">Fechar</button>
+          <button type="button" id="btnFiltro" class="btn secondary small">Filtro</button>
+          <button type="button" class="btn secondary small" onclick="fecharPreview()">Fechar</button>
         </div>
       </div>
 
@@ -473,6 +492,7 @@
     const arquivoNome = document.getElementById("arquivoNome");
     const btnAnalisar = document.getElementById("btnAnalisar");
     const btnImportar = document.getElementById("btnImportar");
+    const btnFiltro = document.getElementById("btnFiltro");
     const tbody = document.getElementById("tbody");
     const thead = document.getElementById("thead");
     const infoLinhas = document.getElementById("infoLinhas");
@@ -494,6 +514,8 @@
 
     btnAnalisar.addEventListener("click", analisar);
     btnImportar.addEventListener("click", importar);
+    btnFiltro.addEventListener("click", abrirFiltro);
+
     porPagina.addEventListener("change", () => {
       state.porPagina = Number(porPagina.value || 100);
       state.pagina = 1;
@@ -545,21 +567,20 @@
       function findHeader(possibles) {
         const exact = normalized.find(h => possibles.includes(h.norm));
         if (exact) return exact.raw;
-
         const contains = normalized.find(h => possibles.some(p => h.norm.includes(p)));
         return contains ? contains.raw : "";
       }
 
-      state.map.codigo = findHeader(["item no", "codigo", "código", "货号", "客人货号"]) || state.map.codigo;
-      state.map.produto = findHeader(["description", "produto", "descrição", "品名"]) || state.map.produto;
-      state.map.imagem = findHeader(["picture", "imagem", "image", "产品图片"]) || state.map.imagem;
-      state.map.container = findHeader(["container", "contêiner", "conteiner"]) || state.map.container;
-      state.map.lote = findHeader(["lote", "lot", "batch"]) || state.map.lote;
-      state.map.caixas = findHeader(["ctns", "caixas", "cartons"]) || state.map.caixas;
-      state.map.unidades = findHeader(["t.qty", "unidades", "qty", "数量"]) || state.map.unidades;
-      state.map.fator = findHeader(["q/c", "fator", "qc"]) || state.map.fator;
-      state.map.nf = findHeader(["nf", "nota", "invoice"]) || state.map.nf;
-      state.map.fornecedor = findHeader(["fornecedor", "supplier", "vendor"]) || state.map.fornecedor;
+      state.map.codigo = findHeader(["item no", "codigo", "código", "货号", "客人货号"]) || "";
+      state.map.produto = findHeader(["description", "produto", "descrição", "品名"]) || "";
+      state.map.imagem = findHeader(["picture", "imagem", "image", "产品图片"]) || "";
+      state.map.container = findHeader(["container", "contêiner", "conteiner"]) || "";
+      state.map.lote = findHeader(["lote", "lot", "batch"]) || "";
+      state.map.caixas = findHeader(["ctns", "caixas", "cartons"]) || "";
+      state.map.unidades = findHeader(["t.qty", "unidades", "qty", "数量"]) || "";
+      state.map.fator = findHeader(["q/c", "fator", "qc"]) || "";
+      state.map.nf = findHeader(["nf", "nota", "invoice"]) || "";
+      state.map.fornecedor = findHeader(["fornecedor", "supplier", "vendor"]) || "";
     }
 
     async function analisar() {
@@ -692,6 +713,12 @@
       renderFiltro();
     }
 
+    function setMap(key, value) {
+      state.map[key] = value;
+      renderTabela();
+      renderFiltro();
+    }
+
     function renderFiltro() {
       filterList.innerHTML = state.headers.map(h => `
         <label class="filter-item">
@@ -700,33 +727,52 @@
         </label>
       `).join("");
 
-      mappingList.innerHTML = Object.keys(labelMap).map(key => `
-        <label class="filter-item">
-          <input type="radio" name="map_${key}" class="chk" ${state.map[key] === "" ? "checked" : ""} onclick="setMap('${key}', '')">
-          <span>${labelMap[key]}: não usar</span>
-        </label>
-      `).join("") + state.headers.map(h => Object.keys(labelMap).map(key => `
-        <label class="filter-item">
-          <input type="radio" name="map_${key}" class="chk" ${state.map[key] === h ? "checked" : ""} onclick="setMap('${key}', '${String(h).replaceAll("'", "\\'")}')">
-          <span>${labelMap[key]} → ${htmlEscape(h)}</span>
-        </label>
-      `).join("")).join("");
-    }
-
-    function setMap(key, value) {
-      state.map[key] = value;
-      renderTabela();
-      renderFiltro();
+      let html = "";
+      Object.keys(labelMap).forEach((key) => {
+        html += `
+          <label class="filter-item">
+            <input type="radio" name="map_${key}" class="chk" ${state.map[key] === "" ? "checked" : ""} onclick="setMapValue('${key}', '')">
+            <span>${labelMap[key]}: não usar</span>
+          </label>
+        `;
+        state.headers.forEach((h) => {
+          html += `
+            <label class="filter-item">
+              <input type="radio" name="map_${key}" class="chk" ${state.map[key] === h ? "checked" : ""} onclick="setMapValue('${key}', '${String(h).replaceAll("'", "\\'")}')">
+              <span>${labelMap[key]} → ${htmlEscape(h)}</span>
+            </label>
+          `;
+        });
+      });
+      mappingList.innerHTML = html;
     }
 
     function renderTabela() {
       const rowsPagina = getRowsPagina();
       const columns = getVisibleColumns();
+      const allVisible = state.headers.length > 0 && state.visibleHeaders.size === state.headers.length;
 
       thead.innerHTML = `
         <tr>
-          <th style="width:52px"></th>
-          ${columns.map((h) => `<th>${htmlEscape(h)}</th>`).join("")}
+          <th style="width:52px">
+            <input class="chk" type="checkbox" ${allVisible ? "checked" : ""} onchange="toggleTodasColunas(this.checked)">
+          </th>
+          ${columns.map((h) => `
+            <th draggable="true"
+                data-index="${state.headers.indexOf(h)}"
+                ondragstart="onDragStart(event)"
+                ondragover="onDragOver(event)"
+                ondrop="onDrop(event)"
+                ontouchstart="onTouchStartHeader(event)"
+                ontouchend="onTouchEndHeader(event)"
+                ontouchmove="onTouchMoveHeader(event)">
+              <div class="th-check">
+                <input class="chk" type="checkbox" checked onchange="toggleColuna('${String(h).replaceAll("'", "\\'")}', this.checked)">
+                <span>${htmlEscape(h)}</span>
+                <span class="drag-handle">↕</span>
+              </div>
+            </th>
+          `).join("")}
         </tr>
       `;
 
@@ -761,6 +807,13 @@
 
     function toggleLinha(realIndex, checked) {
       toggleChecked(realIndex, checked);
+    }
+
+    function toggleTodasColunas(checked) {
+      if (checked) state.visibleHeaders = new Set(state.headers);
+      else state.visibleHeaders = new Set();
+      renderTabela();
+      renderFiltro();
     }
 
     function selecionarPagina() {
@@ -808,6 +861,67 @@
 
     function irFim() {
       tableWrap.scrollLeft = tableWrap.scrollWidth;
+    }
+
+    function onDragStart(ev) {
+      const th = ev.target.closest("th");
+      state.dragIndex = Number(th?.dataset.index);
+    }
+
+    function onDragOver(ev) {
+      ev.preventDefault();
+    }
+
+    function onDrop(ev) {
+      ev.preventDefault();
+      const th = ev.target.closest("th");
+      const targetIndex = Number(th?.dataset.index);
+
+      if (Number.isNaN(state.dragIndex) || Number.isNaN(targetIndex) || state.dragIndex === targetIndex) return;
+
+      const arr = [...state.headers];
+      const [item] = arr.splice(state.dragIndex, 1);
+      arr.splice(targetIndex, 0, item);
+      state.headers = arr;
+      state.visibleHeaders = new Set(arr.filter(h => state.visibleHeaders.has(h)));
+      state.dragIndex = null;
+      renderTabela();
+      renderFiltro();
+    }
+
+    function onTouchStartHeader(ev) {
+      const th = ev.target.closest("th");
+      if (!th) return;
+      const idx = Number(th.dataset.index);
+      clearTimeout(state.touchLongPressTimer);
+      state.touchLongPressTimer = setTimeout(() => {
+        state.touchDragIndex = idx;
+      }, 250);
+    }
+
+    function onTouchMoveHeader(ev) {
+      if (state.touchDragIndex == null) return;
+      const touch = ev.touches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const th = target?.closest?.("th");
+      if (!th) return;
+
+      const targetIndex = Number(th.dataset.index);
+      if (Number.isNaN(targetIndex) || targetIndex === state.touchDragIndex) return;
+
+      const arr = [...state.headers];
+      const [item] = arr.splice(state.touchDragIndex, 1);
+      arr.splice(targetIndex, 0, item);
+      state.headers = arr;
+      state.visibleHeaders = new Set(arr.filter(h => state.visibleHeaders.has(h)));
+      state.touchDragIndex = targetIndex;
+      renderTabela();
+      renderFiltro();
+    }
+
+    function onTouchEndHeader() {
+      clearTimeout(state.touchLongPressTimer);
+      state.touchDragIndex = null;
     }
 
     async function importar() {
@@ -860,10 +974,16 @@
     window.irInicio = irInicio;
     window.irFim = irFim;
     window.toggleColuna = toggleHeaderVisibility;
-    window.abrirFiltro = abrirFiltro;
     window.fecharFiltro = fecharFiltro;
     window.fecharPreview = fecharPreview;
-    window.setMap = setMap;
+    window.setMapValue = setMap;
+    window.toggleTodasColunas = toggleTodasColunas;
+    window.onDragStart = onDragStart;
+    window.onDragOver = onDragOver;
+    window.onDrop = onDrop;
+    window.onTouchStartHeader = onTouchStartHeader;
+    window.onTouchMoveHeader = onTouchMoveHeader;
+    window.onTouchEndHeader = onTouchEndHeader;
   </script>
 </body>
 </html>
