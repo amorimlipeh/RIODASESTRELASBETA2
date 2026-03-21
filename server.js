@@ -12,19 +12,18 @@ app.use(express.static(path.join(__dirname, "public")));
 const upload = multer({ storage: multer.memoryStorage() });
 
 /* ===============================
-   NORMALIZA TEXTO
+   NORMALIZA
 ================================ */
 function normalizar(str = "") {
   return String(str)
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ")
     .trim();
 }
 
 /* ===============================
-   MAPA INTELIGENTE DE COLUNAS
+   MAPA INTELIGENTE
 ================================ */
 const MAPA = {
   codigo: ["codigo", "código", "item no", "sku", "ref"],
@@ -48,9 +47,7 @@ function detectarColunas(headers) {
         hNorm.includes(normalizar(alias))
       );
 
-      if (encontrou) {
-        resultado[campo] = index;
-      }
+      if (encontrou) resultado[campo] = index;
     });
   });
 
@@ -58,20 +55,20 @@ function detectarColunas(headers) {
 }
 
 /* ===============================
-   EXTRAI PLANILHA
+   LER PLANILHA
 ================================ */
-function lerPlanilha(buffer) {
+function ler(buffer) {
   const wb = XLSX.read(buffer, { type: "buffer" });
   const nomeAba = wb.SheetNames[0];
   const ws = wb.Sheets[nomeAba];
 
   const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
-  return json;
+  return { json, nomeAba, abas: wb.SheetNames };
 }
 
 /* ===============================
-   IMPORTADOR WMS
+   WMS (COMPATÍVEL COM FRONT)
 ================================ */
 app.post("/api/importar-wms", upload.single("file"), (req, res) => {
   try {
@@ -79,37 +76,34 @@ app.post("/api/importar-wms", upload.single("file"), (req, res) => {
       return res.json({ ok: false, erro: "Arquivo não enviado" });
     }
 
-    const linhas = lerPlanilha(req.file.buffer);
+    const { json, nomeAba, abas } = ler(req.file.buffer);
 
-    if (!linhas.length) {
+    if (!json.length) {
       return res.json({ ok: false, erro: "Planilha vazia" });
     }
 
-    const headers = linhas[0];
+    const headers = json[0];
     const mapa = detectarColunas(headers);
 
-    const resultado = [];
-
-    for (let i = 1; i < linhas.length; i++) {
-      const row = linhas[i];
-
-      if (!row || row.length === 0) continue;
-
-      resultado.push({
-        codigo: row[mapa.codigo] || "",
-        produto: row[mapa.produto] || "",
-        quantidade: Number(row[mapa.quantidade]) || 0,
-        fator: Number(row[mapa.fator]) || 1,
-        imagem: row[mapa.imagem] || "",
-        endereco: row[mapa.endereco] || ""
-      });
-    }
+    const planilhas = json.slice(1).map(row => ({
+      codigo: row[mapa.codigo] || "",
+      produto: row[mapa.produto] || "",
+      quantidade: Number(row[mapa.quantidade]) || 0,
+      fator: Number(row[mapa.fator]) || 1,
+      imagem: row[mapa.imagem] || "",
+      endereco: row[mapa.endereco] || ""
+    }));
 
     res.json({
       ok: true,
-      headers,
-      mapa,
-      linhas: resultado.slice(0, 200) // preview
+      abas,
+      planilhas,
+      metadados: {
+        headers,
+        mapa,
+        total: planilhas.length,
+        abaSelecionada: nomeAba
+      }
     });
 
   } catch (err) {
@@ -118,7 +112,7 @@ app.post("/api/importar-wms", upload.single("file"), (req, res) => {
 });
 
 /* ===============================
-   IMPORTADOR CONTAINER
+   CONTAINER (COMPATÍVEL)
 ================================ */
 app.post("/api/importar-container", upload.single("file"), (req, res) => {
   try {
@@ -126,11 +120,16 @@ app.post("/api/importar-container", upload.single("file"), (req, res) => {
       return res.json({ ok: false, erro: "Arquivo não enviado" });
     }
 
-    const linhas = lerPlanilha(req.file.buffer);
+    const { json, nomeAba, abas } = ler(req.file.buffer);
 
     res.json({
       ok: true,
-      linhas: linhas.slice(0, 200)
+      abas,
+      planilhas: json.slice(1),
+      metadados: {
+        total: json.length,
+        abaSelecionada: nomeAba
+      }
     });
 
   } catch (err) {
@@ -138,9 +137,6 @@ app.post("/api/importar-container", upload.single("file"), (req, res) => {
   }
 });
 
-/* ===============================
-   START
-================================ */
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 SISTEMA LOGÍSTICO online na porta ${PORT}`);
+  console.log(`🚀 SISTEMA online na porta ${PORT}`);
 });
