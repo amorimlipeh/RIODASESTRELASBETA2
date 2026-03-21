@@ -16,7 +16,6 @@
       --btn:#3b73e6;
       --btn2:#24436c;
       --shadow:0 6px 22px rgba(0,0,0,.28);
-      --radius:14px;
     }
 
     *{ box-sizing:border-box; }
@@ -89,6 +88,7 @@
       min-height:46px;
       text-align:center;
       text-decoration:none;
+      user-select:none;
     }
 
     .btn.secondary{
@@ -100,6 +100,11 @@
       min-height:auto;
       font-size:12px;
       border-radius:10px;
+    }
+
+    .btn.active{
+      outline:2px solid rgba(255,255,255,.3);
+      background:#4a86ff;
     }
 
     .btn:disabled{
@@ -118,8 +123,7 @@
     }
 
     .statusbar,
-    .select,
-    .rename-input{
+    .select{
       width:100%;
       background:#173a6c;
       color:#fff;
@@ -269,7 +273,7 @@
     }
 
     .filter-item,
-    .rename-item{
+    .map-item{
       display:flex;
       align-items:center;
       gap:8px;
@@ -277,17 +281,6 @@
       border:1px solid rgba(255,255,255,.08);
       padding:10px 12px;
       border-radius:12px;
-    }
-
-    .rename-item{
-      flex-direction:column;
-      align-items:stretch;
-    }
-
-    .rename-label{
-      font-size:13px;
-      color:#d9e5ff;
-      font-weight:700;
     }
 
     .chk{
@@ -339,6 +332,60 @@
       margin-left:4px;
     }
 
+    .rename-target{
+      cursor:pointer;
+      padding:4px 6px;
+      border-radius:8px;
+      transition:.15s;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+
+    .rename-target:hover{
+      background:rgba(255,255,255,.08);
+    }
+
+    .rename-mode .rename-target{
+      outline:1px dashed rgba(255,255,255,.25);
+    }
+
+    .rename-edit{
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+
+    .rename-edit input{
+      min-width:120px;
+      background:#173a6c;
+      color:#fff;
+      border:1px solid #2e548e;
+      border-radius:10px;
+      padding:8px 10px;
+      font-size:13px;
+      outline:none;
+    }
+
+    .icon-btn{
+      border:0;
+      background:#24436c;
+      color:#fff;
+      border-radius:8px;
+      padding:6px 8px;
+      cursor:pointer;
+      font-size:12px;
+      line-height:1;
+    }
+
+    .icon-btn.ok{
+      background:#2c7a4b;
+    }
+
+    .icon-btn.cancel{
+      background:#7a2c3b;
+    }
+
     .msg{
       margin-top:12px;
     }
@@ -361,6 +408,16 @@
       .filter-list{ grid-template-columns:1fr; }
       .file-button-wrap{ width:100%; }
       .actions .btn{ width:100%; }
+      .preview-header{
+        flex-direction:column;
+        align-items:stretch;
+      }
+      .preview-header .actions{
+        width:100%;
+      }
+      .preview-header .actions .btn{
+        width:100%;
+      }
     }
   </style>
 </head>
@@ -391,7 +448,7 @@
         <div class="actions" style="margin:0;">
           <button id="btnFiltro" class="btn secondary small" type="button">Filtro</button>
           <button id="btnMapeamento" class="btn secondary small" type="button">Mapear colunas</button>
-          <button id="btnRenomear" class="btn secondary small" type="button">Renomear cabeçalhos</button>
+          <button id="btnRenomearModo" class="btn secondary small" type="button">Renomear cabeçalhos</button>
           <button class="btn secondary small" type="button" onclick="fecharPreview()">Fechar</button>
         </div>
       </div>
@@ -421,11 +478,6 @@
         <div id="panelMapeamento" class="inner-panel hidden">
           <h3 class="panel-title">Mapear colunas</h3>
           <div id="mappingList" class="filter-list"></div>
-        </div>
-
-        <div id="panelRenomear" class="inner-panel hidden">
-          <h3 class="panel-title">Renomear cabeçalhos</h3>
-          <div id="renameList" class="filter-list"></div>
         </div>
 
         <div class="table-wrap" id="tableWrap">
@@ -483,6 +535,9 @@
       ctrlSelecting: false,
       touchRowSelecting: false,
       lastRowSelectionState: true,
+      renameMode: false,
+      editingHeader: null,
+      editingValue: "",
       map: {
         codigo: "",
         produto: "",
@@ -509,11 +564,10 @@
       btnImportar: document.getElementById("btnImportar"),
       btnFiltro: document.getElementById("btnFiltro"),
       btnMapeamento: document.getElementById("btnMapeamento"),
-      btnRenomear: document.getElementById("btnRenomear"),
+      btnRenomearModo: document.getElementById("btnRenomearModo"),
       previewArea: document.getElementById("previewArea"),
       panelFiltro: document.getElementById("panelFiltro"),
       panelMapeamento: document.getElementById("panelMapeamento"),
-      panelRenomear: document.getElementById("panelRenomear"),
       tbody: document.getElementById("tbody"),
       thead: document.getElementById("thead"),
       infoLinhas: document.getElementById("infoLinhas"),
@@ -525,7 +579,6 @@
       loadingText: document.getElementById("loadingText"),
       filterList: document.getElementById("filterList"),
       mappingList: document.getElementById("mappingList"),
-      renameList: document.getElementById("renameList"),
       debugInfo: document.getElementById("debugInfo")
     };
 
@@ -579,11 +632,68 @@
     }
 
     function togglePanel(panel) {
-      const panels = [els.panelFiltro, els.panelMapeamento, els.panelRenomear];
+      const panels = [els.panelFiltro, els.panelMapeamento];
       panels.forEach(p => {
         if (p !== panel) p.classList.add("hidden");
       });
       panel.classList.toggle("hidden");
+    }
+
+    function atualizarBotaoRenomear() {
+      els.btnRenomearModo.classList.toggle("active", state.renameMode);
+      els.btnRenomearModo.textContent = state.renameMode ? "Renomeando: ON" : "Renomear cabeçalhos";
+    }
+
+    function toggleRenameMode() {
+      state.renameMode = !state.renameMode;
+      if (!state.renameMode) {
+        state.editingHeader = null;
+        state.editingValue = "";
+      }
+      atualizarBotaoRenomear();
+      renderTabela();
+    }
+
+    function iniciarEdicaoCabecalho(header) {
+      if (!state.renameMode) return;
+      state.editingHeader = header;
+      state.editingValue = displayHeader(header);
+      renderTabela();
+      setTimeout(() => {
+        const el = document.getElementById(`rename-input-${cssSafeId(header)}`);
+        if (el) {
+          el.focus();
+          el.select();
+        }
+      }, 0);
+    }
+
+    function atualizarValorEdicao(valor) {
+      state.editingValue = valor;
+    }
+
+    function confirmarEdicaoCabecalho(header) {
+      const texto = String(state.editingValue || "").trim();
+      if (texto) {
+        state.renamedHeaders[header] = texto;
+      } else {
+        delete state.renamedHeaders[header];
+      }
+      state.editingHeader = null;
+      state.editingValue = "";
+      renderTabela();
+      renderFiltro();
+      renderMapeamento();
+    }
+
+    function cancelarEdicaoCabecalho() {
+      state.editingHeader = null;
+      state.editingValue = "";
+      renderTabela();
+    }
+
+    function cssSafeId(text) {
+      return String(text).replace(/[^a-zA-Z0-9_-]/g, "_");
     }
 
     function guessMap() {
@@ -650,16 +760,6 @@
       renderMapeamento();
     }
 
-    function renameHeader(header, value) {
-      const texto = String(value || "").trim();
-      if (texto) state.renamedHeaders[header] = texto;
-      else delete state.renamedHeaders[header];
-      renderTabela();
-      renderFiltro();
-      renderMapeamento();
-      renderRenomear();
-    }
-
     function renderFiltro() {
       els.filterList.innerHTML = state.headers.map(h => `
         <label class="filter-item">
@@ -673,14 +773,14 @@
       let html = "";
       Object.keys(mapLabels).forEach((key) => {
         html += `
-          <label class="filter-item">
+          <label class="map-item">
             <input type="radio" name="map_${key}" class="chk" ${state.map[key] === "" ? "checked" : ""} onclick="setMapValue('${key}', '')">
             <span>${mapLabels[key]}: não usar</span>
           </label>
         `;
         state.headers.forEach((h) => {
           html += `
-            <label class="filter-item">
+            <label class="map-item">
               <input type="radio" name="map_${key}" class="chk" ${state.map[key] === h ? "checked" : ""} onclick="setMapValue('${key}', '${String(h).replaceAll("'", "\\'")}')">
               <span>${mapLabels[key]} → ${htmlEscape(displayHeader(h))}</span>
             </label>
@@ -690,25 +790,43 @@
       els.mappingList.innerHTML = html;
     }
 
-    function renderRenomear() {
-      els.renameList.innerHTML = state.headers.map(h => `
-        <div class="rename-item">
-          <div class="rename-label">Original: ${htmlEscape(h)}</div>
-          <input
-            class="rename-input"
-            type="text"
-            value="${htmlEscape(state.renamedHeaders[h] || h)}"
-            oninput="renameHeaderJs('${String(h).replaceAll("'", "\\'")}', this.value)"
-            placeholder="Digite o novo nome"
-          />
+    function renderHeaderContent(header) {
+      const safe = String(header).replaceAll("'", "\\'");
+      const idx = state.headers.indexOf(header);
+
+      if (state.editingHeader === header) {
+        return `
+          <div class="rename-edit">
+            <input
+              id="rename-input-${cssSafeId(header)}"
+              value="${htmlEscape(state.editingValue)}"
+              oninput="atualizarValorEdicaoJs(this.value)"
+              onkeydown="onRenameKeydownJs(event, '${safe}')"
+            />
+            <button class="icon-btn ok" type="button" onclick="confirmarEdicaoCabecalhoJs('${safe}')">OK</button>
+            <button class="icon-btn cancel" type="button" onclick="cancelarEdicaoCabecalhoJs()">X</button>
+            <span class="drag-handle">↕</span>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="th-check">
+          <input class="chk" type="checkbox" checked onchange="toggleColuna('${safe}', this.checked)">
+          <span class="rename-target" onclick="iniciarEdicaoCabecalhoJs('${safe}')" title="${state.renameMode ? "Toque para renomear" : "Ative o modo renomear"}">
+            ${htmlEscape(displayHeader(header))}
+          </span>
+          <span class="drag-handle">↕</span>
         </div>
-      `).join("");
+      `;
     }
 
     function renderTabela() {
       const rowsPagina = getRowsPagina();
       const columns = getVisibleColumns();
       const allVisible = state.headers.length > 0 && state.visibleHeaders.size === state.headers.length;
+
+      els.tableWrap.classList.toggle("rename-mode", state.renameMode);
 
       els.thead.innerHTML = `
         <tr>
@@ -724,11 +842,7 @@
                 ontouchstart="onTouchStartHeaderJs(event)"
                 ontouchmove="onTouchMoveHeaderJs(event)"
                 ontouchend="onTouchEndHeaderJs()">
-              <div class="th-check">
-                <input class="chk" type="checkbox" checked onchange="toggleColuna('${String(h).replaceAll("'", "\\'")}', this.checked)">
-                <span>${htmlEscape(displayHeader(h))}</span>
-                <span class="drag-handle">↕</span>
-              </div>
+              ${renderHeaderContent(h)}
             </th>
           `).join("")}
         </tr>
@@ -825,7 +939,6 @@
       renderTabela();
       renderFiltro();
       renderMapeamento();
-      renderRenomear();
     }
 
     function onTouchStartHeader(ev) {
@@ -857,7 +970,6 @@
       renderTabela();
       renderFiltro();
       renderMapeamento();
-      renderRenomear();
     }
 
     function onTouchEndHeader() {
@@ -916,6 +1028,16 @@
       clearTimeout(state.touchLongPressTimer);
     });
 
+    function onRenameKeydown(ev, header) {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        confirmarEdicaoCabecalho(header);
+      } else if (ev.key === "Escape") {
+        ev.preventDefault();
+        cancelarEdicaoCabecalho();
+      }
+    }
+
     async function analisar() {
       if (!state.arquivo) {
         alert("Selecione um arquivo primeiro.");
@@ -936,6 +1058,10 @@
         state.renamedHeaders = {};
         state.selectedRows = new Set(state.rows.map((_, idx) => idx));
         state.pagina = 1;
+        state.renameMode = false;
+        state.editingHeader = null;
+        state.editingValue = "";
+        atualizarBotaoRenomear();
 
         if (!state.rows.length || !state.headers.length) {
           throw new Error("Arquivo vazio ou sem cabeçalhos válidos.");
@@ -945,7 +1071,6 @@
         renderTabela();
         renderFiltro();
         renderMapeamento();
-        renderRenomear();
         abrirPreview();
       } catch (err) {
         console.error(err);
@@ -1009,7 +1134,7 @@
 
     els.btnFiltro.addEventListener("click", () => togglePanel(els.panelFiltro));
     els.btnMapeamento.addEventListener("click", () => togglePanel(els.panelMapeamento));
-    els.btnRenomear.addEventListener("click", () => togglePanel(els.panelRenomear));
+    els.btnRenomearModo.addEventListener("click", toggleRenameMode);
 
     els.porPagina.addEventListener("change", () => {
       state.porPagina = Number(els.porPagina.value || 100);
@@ -1024,7 +1149,11 @@
     window.toggleColuna = toggleHeaderVisibility;
     window.toggleTodasColunasJs = toggleTodasColunas;
     window.setMapValue = setMap;
-    window.renameHeaderJs = renameHeader;
+    window.iniciarEdicaoCabecalhoJs = iniciarEdicaoCabecalho;
+    window.atualizarValorEdicaoJs = atualizarValorEdicao;
+    window.confirmarEdicaoCabecalhoJs = confirmarEdicaoCabecalho;
+    window.cancelarEdicaoCabecalhoJs = cancelarEdicaoCabecalho;
+    window.onRenameKeydownJs = onRenameKeydown;
     window.onDragStartJs = onDragStart;
     window.onDragOverJs = onDragOver;
     window.onDropJs = onDrop;
@@ -1046,6 +1175,8 @@
     window.moverHorizontal = moverHorizontal;
     window.irInicio = irInicio;
     window.irFim = irFim;
+
+    atualizarBotaoRenomear();
   </script>
 </body>
 </html>
