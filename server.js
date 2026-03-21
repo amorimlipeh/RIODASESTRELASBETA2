@@ -4,6 +4,7 @@ const fs = require("fs");
 const multer = require("multer");
 const XLSX = require("xlsx");
 const unzipper = require("unzipper");
+const axios = require("axios");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -109,7 +110,7 @@ function uniqueHeaders(row = []) {
 }
 
 /* =========================
-   CACHE / TRADUÇÃO
+   CACHE DE TRADUÇÃO
 ========================= */
 function readTradCache() {
   return readJson(TRADUCOES_FILE, {});
@@ -119,6 +120,9 @@ function writeTradCache(cache) {
   writeJson(TRADUCOES_FILE, cache);
 }
 
+/* =========================
+   TRADUTOR HÍBRIDO
+========================= */
 const DICIONARIO_CH_PT = {
   "品名": "nome do produto",
   "产品图片": "imagem do produto",
@@ -160,6 +164,14 @@ const DICIONARIO_CH_PT = {
   "地图": "mapa",
   "十字架": "cruz",
   "顶针": "dedal",
+  "铝片车牌冰箱贴": "ímã de geladeira placa de carro em alumínio",
+  "银箔冰箱贴": "ímã de geladeira prata",
+  "地图银箔冰箱贴": "ímã de geladeira mapa prata",
+  "地图圆镜冰箱贴": "ímã de geladeira mapa com espelho redondo",
+  "圆镜冰箱贴": "ímã de geladeira com espelho redondo",
+  "7.5塑料双面镜": "espelho dupla face plástico 7.5 cm",
+  "7.5双面镜": "espelho dupla face 7.5 cm",
+  "塑料双面镜": "espelho dupla face plástico",
 
   "蓝色": "azul",
   "大红": "vermelho escuro",
@@ -214,15 +226,6 @@ const DICIONARIO_CH_PT = {
   "顶针绿色": "dedal verde",
   "顶针紫色": "dedal roxo",
 
-  "地图冰箱贴": "ímã de geladeira mapa",
-  "地图圆镜冰箱贴": "ímã de geladeira mapa com espelho redondo",
-  "地图圆镜": "mapa com espelho redondo",
-  "圆镜冰箱贴": "ímã de geladeira com espelho redondo",
-
-  "7.5塑料双面镜": "espelho dupla face plástico 7.5 cm",
-  "7.5双面镜": "espelho dupla face 7.5 cm",
-  "塑料双面镜": "espelho dupla face plástico",
-
   "帆布袋黑色": "saco de lona preto",
   "帆布袋白色": "saco de lona branco",
   "帆布包黑色": "bolsa de lona preta",
@@ -232,7 +235,9 @@ const DICIONARIO_CH_PT = {
 const TERMOS_COMPOSTOS = [
   ["地图圆镜冰箱贴", "ímã de geladeira mapa com espelho redondo"],
   ["圆镜冰箱贴", "ímã de geladeira com espelho redondo"],
-  ["地图冰箱贴", "ímã de geladeira mapa"],
+  ["地图银箔冰箱贴", "ímã de geladeira mapa prata"],
+  ["银箔冰箱贴", "ímã de geladeira prata"],
+  ["铝片车牌冰箱贴", "ímã de geladeira placa de carro em alumínio"],
   ["7.5塑料双面镜", "espelho dupla face plástico 7.5 cm"],
   ["7.5双面镜", "espelho dupla face 7.5 cm"],
   ["塑料双面镜", "espelho dupla face plástico"],
@@ -256,7 +261,6 @@ const TERMOS_COMPOSTOS = [
   ["玩具", "brinquedo"],
   ["杯垫", "porta-copo"],
   ["地图", "mapa"],
-  ["挂绳", "cordão"],
   ["蓝色", "azul"],
   ["大红", "vermelho escuro"],
   ["红色", "vermelho"],
@@ -272,6 +276,15 @@ const TERMOS_COMPOSTOS = [
   ["银色", "prata"]
 ];
 
+function limparTextoComercial(texto = "") {
+  return String(texto)
+    .replace(/--.*$/g, "")
+    .replace(/还有.*$/g, "")
+    .replace(/[^\x00-\x7F\u4e00-\u9fa5\s.\-\/]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function limparTraducao(texto = "") {
   return String(texto)
     .replace(/\s+/g, " ")
@@ -281,14 +294,49 @@ function limparTraducao(texto = "") {
     .trim();
 }
 
-function traduzirUniversal(texto = "", cache = null) {
-  const valor = String(texto || "").trim();
-  if (!valor) return "";
-  if (!containsChinese(valor)) return valor;
+async function traduzirOnline(texto) {
+  const endpoints = [
+    "https://libretranslate.de/translate",
+    "https://translate.argosopentech.com/translate"
+  ];
+
+  for (const url of endpoints) {
+    try {
+      const res = await axios.post(
+        url,
+        {
+          q: texto,
+          source: "auto",
+          target: "pt",
+          format: "text"
+        },
+        {
+          timeout: 10000,
+          headers: { "Content-Type": "application/json" }
+        }
+      );
+
+      const traduzido = res?.data?.translatedText;
+      if (traduzido && typeof traduzido === "string") {
+        return traduzido.trim();
+      }
+    } catch (e) {
+      // tenta próximo endpoint
+    }
+  }
+
+  return texto;
+}
+
+async function traduzirUniversal(texto = "", cache = null) {
+  const valorBruto = String(texto || "").trim();
+  if (!valorBruto) return "";
+  if (!containsChinese(valorBruto)) return valorBruto;
 
   const tradCache = cache || readTradCache();
-  if (tradCache[valor]) return tradCache[valor];
+  if (tradCache[valorBruto]) return tradCache[valorBruto];
 
+  let valor = limparTextoComercial(valorBruto);
   let traduzido = valor;
 
   if (DICIONARIO_CH_PT[valor]) {
@@ -306,11 +354,13 @@ function traduzirUniversal(texto = "", cache = null) {
         traduzido = traduzido.split(orig).join(dest);
       }
     }
+
+    if (containsChinese(traduzido)) {
+      traduzido = await traduzirOnline(traduzido);
+    }
   }
 
-  traduzido = String(traduzido);
-
-  traduzido = traduzido
+  traduzido = String(traduzido)
     .replace(/7\.5x7\.5/gi, "7.5 x 7.5")
     .replace(/7\.5\s*cm/gi, "7.5 cm")
     .replace(/mapa\s+prata/gi, "mapa prata")
@@ -322,15 +372,11 @@ function traduzirUniversal(texto = "", cache = null) {
     .replace(/\bpreto saco de lona\b/gi, "saco de lona preto")
     .replace(/\bbranco saco de lona\b/gi, "saco de lona branco")
     .replace(/\bpreto bolsa de lona\b/gi, "bolsa de lona preta")
-    .replace(/\bbranco bolsa de lona\b/gi, "bolsa de lona branca");
-
-  traduzido = traduzido
-    .replace(/\s+/g, " ")
-    .replace(/(\b[\wÀ-ÿ.-]+\b)(\s+\1)+/gi, "$1")
-    .trim();
+    .replace(/\bbranco bolsa de lona\b/gi, "bolsa de lona branca")
+    .replace(/(\b[\wÀ-ÿ.-]+\b)(\s+\1)+/gi, "$1");
 
   traduzido = limparTraducao(traduzido);
-  tradCache[valor] = traduzido;
+  tradCache[valorBruto] = traduzido;
   return traduzido;
 }
 
@@ -505,16 +551,16 @@ const ALIASES_WMS = {
 };
 
 const ALIASES_CONTAINER = {
-  codigo: ["codigo", "código", "item no", "sku", "ref", "referencia", "cod", "客人货号", "货号"],
-  produto: ["produto", "description", "descrição", "item name", "descricao", "nome", "desc", "traducao", "tradução", "品名"],
-  caixas: ["caixas", "cartons", "ctns", "ctn", "boxes", "box", "volume"],
-  unidades: ["unidades", "quantidade", "qty", "qtd", "pcs", "pieces", "estoque (un)", "quantity", "t.qty", "件数", "数量"],
-  imagem: ["imagem", "image", "images", "picture", "pictures", "foto", "fotos", "产品图片"],
+  codigo: ["codigo", "código", "item no", "sku", "ref", "referencia", "cod", "客人货号", "货号", "ITEM NO"],
+  produto: ["produto", "description", "descrição", "item name", "descricao", "nome", "desc", "traducao", "tradução", "品名", "DESCRIPTION"],
+  caixas: ["caixas", "cartons", "ctns", "ctn", "boxes", "box", "volume", "CTNS"],
+  unidades: ["unidades", "quantidade", "qty", "qtd", "pcs", "pieces", "estoque (un)", "quantity", "t.qty", "件数", "数量", "T.QTY"],
+  imagem: ["imagem", "image", "images", "picture", "pictures", "foto", "fotos", "产品图片", "PICTURE"],
   container: ["container", "contêiner", "conteiner"],
   lote: ["lote", "lot", "batch"],
   nf: ["nf", "nota", "nota fiscal", "invoice"],
   fornecedor: ["fornecedor", "supplier", "vendor", "fabricante", "marca"],
-  fator: ["fator", "q/c", "qc", "factor", "packing", "pack"]
+  fator: ["fator", "q/c", "qc", "factor", "packing", "pack", "Q/C"]
 };
 
 /* =========================
@@ -677,7 +723,7 @@ async function extractXlsxImagesBySheet(buffer) {
 /* =========================
    ENRIQUECIMENTO CONTÊINER
 ========================= */
-function enrichContainerPreview(planilhas, metadados, imagesBySheet) {
+async function enrichContainerPreview(planilhas, metadados, imagesBySheet) {
   const tradCache = readTradCache();
 
   for (const [aba, rows] of Object.entries(planilhas)) {
@@ -687,7 +733,7 @@ function enrichContainerPreview(planilhas, metadados, imagesBySheet) {
     const imageHeader = camposDetectados.imagem || "";
     const produtoHeader = camposDetectados.produto || "DESCRIPTION";
 
-    rows.forEach((row) => {
+    for (const row of rows) {
       let imagem = "";
 
       const rowNum = Number(row.__excelRow || 0);
@@ -730,12 +776,12 @@ function enrichContainerPreview(planilhas, metadados, imagesBySheet) {
       ).trim();
 
       if (originalProduto) {
-        const traduzido = traduzirUniversal(originalProduto, tradCache);
+        const traduzido = await traduzirUniversal(originalProduto, tradCache);
         row.descricao_original = originalProduto;
         row.descricao_traduzida = traduzido;
         row.traducao = traduzido;
       }
-    });
+    }
   }
 
   writeTradCache(tradCache);
@@ -897,10 +943,10 @@ app.post("/api/importar-container", upload.any(), async (req, res) => {
 
     try {
       const imagesBySheet = await extractXlsxImagesBySheet(file.buffer);
-      enrichContainerPreview(planilhas, metadados, imagesBySheet);
+      await enrichContainerPreview(planilhas, metadados, imagesBySheet);
     } catch (imgErr) {
       console.error("Falha ao extrair imagens do XLSX:", imgErr.message);
-      enrichContainerPreview(planilhas, metadados, {});
+      await enrichContainerPreview(planilhas, metadados, {});
     }
 
     return res.json({
