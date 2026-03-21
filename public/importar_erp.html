@@ -1102,4 +1102,103 @@
       } catch (err) {
         console.error(err);
         showDebug(err.message || String(err));
-        alert(err.message || "Erro ao analisar ERP
+        alert(err.message || "Erro ao analisar ERP.");
+      } finally {
+        fecharLoading();
+        els.btnAnalisar.disabled = false;
+        els.btnAnalisar.textContent = "Analisar";
+      }
+    }
+
+    async function importar() {
+      const itens = Array.from(state.selectedRows).map(i => state.rows[i]).filter(Boolean);
+      if (!itens.length) {
+        alert("Nenhum item selecionado.");
+        return;
+      }
+
+      els.btnImportar.disabled = true;
+      els.btnImportar.textContent = "Importando...";
+      abrirLoading("Importando itens selecionados...");
+
+      try {
+        const res = await fetch("/api/estoque/erp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            arquivo: state.arquivoNome,
+            itens,
+            campos: state.map
+          })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) throw new Error(data.erro || "Erro ao importar ERP.");
+
+        els.msgFinal.classList.remove("hidden");
+        els.msgFinal.textContent = `✔ Importação concluída. ${data.inseridos || 0} itens importados.`;
+      } catch (err) {
+        console.error(err);
+        alert(err.message || "Erro ao importar ERP.");
+      } finally {
+        fecharLoading();
+        els.btnImportar.disabled = false;
+        els.btnImportar.textContent = "Importar ERP";
+      }
+    }
+
+    els.arquivoInput.addEventListener("change", () => {
+      const file = els.arquivoInput.files && els.arquivoInput.files[0];
+      state.arquivo = file || null;
+      state.arquivoNome = file ? file.name : "";
+      els.arquivoNome.textContent = file ? file.name : "Aguardando arquivo...";
+    });
+
+    els.btnAnalisar.addEventListener("click", analisar);
+    els.btnImportar.addEventListener("click", importar);
+    els.btnFiltro.addEventListener("click", () => togglePanel(els.panelFiltro));
+    els.btnMapeamento.addEventListener("click", () => togglePanel(els.panelMapeamento));
+
+    els.porPagina.addEventListener("change", () => {
+      state.porPagina = Number(els.porPagina.value || 100);
+      state.pagina = 1;
+      renderTabela();
+    });
+
+    window.toggleLinha = (idx, checked) => {
+      toggleChecked(idx, checked);
+      renderTabela();
+    };
+    window.toggleColuna = toggleHeaderVisibility;
+    window.toggleTodasColunasJs = toggleTodasColunas;
+    window.setMapValue = setMap;
+    window.iniciarEdicaoCabecalhoJs = iniciarEdicaoCabecalho;
+    window.atualizarValorEdicaoJs = atualizarValorEdicao;
+    window.confirmarEdicaoCabecalhoJs = confirmarEdicaoCabecalho;
+    window.cancelarEdicaoCabecalhoJs = cancelarEdicaoCabecalho;
+    window.onRenameKeydownJs = onRenameKeydown;
+    window.onDragStartJs = onDragStart;
+    window.onDragOverJs = onDragOver;
+    window.onDropJs = onDrop;
+    window.onTouchStartHeaderJs = onTouchStartHeader;
+    window.onTouchMoveHeaderJs = onTouchMoveHeader;
+    window.onTouchEndHeaderJs = onTouchEndHeader;
+    window.rowMouseDownJs = rowMouseDown;
+    window.rowMouseEnterJs = rowMouseEnter;
+    window.rowTouchStartJs = rowTouchStart;
+    window.rowTouchMoveJs = rowTouchMove;
+    window.rowTouchEndJs = rowTouchEnd;
+    window.fecharPreview = fecharPreview;
+    window.fecharTela = fecharTela;
+    window.selecionarPagina = selecionarPagina;
+    window.desmarcarPagina = desmarcarPagina;
+    window.selecionarTodas = selecionarTodas;
+    window.desmarcarTodas = desmarcarTodas;
+    window.paginaAnterior = paginaAnterior;
+    window.proximaPagina = proximaPagina;
+    window.moverHorizontal = moverHorizontal;
+    window.irInicio = irInicio;
+    window.irFim = irFim;
+  </script>
+</body>
+</html>
