@@ -32,10 +32,6 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }
 });
 
-/* =========================
-   HELPERS
-========================= */
-
 function garantirPasta(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
@@ -99,10 +95,6 @@ function responderErro(res, contexto, error) {
   });
 }
 
-/* =========================
-   DETECÇÃO DE CAMPOS
-========================= */
-
 function detectarCampos(headers = []) {
   const lista = headers.map((h) => ({
     original: h,
@@ -120,93 +112,19 @@ function detectarCampos(headers = []) {
   }
 
   return {
-    codigo: buscar([
-      "codigo",
-      "codigo do produto",
-      "código",
-      "item no",
-      "sku",
-      "ref",
-      "id",
-      "cod",
-      "客人货号",
-      "货号"
-    ]),
-    produto: buscar([
-      "produto",
-      "descricao",
-      "descrição",
-      "description",
-      "nome",
-      "item",
-      "品名"
-    ]),
-    endereco: buscar([
-      "endereco",
-      "endereço",
-      "local",
-      "location",
-      "rua",
-      "posicao",
-      "posição"
-    ]),
-    quantidade: buscar([
-      "quantidade",
-      "qty",
-      "qtd",
-      "quantity",
-      "estoque (un)",
-      "estoque",
-      "t.qty",
-      "总数"
-    ]),
-    caixas: buscar([
-      "caixas",
-      "ctns",
-      "cartons",
-      "box",
-      "件数"
-    ]),
-    fator: buscar([
-      "q/c",
-      "fator",
-      "qc",
-      "factor",
-      "装箱"
-    ]),
-    lote: buscar([
-      "lote",
-      "lot",
-      "batch"
-    ]),
-    nf: buscar([
-      "nf",
-      "nota",
-      "invoice"
-    ]),
-    fornecedor: buscar([
-      "fornecedor",
-      "supplier",
-      "vendor"
-    ]),
-    imagem: buscar([
-      "imagem",
-      "picture",
-      "image",
-      "foto",
-      "产品图片"
-    ]),
-    container: buscar([
-      "container",
-      "contêiner",
-      "conteiner"
-    ])
+    codigo: buscar(["codigo", "codigo do produto", "código", "item no", "sku", "ref", "id", "cod", "客人货号", "货号"]),
+    produto: buscar(["produto", "descricao", "descrição", "description", "nome", "item", "品名"]),
+    endereco: buscar(["endereco", "endereço", "local", "location", "rua", "posicao", "posição"]),
+    quantidade: buscar(["quantidade", "qty", "qtd", "quantity", "estoque (un)", "estoque", "t.qty", "总数"]),
+    caixas: buscar(["caixas", "ctns", "cartons", "box", "件数"]),
+    fator: buscar(["q/c", "fator", "qc", "factor", "装箱"]),
+    lote: buscar(["lote", "lot", "batch"]),
+    nf: buscar(["nf", "nota", "invoice"]),
+    fornecedor: buscar(["fornecedor", "supplier", "vendor"]),
+    imagem: buscar(["imagem", "picture", "image", "foto", "产品图片"]),
+    container: buscar(["container", "contêiner", "conteiner"])
   };
 }
-
-/* =========================
-   XLS / CSV
-========================= */
 
 function parseCsvBuffer(buffer) {
   const texto = buffer.toString("utf8");
@@ -226,7 +144,126 @@ function lerWorkbookDeArquivo(file) {
   });
 }
 
-function workbookParaPayload(fileBuffer, originalname = "") {
+function traduzirCabecalhoBruto(valor) {
+  const v = textoSeguro(valor);
+  if (!v) return "";
+
+  const mapa = {
+    "产品图片": "Imagem",
+    "客人货号": "Código",
+    "品名": "Original",
+    "件数": "Caixas",
+    "装箱": "Q/C",
+    "总数": "Total",
+    "毛重": "Peso Bruto",
+    "总毛重": "Peso Bruto Total",
+    "长": "Comprimento",
+    "宽": "Largura",
+    "高": "Altura",
+    "体积": "CBM",
+    "箱号": "Caixa",
+    "批号": "Lote",
+    "柜号": "Container"
+  };
+
+  return mapa[v] || v;
+}
+
+function montarCabecalhosMultinivel(sheet) {
+  const matriz = XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    raw: false,
+    defval: ""
+  });
+
+  const row0 = matriz[0] || [];
+  const row1 = matriz[1] || [];
+  const row2 = matriz[2] || [];
+
+  const maxCols = Math.max(row0.length, row1.length, row2.length);
+  const headers = [];
+
+  for (let c = 0; c < maxCols; c++) {
+    const titulo = textoSeguro(row0[c]);
+    const principal = textoSeguro(row1[c]);
+    const complemento = textoSeguro(row2[c]);
+
+    let finalHeader = "";
+
+    if (principal) {
+      finalHeader = principal;
+    } else if (complemento) {
+      finalHeader = traduzirCabecalhoBruto(complemento);
+    } else if (titulo && c === 0) {
+      finalHeader = "Container";
+    } else {
+      finalHeader = `COLUNA_${c + 1}`;
+    }
+
+    if (!principal && complemento && finalHeader !== traduzirCabecalhoBruto(complemento)) {
+      finalHeader = traduzirCabecalhoBruto(complemento);
+    }
+
+    if (principal && complemento) {
+      const nPrincipal = normalizarCabecalho(principal);
+      const nComplemento = normalizarCabecalho(complemento);
+
+      if (nPrincipal === "meas." && nComplemento === "长") finalHeader = "Comprimento";
+      else if (nComplemento === "宽") finalHeader = "Largura";
+      else if (nComplemento === "高") finalHeader = "Altura";
+      else if (nComplemento === "体积") finalHeader = "CBM";
+      else if (nPrincipal === "item no") finalHeader = "ITEM NO";
+      else if (nPrincipal === "description") finalHeader = "DESCRIPTION";
+      else if (nPrincipal === "ctns") finalHeader = "CTNS";
+      else if (nPrincipal === "q/c") finalHeader = "Q/C";
+      else if (nPrincipal === "t.qty") finalHeader = "T.QTY";
+      else if (nPrincipal === "g.w") finalHeader = "G.W";
+      else if (nPrincipal === "t.g.w") finalHeader = "T.G.W";
+      else if (nPrincipal === "cbm") finalHeader = "CBM";
+      else if (nPrincipal === "picture") finalHeader = "PICTURE";
+    }
+
+    headers.push(finalHeader || `COLUNA_${c + 1}`);
+  }
+
+  const usados = {};
+  return headers.map((h) => {
+    const base = textoSeguro(h) || "COLUNA";
+    usados[base] = (usados[base] || 0) + 1;
+    return usados[base] === 1 ? base : `${base}_${usados[base]}`;
+  });
+}
+
+function sheetToJsonContainer(sheet) {
+  const matriz = XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    raw: false,
+    defval: ""
+  });
+
+  const headers = montarCabecalhosMultinivel(sheet);
+  const inicioDados = 3;
+  const linhas = [];
+
+  for (let r = inicioDados; r < matriz.length; r++) {
+    const row = matriz[r] || [];
+    const obj = {};
+    let preenchidos = 0;
+
+    headers.forEach((header, idx) => {
+      const valor = row[idx] ?? "";
+      obj[header] = valor;
+      if (textoSeguro(valor)) preenchidos++;
+    });
+
+    obj.__excelRow = r + 1;
+    if (preenchidos > 0) linhas.push(obj);
+  }
+
+  return { headers, linhas };
+}
+
+function workbookParaPayload(fileBuffer, originalname = "", isContainer = false) {
   const fakeFile = { buffer: fileBuffer, originalname };
   const workbook = lerWorkbookDeArquivo(fakeFile);
   const abas = workbook.SheetNames || [];
@@ -240,14 +277,20 @@ function workbookParaPayload(fileBuffer, originalname = "") {
 
   for (const nomeAba of abas) {
     const worksheet = workbook.Sheets[nomeAba];
-    const linhas = XLSX.utils.sheet_to_json(worksheet, {
-      defval: "",
-      raw: false
-    });
+    let linhas = [];
+    let cabecalhos = [];
 
-    const cabecalhos = linhas.length
-      ? Object.keys(linhas[0]).filter((h) => h !== "__excelRow")
-      : [];
+    if (isContainer) {
+      const parsed = sheetToJsonContainer(worksheet);
+      linhas = parsed.linhas;
+      cabecalhos = parsed.headers;
+    } else {
+      linhas = XLSX.utils.sheet_to_json(worksheet, {
+        defval: "",
+        raw: false
+      });
+      cabecalhos = linhas.length ? Object.keys(linhas[0]).filter((h) => h !== "__excelRow") : [];
+    }
 
     planilhas[nomeAba] = linhas;
     metadados[nomeAba] = {
@@ -271,10 +314,6 @@ function workbookParaPayload(fileBuffer, originalname = "") {
   };
 }
 
-/* =========================
-   TRADUÇÃO CONTÊINER
-========================= */
-
 const DICIONARIO_FIXO = {
   "顶针": "dedal",
   "钥匙扣": "chaveiro",
@@ -295,7 +334,7 @@ const DICIONARIO_FIXO = {
   "桃心镜子": "espelho coração",
   "产品图片": "imagem",
   "客人货号": "codigo",
-  "品名": "descricao",
+  "品名": "descricao original",
   "件数": "caixas",
   "装箱": "q/c",
   "总数": "total",
@@ -317,15 +356,10 @@ function salvarCacheTraducoes(cache) {
 
 function traduzirTextoContainer(texto, cache) {
   const original = textoSeguro(texto);
-  if (!original) {
-    return { traduzido: "", original: "" };
-  }
+  if (!original) return { traduzido: "", original: "" };
 
   if (cache[original]) {
-    return {
-      traduzido: cache[original],
-      original
-    };
+    return { traduzido: cache[original], original };
   }
 
   let traduzido = original;
@@ -350,78 +384,18 @@ function traduzirTextoContainer(texto, cache) {
   return { traduzido, original };
 }
 
-function limparColunasVazias(linhas) {
-  return linhas.map((linha) => {
-    const nova = {};
-    Object.keys(linha || {}).forEach((k) => {
-      const chave = String(k || "");
-      if (!/^_empty/i.test(chave) && chave !== "__excelRow") {
-        nova[chave] = linha[k];
-      }
-    });
-    return nova;
-  });
-}
-
-function removerLinhaCabecalhoDuplicado(linhas) {
-  if (!Array.isArray(linhas) || !linhas.length) return linhas;
-
-  return linhas.filter((row, i) => {
-    if (i === 0) return true;
-    const valores = Object.values(row || {})
-      .map((v) => String(v || "").toLowerCase())
-      .join(" ");
-
-    if (
-      valores.includes("description") &&
-      valores.includes("item") &&
-      valores.includes("ctns")
-    ) {
-      return false;
-    }
-
-    if (
-      valores.includes("品名") &&
-      valores.includes("客人货号") &&
-      valores.includes("件数")
-    ) {
-      return false;
-    }
-
-    return true;
-  });
-}
-
 function enriquecerLinhasContainer(linhas, camposDetectados = {}) {
-  let linhasTratadas = limparColunasVazias(linhas);
-  linhasTratadas = removerLinhaCabecalhoDuplicado(linhasTratadas);
-
   const cache = carregarCacheTraducoes();
 
   let campoProduto =
     camposDetectados.produto ||
-    Object.keys(linhasTratadas[0] || {}).find((k) => {
+    Object.keys(linhas[0] || {}).find((k) => {
       const n = normalizarCabecalho(k);
-      return [
-        "description",
-        "descricao",
-        "descrição",
-        "品名",
-        "produto",
-        "nome"
-      ].includes(n);
+      return ["description", "descricao", "descrição", "品名", "produto", "nome"].includes(n);
     }) ||
     "";
 
-  if (!campoProduto) {
-    const possivel = Object.keys(linhasTratadas[0] || {}).find((k) => {
-      const n = String(k || "").toLowerCase();
-      return n.includes("desc") || String(k).includes("品名");
-    });
-    if (possivel) campoProduto = possivel;
-  }
-
-  const resultado = linhasTratadas.map((linha) => {
+  const resultado = linhas.map((linha) => {
     const clone = { ...linha };
 
     if (campoProduto && clone[campoProduto] !== undefined) {
@@ -431,25 +405,12 @@ function enriquecerLinhasContainer(linhas, camposDetectados = {}) {
       clone[campoProduto] = t.traduzido || t.original;
     }
 
-    Object.keys(clone).forEach((k) => {
-      if (typeof clone[k] === "string") {
-        const traduzidoCab = traduzirTextoContainer(clone[k], cache);
-        if (traduzidoCab.traduzido && traduzidoCab.traduzido !== clone[k]) {
-          clone[k] = traduzidoCab.traduzido;
-        }
-      }
-    });
-
     return clone;
   });
 
   salvarCacheTraducoes(cache);
   return resultado;
 }
-
-/* =========================
-   EXTRAÇÃO DE IMAGENS XLSX
-========================= */
 
 async function listarArquivosZip(buffer) {
   const directory = await unzipper.Open.buffer(buffer);
@@ -481,18 +442,12 @@ async function extrairMidiasXlsx(buffer, fileBaseName = "container") {
 function anexarImagensPorOrdem(linhas, imagens) {
   if (!Array.isArray(linhas) || !linhas.length) return linhas;
 
-  return linhas.map((linha, i) => {
-    return {
-      ...linha,
-      __imagem: imagens[i] || "",
-      __checked: true
-    };
-  });
+  return linhas.map((linha, i) => ({
+    ...linha,
+    __imagem: imagens[i] || "",
+    __checked: true
+  }));
 }
-
-/* =========================
-   IMPORTAÇÃO FINAL
-========================= */
 
 function montarRegistroImportacao(origem, item, campos = {}, index = 0, extras = {}) {
   const pegar = (campo) => {
@@ -501,12 +456,11 @@ function montarRegistroImportacao(origem, item, campos = {}, index = 0, extras =
   };
 
   return {
-    id: `${origem.toLowerCase()}_${Date.now()}_${index}_${Math.random()
-      .toString(36)
-      .slice(2, 8)}`,
+    id: `${origem.toLowerCase()}_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 8)}`,
     origem,
     codigo: textoSeguro(pegar("codigo")),
     produto: textoSeguro(pegar("produto")),
+    produtoOriginal: textoSeguro(pegar("original") || item.__produto_original || ""),
     endereco: textoSeguro(pegar("endereco")),
     quantidade: numeroSeguro(pegar("quantidade")),
     caixas: numeroSeguro(pegar("caixas")),
@@ -514,7 +468,7 @@ function montarRegistroImportacao(origem, item, campos = {}, index = 0, extras =
     lote: textoSeguro(pegar("lote")),
     nf: textoSeguro(pegar("nf")),
     fornecedor: textoSeguro(pegar("fornecedor")),
-    imagem: textoSeguro(pegar("imagem")),
+    imagem: textoSeguro(pegar("imagem") || item.__imagem || ""),
     container: textoSeguro(pegar("container")),
     bruto: item,
     criadoEm: new Date().toISOString(),
@@ -532,10 +486,6 @@ function importarParaEstoque(origem, itens, campos = {}, extras = {}) {
   return novos;
 }
 
-/* =========================
-   ROTAS DE PÁGINA
-========================= */
-
 app.get("/", (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "index.html"));
 });
@@ -552,10 +502,6 @@ app.get("/importar_container", (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "importar_container.html"));
 });
 
-/* =========================
-   ANÁLISE WMS
-========================= */
-
 app.post("/api/importar-wms", upload.any(), (req, res) => {
   try {
     const file = (req.files && req.files[0]) || req.file;
@@ -563,16 +509,12 @@ app.post("/api/importar-wms", upload.any(), (req, res) => {
       return res.status(400).json({ ok: false, erro: "Arquivo não enviado." });
     }
 
-    const payload = workbookParaPayload(file.buffer, file.originalname || "");
+    const payload = workbookParaPayload(file.buffer, file.originalname || "", false);
     return res.json(payload);
   } catch (error) {
     return responderErro(res, "Erro ao analisar WMS.", error);
   }
 });
-
-/* =========================
-   ANÁLISE ERP
-========================= */
 
 app.post("/api/importar-erp", upload.any(), (req, res) => {
   try {
@@ -581,16 +523,12 @@ app.post("/api/importar-erp", upload.any(), (req, res) => {
       return res.status(400).json({ ok: false, erro: "Arquivo não enviado." });
     }
 
-    const payload = workbookParaPayload(file.buffer, file.originalname || "");
+    const payload = workbookParaPayload(file.buffer, file.originalname || "", false);
     return res.json(payload);
   } catch (error) {
     return responderErro(res, "Erro ao analisar ERP.", error);
   }
 });
-
-/* =========================
-   ANÁLISE CONTÊINER
-========================= */
 
 app.post("/api/importar-container", upload.any(), async (req, res) => {
   try {
@@ -599,7 +537,7 @@ app.post("/api/importar-container", upload.any(), async (req, res) => {
       return res.status(400).json({ ok: false, erro: "Arquivo não enviado." });
     }
 
-    const payload = workbookParaPayload(file.buffer, file.originalname || "");
+    const payload = workbookParaPayload(file.buffer, file.originalname || "", true);
     const primeiraAba = payload.abas[0];
     const metaPrimeiraAba = payload.metadados[primeiraAba] || {};
     const camposDetectados = metaPrimeiraAba.camposDetectados || {};
@@ -611,26 +549,20 @@ app.post("/api/importar-container", upload.any(), async (req, res) => {
     dados = anexarImagensPorOrdem(dados, imagens);
 
     const colunas = Object.keys(dados[0] || {}).filter(
-      (k) =>
-        !/^_empty/i.test(k) &&
-        k !== "__checked" &&
-        k !== "__produto_original" &&
-        k !== "__produto_traduzido"
+      (k) => k !== "__checked" && k !== "__produto_traduzido"
     );
 
     payload.dados = dados;
     payload.colunas = colunas;
     payload.planilhas[primeiraAba] = dados;
+    payload.metadados[primeiraAba].cabecalhos = colunas;
+    payload.metadados[primeiraAba].camposDetectados = detectarCampos(colunas);
 
     return res.json(payload);
   } catch (error) {
     return responderErro(res, "Erro ao analisar contêiner.", error);
   }
 });
-
-/* =========================
-   IMPORTAÇÃO FINAL WMS
-========================= */
 
 app.post("/api/estoque/wms", (req, res) => {
   try {
@@ -639,10 +571,7 @@ app.post("/api/estoque/wms", (req, res) => {
     const campos = body.campos || {};
 
     if (!itens.length) {
-      return res.status(400).json({
-        ok: false,
-        erro: "Nenhum item recebido para importar WMS."
-      });
+      return res.status(400).json({ ok: false, erro: "Nenhum item recebido para importar WMS." });
     }
 
     const novos = importarParaEstoque("WMS", itens, campos);
@@ -652,10 +581,6 @@ app.post("/api/estoque/wms", (req, res) => {
   }
 });
 
-/* =========================
-   IMPORTAÇÃO FINAL ERP
-========================= */
-
 app.post("/api/estoque/erp", (req, res) => {
   try {
     const body = req.body || {};
@@ -663,10 +588,7 @@ app.post("/api/estoque/erp", (req, res) => {
     const campos = body.campos || {};
 
     if (!itens.length) {
-      return res.status(400).json({
-        ok: false,
-        erro: "Nenhum item recebido para importar ERP."
-      });
+      return res.status(400).json({ ok: false, erro: "Nenhum item recebido para importar ERP." });
     }
 
     const novos = importarParaEstoque("ERP", itens, campos);
@@ -675,10 +597,6 @@ app.post("/api/estoque/erp", (req, res) => {
     return responderErro(res, "Erro ao importar ERP.", error);
   }
 });
-
-/* =========================
-   IMPORTAÇÃO FINAL CONTÊINER
-========================= */
 
 app.post("/api/estoque/container", (req, res) => {
   try {
@@ -689,10 +607,7 @@ app.post("/api/estoque/container", (req, res) => {
     const arquivo = body.arquivo || "";
 
     if (!itens.length) {
-      return res.status(400).json({
-        ok: false,
-        erro: "Nenhum item recebido para importar contêiner."
-      });
+      return res.status(400).json({ ok: false, erro: "Nenhum item recebido para importar contêiner." });
     }
 
     const novos = importarParaEstoque("CONTAINER", itens, campos, {
@@ -706,10 +621,6 @@ app.post("/api/estoque/container", (req, res) => {
   }
 });
 
-/* =========================
-   CONSULTA ESTOQUE
-========================= */
-
 app.get("/api/estoque", (_req, res) => {
   try {
     const estoque = lerJsonSeguro(ESTOQUE_PATH, []);
@@ -719,10 +630,6 @@ app.get("/api/estoque", (_req, res) => {
   }
 });
 
-/* =========================
-   HEALTHCHECK
-========================= */
-
 app.get("/health", (_req, res) => {
   res.json({
     ok: true,
@@ -730,10 +637,6 @@ app.get("/health", (_req, res) => {
     time: new Date().toISOString()
   });
 });
-
-/* =========================
-   FALLBACK
-========================= */
 
 app.use((req, res) => {
   if (req.path.startsWith("/api/")) {
