@@ -1,88 +1,357 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Importador Container</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Importador Contêiner</title>
+  <style>
+    body{
+      margin:0;
+      background:#071a36;
+      color:#fff;
+      font-family:Arial,Helvetica,sans-serif;
+    }
 
-<style>
-body {
-  background: #071a36;
-  color: white;
-  font-family: Arial;
-}
+    .wrap{
+      padding:16px;
+    }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
+    h2{
+      margin:0 0 16px 0;
+      font-size:32px;
+    }
 
-td, th {
-  padding: 10px;
-  border-bottom: 1px solid #1d3c66;
-}
+    .topbar{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+      margin-bottom:16px;
+    }
 
-img {
-  width: 50px;
-  border-radius: 8px;
-}
-</style>
+    .btn, .file-label{
+      background:#3b73e6;
+      color:#fff;
+      border:0;
+      border-radius:10px;
+      padding:10px 14px;
+      font-weight:700;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:42px;
+    }
+
+    .btn:disabled{
+      opacity:.6;
+      cursor:not-allowed;
+    }
+
+    .file-label{
+      position:relative;
+      overflow:hidden;
+    }
+
+    .file-label input{
+      position:absolute;
+      inset:0;
+      opacity:0;
+      cursor:pointer;
+    }
+
+    .file-name{
+      background:#0d274c;
+      border:1px solid rgba(255,255,255,.12);
+      padding:10px 12px;
+      border-radius:10px;
+      min-width:240px;
+      max-width:100%;
+      word-break:break-word;
+    }
+
+    .status{
+      margin:12px 0;
+      padding:12px 14px;
+      border-radius:10px;
+      background:#0d274c;
+      border:1px solid rgba(255,255,255,.12);
+      display:none;
+    }
+
+    .status.show{
+      display:block;
+    }
+
+    .status.ok{
+      border-color:#1f8f55;
+      background:#0d2f23;
+    }
+
+    .status.error{
+      border-color:#b33b3b;
+      background:#341515;
+      color:#ffd5d5;
+    }
+
+    .status.info{
+      border-color:#355b9a;
+      background:#10294d;
+    }
+
+    .table-wrap{
+      width:100%;
+      overflow:auto;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:12px;
+      background:#082048;
+    }
+
+    table{
+      width:100%;
+      min-width:720px;
+      border-collapse:collapse;
+    }
+
+    th, td{
+      padding:10px;
+      border-bottom:1px solid #1d3c66;
+      vertical-align:top;
+      text-align:left;
+    }
+
+    th{
+      background:#0b2a59;
+      position:sticky;
+      top:0;
+      z-index:2;
+    }
+
+    .thumb{
+      width:52px;
+      height:52px;
+      object-fit:cover;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,.12);
+      background:#10294d;
+      display:block;
+    }
+
+    .sem-imagem{
+      width:52px;
+      height:52px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,.12);
+      background:#10294d;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:10px;
+      color:#c8d4ea;
+      text-align:center;
+      padding:4px;
+      box-sizing:border-box;
+    }
+
+    .descricao{
+      font-weight:700;
+    }
+
+    .original{
+      margin-top:4px;
+      font-size:11px;
+      color:#b8c7dc;
+    }
+
+    .muted{
+      color:#b8c7dc;
+      font-size:13px;
+      margin-top:6px;
+    }
+  </style>
 </head>
-
 <body>
+  <div class="wrap">
+    <h2>Importador Contêiner</h2>
 
-<h2>Importador Container</h2>
+    <div class="topbar">
+      <label class="file-label">
+        Escolher arquivo
+        <input type="file" id="file" accept=".xls,.xlsx,.csv" />
+      </label>
 
-<input type="file" id="file">
-<button onclick="enviar()">Analisar</button>
+      <div class="file-name" id="fileName">Nenhum arquivo selecionado</div>
 
-<table>
-<thead>
-<tr>
-<th>Imagem</th>
-<th>Código</th>
-<th>Descrição</th>
-<th>Qtd</th>
-</tr>
-</thead>
-<tbody id="tbody"></tbody>
-</table>
+      <button class="btn" id="btnAnalisar" type="button">Analisar</button>
+    </div>
 
-<script>
-async function enviar() {
-  const file = document.getElementById("file").files[0];
-  const form = new FormData();
-  form.append("file", file);
+    <div class="muted">
+      Aceita XLS, XLSX e CSV. Ao analisar, o sistema tenta ler código, descrição, caixas e imagem.
+    </div>
 
-  const res = await fetch("/api/importar-container", {
-    method: "POST",
-    body: form
-  });
+    <div id="statusBox" class="status"></div>
 
-  const json = await res.json();
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Imagem</th>
+            <th>Código</th>
+            <th>Descrição</th>
+            <th>Caixas</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr>
+            <td colspan="4">Aguardando análise do arquivo...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-  const tbody = document.getElementById("tbody");
-  tbody.innerHTML = "";
+  <script>
+    const fileInput = document.getElementById("file");
+    const fileName = document.getElementById("fileName");
+    const btnAnalisar = document.getElementById("btnAnalisar");
+    const tbody = document.getElementById("tbody");
+    const statusBox = document.getElementById("statusBox");
 
-  json.dados.forEach(row => {
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files && fileInput.files[0];
+      fileName.textContent = file ? file.name : "Nenhum arquivo selecionado";
+      esconderStatus();
+    });
 
-    const codigo = row["ITEM NO"] || row.codigo || "";
-    const desc = row["DESCRIPTION"] || row.descricao || "";
+    btnAnalisar.addEventListener("click", enviar);
 
-    tbody.innerHTML += `
-      <tr>
-        <td>${row.__imagem ? `<img src="${row.__imagem}">` : "Sem imagem"}</td>
-        <td>${codigo}</td>
-        <td>
-          <b>${desc}</b><br>
-          <small style="opacity:.6">${row.__produto_original || ""}</small>
-        </td>
-        <td>${row.CTNS || row.caixas || ""}</td>
-      </tr>
-    `;
-  });
-}
-</script>
+    function mostrarStatus(tipo, texto) {
+      statusBox.className = `status show ${tipo}`;
+      statusBox.textContent = texto;
+    }
 
+    function esconderStatus() {
+      statusBox.className = "status";
+      statusBox.textContent = "";
+    }
+
+    function valorCodigo(row) {
+      return row["ITEM NO"] || row["Item No"] || row["item no"] || row["codigo"] || row["Código"] || row["SKU"] || "";
+    }
+
+    function valorDescricao(row) {
+      return row["DESCRIPTION"] || row["Description"] || row["descricao"] || row["Descrição"] || row["produto"] || "";
+    }
+
+    function valorCaixas(row) {
+      return row["CTNS"] || row["ctns"] || row["caixas"] || row["Caixas"] || "";
+    }
+
+    function renderTabela(dados) {
+      if (!Array.isArray(dados) || !dados.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="4">Nenhum dado encontrado no arquivo.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = dados.map(row => {
+        const codigo = valorCodigo(row);
+        const descricao = valorDescricao(row);
+        const original = row.__produto_original || "";
+        const caixas = valorCaixas(row);
+        const imagem = row.__imagem || "";
+
+        return `
+          <tr>
+            <td>
+              ${
+                imagem
+                  ? `<img src="${imagem}" class="thumb" alt="imagem do produto" onerror="this.outerHTML='<div class=&quot;sem-imagem&quot;>Imagem inválida</div>'">`
+                  : `<div class="sem-imagem">Sem imagem</div>`
+              }
+            </td>
+            <td>${escapeHtml(codigo)}</td>
+            <td>
+              <div class="descricao">${escapeHtml(descricao)}</div>
+              ${original ? `<div class="original">${escapeHtml(original)}</div>` : ""}
+            </td>
+            <td>${escapeHtml(String(caixas))}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    async function enviar() {
+      const file = fileInput.files && fileInput.files[0];
+
+      if (!file) {
+        mostrarStatus("error", "Selecione um arquivo antes de analisar.");
+        return;
+      }
+
+      btnAnalisar.disabled = true;
+      btnAnalisar.textContent = "Analisando...";
+      mostrarStatus("info", "Lendo arquivo, aguarde...");
+
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="4">Processando arquivo...</td>
+        </tr>
+      `;
+
+      try {
+        const form = new FormData();
+        form.append("file", file);
+
+        const res = await fetch("/api/importar-container", {
+          method: "POST",
+          body: form
+        });
+
+        let json = {};
+        try {
+          json = await res.json();
+        } catch (e) {
+          throw new Error("A API respondeu em formato inválido.");
+        }
+
+        if (!res.ok) {
+          throw new Error(json.erro || `Erro HTTP ${res.status}`);
+        }
+
+        if (!json.ok && !json.dados) {
+          throw new Error(json.erro || "A análise falhou.");
+        }
+
+        const dados = Array.isArray(json.dados) ? json.dados : [];
+
+        renderTabela(dados);
+        mostrarStatus("ok", `Análise concluída. ${dados.length} linha(s) encontrada(s).`);
+      } catch (err) {
+        console.error(err);
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="4">Falha ao analisar o arquivo.</td>
+          </tr>
+        `;
+        mostrarStatus("error", err.message || "Erro inesperado ao analisar.");
+      } finally {
+        btnAnalisar.disabled = false;
+        btnAnalisar.textContent = "Analisar";
+      }
+    }
+  </script>
 </body>
 </html>
