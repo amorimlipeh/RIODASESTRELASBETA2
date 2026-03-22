@@ -33,7 +33,7 @@ const upload = multer({
 });
 
 /* =========================
-   HELPERS BÁSICOS
+   HELPERS
 ========================= */
 
 function garantirPasta(dir) {
@@ -116,93 +116,22 @@ function detectarCampos(headers = []) {
   }
 
   return {
-    codigo: buscar([
-      "codigo",
-      "codigo do produto",
-      "código",
-      "item no",
-      "sku",
-      "ref",
-      "id",
-      "cod",
-      "客人货号",
-      "货号"
-    ]),
-    produto: buscar([
-      "produto",
-      "descricao",
-      "descrição",
-      "description",
-      "nome",
-      "item",
-      "品名"
-    ]),
-    endereco: buscar([
-      "endereco",
-      "endereço",
-      "local",
-      "location",
-      "rua",
-      "posicao",
-      "posição"
-    ]),
-    quantidade: buscar([
-      "quantidade",
-      "qty",
-      "qtd",
-      "quantity",
-      "estoque (un)",
-      "estoque",
-      "t.qty",
-      "总数",
-      "total"
-    ]),
-    caixas: buscar([
-      "caixas",
-      "ctns",
-      "cartons",
-      "box",
-      "件数"
-    ]),
-    fator: buscar([
-      "q/c",
-      "fator",
-      "qc",
-      "factor",
-      "装箱"
-    ]),
-    lote: buscar([
-      "lote",
-      "lot",
-      "batch"
-    ]),
-    nf: buscar([
-      "nf",
-      "nota",
-      "invoice"
-    ]),
-    fornecedor: buscar([
-      "fornecedor",
-      "supplier",
-      "vendor"
-    ]),
-    imagem: buscar([
-      "imagem",
-      "picture",
-      "image",
-      "foto",
-      "产品图片"
-    ]),
-    container: buscar([
-      "container",
-      "contêiner",
-      "conteiner"
-    ])
+    codigo: buscar(["codigo", "codigo do produto", "código", "item no", "sku", "ref", "id", "cod", "客人货号", "货号"]),
+    produto: buscar(["produto", "descricao", "descrição", "description", "nome", "item", "品名"]),
+    endereco: buscar(["endereco", "endereço", "local", "location", "rua", "posicao", "posição"]),
+    quantidade: buscar(["quantidade", "qty", "qtd", "quantity", "estoque (un)", "estoque", "t.qty", "总数", "total"]),
+    caixas: buscar(["caixas", "ctns", "cartons", "box", "件数"]),
+    fator: buscar(["q/c", "fator", "qc", "factor", "装箱"]),
+    lote: buscar(["lote", "lot", "batch"]),
+    nf: buscar(["nf", "nota", "invoice"]),
+    fornecedor: buscar(["fornecedor", "supplier", "vendor"]),
+    imagem: buscar(["imagem", "picture", "image", "foto", "产品图片"]),
+    container: buscar(["container", "contêiner", "conteiner"])
   };
 }
 
 /* =========================
-   LEITURA XLS / CSV
+   LEITURA XLS/CSV
 ========================= */
 
 function parseCsvBuffer(buffer) {
@@ -212,9 +141,7 @@ function parseCsvBuffer(buffer) {
 
 function lerWorkbookDeArquivo(file) {
   const nome = (file.originalname || "").toLowerCase();
-  if (nome.endsWith(".csv")) {
-    return parseCsvBuffer(file.buffer);
-  }
+  if (nome.endsWith(".csv")) return parseCsvBuffer(file.buffer);
 
   return XLSX.read(file.buffer, {
     type: "buffer",
@@ -395,7 +322,7 @@ function workbookParaPayload(fileBuffer, originalname = "", isContainer = false)
 }
 
 /* =========================
-   TRADUÇÃO CONTÊINER
+   TRADUÇÃO
 ========================= */
 
 const DICIONARIO_FIXO = {
@@ -502,7 +429,7 @@ function enriquecerLinhasContainer(linhas, camposDetectados = {}) {
 }
 
 /* =========================
-   EXTRAÇÃO DE IMAGEM POR ÂNCORA
+   XLSX IMAGENS
 ========================= */
 
 function parseXmlText(buffer) {
@@ -577,9 +504,7 @@ function parseWorkbookSheets(workbookXml, workbookRelsXml) {
   while ((match = sheetRegex.exec(workbookXml))) {
     const [, name, rid] = match;
     const sheetPath = rels[rid];
-    if (sheetPath) {
-      result.push({ name, path: sheetPath });
-    }
+    if (sheetPath) result.push({ name, path: sheetPath });
   }
 
   return result;
@@ -605,11 +530,13 @@ function parseDrawingAnchors(drawingXml) {
   while ((anchorMatch = anchorRegex.exec(drawingXml))) {
     const block = anchorMatch[0];
     const rowMatch = block.match(/<xdr:from>[\s\S]*?<xdr:row>(\d+)<\/xdr:row>/);
+    const colMatch = block.match(/<xdr:from>[\s\S]*?<xdr:col>(\d+)<\/xdr:col>/);
     const embedMatch = block.match(/<a:blip\b[^>]*r:embed="([^"]+)"/);
 
     if (rowMatch && embedMatch) {
       anchors.push({
         rowZeroBased: Number(rowMatch[1]),
+        colZeroBased: colMatch ? Number(colMatch[1]) : 0,
         relId: embedMatch[1]
       });
     }
@@ -672,12 +599,17 @@ async function extrairImagensAncoradasPorSheet(buffer, fileBaseName = "container
 
         anchorsForSheet.push({
           rowExcel: anchor.rowZeroBased + 1,
+          colExcel: anchor.colZeroBased + 1,
           url: mediaUrl
         });
       }
     }
 
-    anchorsForSheet.sort((a, b) => a.rowExcel - b.rowExcel);
+    anchorsForSheet.sort((a, b) => {
+      if (a.rowExcel !== b.rowExcel) return a.rowExcel - b.rowExcel;
+      return a.colExcel - b.colExcel;
+    });
+
     bySheet[sheetInfo.name] = anchorsForSheet;
   }
 
@@ -708,51 +640,29 @@ async function extrairMidiasPorOrdem(buffer, fileBaseName = "container") {
   return urls;
 }
 
-function encontrarCodigoDaLinha(linha) {
-  return textoSeguro(
-    linha["ITEM NO"] ||
-    linha["ITEM NO_2"] ||
-    linha["codigo"] ||
-    linha["Código"] ||
-    linha["SKU"] ||
-    linha["Ref"] ||
-    linha["REF"]
-  );
-}
+/* =========================
+   MATCH RÍGIDO POR LINHA
+========================= */
 
-function anexarImagensComFallback(linhas, anchors = [], imagensFallback = []) {
+function anexarImagensNaMesmaLinha(linhas, anchors = [], imagensFallback = []) {
   if (!Array.isArray(linhas) || !linhas.length) return linhas;
 
-  const anchorMap = new Map();
-  anchors.forEach((a) => {
-    if (!anchorMap.has(a.rowExcel)) {
-      anchorMap.set(a.rowExcel, a.url);
+  const anchorsPorLinha = new Map();
+  for (const anchor of anchors) {
+    if (!anchorsPorLinha.has(anchor.rowExcel)) {
+      anchorsPorLinha.set(anchor.rowExcel, []);
     }
-  });
-
-  const codigoImagemMap = new Map();
-  const usarSomenteAncora = anchors.length > 0;
+    anchorsPorLinha.get(anchor.rowExcel).push(anchor.url);
+  }
 
   return linhas.map((linha, idx) => {
     const excelRow = Number(linha.__excelRow || 0);
+    const listaDaLinha = anchorsPorLinha.get(excelRow) || [];
 
-    let url =
-      anchorMap.get(excelRow) ||
-      anchorMap.get(excelRow - 1) ||
-      anchorMap.get(excelRow + 1) ||
-      "";
+    let url = listaDaLinha.length ? listaDaLinha[0] : "";
 
-    if (!url && !usarSomenteAncora) {
+    if (!url && !anchors.length) {
       url = imagensFallback[idx] || "";
-    }
-
-    const codigo = encontrarCodigoDaLinha(linha);
-    if (codigo) {
-      if (!codigoImagemMap.has(codigo)) {
-        codigoImagemMap.set(codigo, url);
-      } else if (codigoImagemMap.get(codigo)) {
-        url = codigoImagemMap.get(codigo);
-      }
     }
 
     return {
@@ -805,7 +715,7 @@ function importarParaEstoque(origem, itens, campos = {}, extras = {}) {
 }
 
 /* =========================
-   ROTAS DE PÁGINA
+   ROTAS
 ========================= */
 
 app.get("/", (_req, res) => {
@@ -824,10 +734,6 @@ app.get("/importar_container", (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "importar_container.html"));
 });
 
-/* =========================
-   ANÁLISE WMS
-========================= */
-
 app.post("/api/importar-wms", upload.any(), (req, res) => {
   try {
     const file = (req.files && req.files[0]) || req.file;
@@ -842,10 +748,6 @@ app.post("/api/importar-wms", upload.any(), (req, res) => {
   }
 });
 
-/* =========================
-   ANÁLISE ERP
-========================= */
-
 app.post("/api/importar-erp", upload.any(), (req, res) => {
   try {
     const file = (req.files && req.files[0]) || req.file;
@@ -859,10 +761,6 @@ app.post("/api/importar-erp", upload.any(), (req, res) => {
     return responderErro(res, "Erro ao analisar ERP.", error);
   }
 });
-
-/* =========================
-   ANÁLISE CONTÊINER
-========================= */
 
 app.post("/api/importar-container", upload.any(), async (req, res) => {
   try {
@@ -893,7 +791,7 @@ app.post("/api/importar-container", upload.any(), async (req, res) => {
       );
     }
 
-    dados = anexarImagensComFallback(
+    dados = anexarImagensNaMesmaLinha(
       dados,
       anchorsPrimeiraAba,
       imagensFallback
@@ -915,10 +813,6 @@ app.post("/api/importar-container", upload.any(), async (req, res) => {
   }
 });
 
-/* =========================
-   IMPORTAÇÃO FINAL WMS
-========================= */
-
 app.post("/api/estoque/wms", (req, res) => {
   try {
     const body = req.body || {};
@@ -939,10 +833,6 @@ app.post("/api/estoque/wms", (req, res) => {
   }
 });
 
-/* =========================
-   IMPORTAÇÃO FINAL ERP
-========================= */
-
 app.post("/api/estoque/erp", (req, res) => {
   try {
     const body = req.body || {};
@@ -962,10 +852,6 @@ app.post("/api/estoque/erp", (req, res) => {
     return responderErro(res, "Erro ao importar ERP.", error);
   }
 });
-
-/* =========================
-   IMPORTAÇÃO FINAL CONTÊINER
-========================= */
 
 app.post("/api/estoque/container", (req, res) => {
   try {
@@ -993,10 +879,6 @@ app.post("/api/estoque/container", (req, res) => {
   }
 });
 
-/* =========================
-   CONSULTA ESTOQUE
-========================= */
-
 app.get("/api/estoque", (_req, res) => {
   try {
     const estoque = lerJsonSeguro(ESTOQUE_PATH, []);
@@ -1006,10 +888,6 @@ app.get("/api/estoque", (_req, res) => {
   }
 });
 
-/* =========================
-   HEALTHCHECK
-========================= */
-
 app.get("/health", (_req, res) => {
   res.json({
     ok: true,
@@ -1017,10 +895,6 @@ app.get("/health", (_req, res) => {
     time: new Date().toISOString()
   });
 });
-
-/* =========================
-   FALLBACK
-========================= */
 
 app.use((req, res) => {
   if (req.path.startsWith("/api/")) {
