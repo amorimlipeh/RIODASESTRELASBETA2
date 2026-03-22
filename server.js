@@ -8,544 +8,1123 @@ const unzipper = require("unzipper");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+const ROOT = __dirname;
+const PUBLIC_DIR = path.join(ROOT, "public");
+const DATA_DIR = path.join(ROOT, "data");
+const UPLOADS_DIR = path.join(ROOT, "uploads");
+const PRODUTOS_IMG_DIR = path.join(UPLOADS_DIR, "produtos");
+const ESTOQUE_FILE = path.join(DATA_DIR, "estoque.json");
+const TRADUCOES_FILE = path.join(DATA_DIR, "traducoes.json");
 
-const PUBLIC_DIR = path.join(__dirname, "public");
-const DATA_DIR = path.join(__dirname, "data");
-const UPLOADS_DIR = path.join(__dirname, "uploads");
-const CONTAINER_IMG_DIR = path.join(UPLOADS_DIR, "produtos", "container");
-
-for (const dir of [PUBLIC_DIR, DATA_DIR, UPLOADS_DIR, CONTAINER_IMG_DIR]) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+function ensureDir(dirPath) {
+  if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
 }
 
-app.use(express.static(PUBLIC_DIR));
+ensureDir(PUBLIC_DIR);
+ensureDir(DATA_DIR);
+ensureDir(UPLOADS_DIR);
+ensureDir(PRODUTOS_IMG_DIR);
+
+app.use(express.json({ limit: "25mb" }));
+app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 app.use("/uploads", express.static(UPLOADS_DIR));
+app.use(express.static(PUBLIC_DIR));
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 60 * 1024 * 1024 }
+  limits: {
+    fileSize: 30 * 1024 * 1024,
+    files: 10,
+  },
 });
 
-function texto(v) {
-  return String(v ?? "").trim();
+/* =========================
+   JSON HELPERS
+========================= */
+function readJson(filePath, fallback = []) {
+  try {
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, JSON.stringify(fallback, null, 2), "utf8");
+      return fallback;
+    }
+    const raw = fs.readFileSync(filePath, "utf8").trim();
+    if (!raw) return fallback;
+    return JSON.parse(raw);
+  } catch (error) {
+    console.error("Erro ao ler JSON:", filePath, error.message);
+    return fallback;
+  }
 }
 
-function normalizarCabecalho(v) {
-  return texto(v)
-    .toLowerCase()
+function writeJson(filePath, data) {
+  try {
+    ensureDir(path.dirname(filePath));
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
+    return true;
+  } catch (error) {
+    console.error("Erro ao salvar JSON:", filePath, error.message);
+    return false;
+  }
+}
+
+/* =========================
+   TEXTO / NORMALIZAÇÃO
+========================= */
+function normalizar(valor = "") {
+  return String(valor)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
     .replace(/\s+/g, " ")
     .trim();
 }
 
-function slugArquivo(nome = "") {
-  return String(nome)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\w.-]+/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "");
+function isEmptyCell(value) {
+  return value === null || value === undefined || String(value).trim() === "";
 }
 
-function responderErro(res, contexto, error) {
-  console.error(contexto, error);
-  return res.status(500).json({
-    ok: false,
-    erro: contexto,
-    detalhe: error?.message || String(error)
-  });
+function isMeaningfulRow(row) {
+  return Array.isArray(row) && row.some((cell) => !isEmptyCell(cell));
 }
 
-function detectarCampos(headers = []) {
-  const lista = headers.map((h) => ({
-    original: h,
-    normalizado: normalizarCabecalho(h)
-  }));
-
-  function buscar(possibles = []) {
-    const exato = lista.find((item) => possibles.includes(item.normalizado));
-    if (exato) return exato.original;
-
-    const parcial = lista.find((item) =>
-      possibles.some((p) => item.normalizado.includes(p))
-    );
-    return parcial ? parcial.original : "";
-  }
-
-  return {
-    codigo: buscar(["item no", "codigo", "código", "sku", "ref", "货号", "客人货号"]),
-    produto: buscar(["description", "descricao", "descrição", "produto", "nome", "品名"]),
-    caixas: buscar(["ctns", "caixas", "件数"]),
-    quantidade: buscar(["t.qty", "quantidade", "qtd", "total", "总数"]),
-    fator: buscar(["q/c", "fator", "装箱"]),
-    imagem: "__imagem",
-    original: "__produto_original"
-  };
+function containsChinese(text = "") {
+  return /[\u3400-\u9FFF]/.test(String(text));
 }
 
-function traduzirCabecalho(valor) {
-  const v = texto(valor);
-  const mapa = {
-    "产品图片": "PICTURE",
-    "客人货号": "ITEM NO",
-    "品名": "DESCRIPTION",
-    "件数": "CTNS",
-    "装箱": "Q/C",
-    "总数": "T.QTY",
-    "毛重": "G.W",
-    "总毛重": "T.G.W",
-    "长": "Comprimento",
-    "宽": "Largura",
-    "高": "Altura",
-    "体积": "CBM",
-    "柜号": "Container"
-  };
-  return mapa[v] || v;
-}
+function uniqueHeaders(row = []) {
+  const usados = new Set();
+  return row.map((cell, idx) => {
+    let nome = String(cell ?? "").trim();
+    if (!nome) nome = `Coluna ${idx + 1}`;
 
-function montarCabecalhosMultinivel(sheet) {
-  const matriz = XLSX.utils.sheet_to_json(sheet, {
-    header: 1,
-    raw: false,
-    defval: ""
-  });
-
-  const row0 = matriz[0] || [];
-  const row1 = matriz[1] || [];
-  const row2 = matriz[2] || [];
-
-  const maxCols = Math.max(row0.length, row1.length, row2.length);
-  const headers = [];
-
-  for (let c = 0; c < maxCols; c++) {
-    const titulo = texto(row0[c]);
-    const principal = texto(row1[c]);
-    const complemento = texto(row2[c]);
-
-    let finalHeader = "";
-
-    if (principal) {
-      finalHeader = principal;
-    } else if (complemento) {
-      finalHeader = traduzirCabecalho(complemento);
-    } else if (titulo && c === 0) {
-      finalHeader = "Container";
-    } else {
-      finalHeader = `COLUNA_${c + 1}`;
+    let finalName = nome;
+    let seq = 2;
+    while (usados.has(finalName)) {
+      finalName = `${nome} (${seq})`;
+      seq += 1;
     }
-
-    if (principal && complemento) {
-      const nPrincipal = normalizarCabecalho(principal);
-      const nComplemento = normalizarCabecalho(complemento);
-
-      if (nPrincipal === "meas." && nComplemento === "长") finalHeader = "Comprimento";
-      else if (nComplemento === "宽") finalHeader = "Largura";
-      else if (nComplemento === "高") finalHeader = "Altura";
-      else if (nComplemento === "体积") finalHeader = "CBM";
-      else if (nPrincipal === "item no") finalHeader = "ITEM NO";
-      else if (nPrincipal === "description") finalHeader = "DESCRIPTION";
-      else if (nPrincipal === "ctns") finalHeader = "CTNS";
-      else if (nPrincipal === "q/c") finalHeader = "Q/C";
-      else if (nPrincipal === "t.qty") finalHeader = "T.QTY";
-      else if (nPrincipal === "g.w") finalHeader = "G.W";
-      else if (nPrincipal === "t.g.w") finalHeader = "T.G.W";
-      else if (nPrincipal === "picture") finalHeader = "PICTURE";
-    }
-
-    headers.push(finalHeader || `COLUNA_${c + 1}`);
-  }
-
-  const usados = {};
-  return headers.map((h) => {
-    const base = texto(h) || "COLUNA";
-    usados[base] = (usados[base] || 0) + 1;
-    return usados[base] === 1 ? base : `${base}_${usados[base]}`;
+    usados.add(finalName);
+    return finalName;
   });
 }
 
-function sheetToJsonContainer(sheet) {
-  const matriz = XLSX.utils.sheet_to_json(sheet, {
-    header: 1,
-    raw: false,
-    defval: ""
-  });
-
-  const headers = montarCabecalhosMultinivel(sheet);
-  const inicioDados = 3;
-  const linhas = [];
-
-  for (let r = inicioDados; r < matriz.length; r++) {
-    const row = matriz[r] || [];
-    const obj = {};
-    let preenchidos = 0;
-
-    headers.forEach((header, idx) => {
-      const valor = row[idx] ?? "";
-      obj[header] = valor;
-      if (texto(valor)) preenchidos++;
-    });
-
-    obj.__excelRow = r + 1;
-
-    if (preenchidos > 0) linhas.push(obj);
-  }
-
-  return { headers, linhas };
+/* =========================
+   CACHE DE TRADUÇÃO
+========================= */
+function readTradCache() {
+  return readJson(TRADUCOES_FILE, {});
 }
 
-const DICIONARIO_FIXO = {
-  "顶针": "dedal",
+function writeTradCache(cache) {
+  writeJson(TRADUCOES_FILE, cache);
+}
+
+/* =========================
+   TRADUTOR HÍBRIDO
+========================= */
+const DICIONARIO_CH_PT = {
+  "品名": "nome do produto",
+  "产品图片": "imagem do produto",
+  "客人货号": "código do cliente",
+  "货号": "código",
+  "出货清单": "lista de embarque",
+  "件数": "quantidade",
+  "数量": "quantidade",
+  "包装": "embalagem",
+  "材质": "material",
+  "型号": "modelo",
+  "颜色": "cor",
+  "规格": "especificação",
+  "净重": "peso líquido",
+  "毛重": "peso bruto",
+  "尺寸": "medidas",
+  "长": "comprimento",
+  "宽": "largura",
+  "高": "altura",
+
   "钥匙扣": "chaveiro",
-  "匙扣": "chaveiro",
-  "挂件": "chaveiro",
-  "银匙扣": "chaveiro",
+  "吊坠": "pingente",
+  "挂件": "enfeite",
+  "手链": "pulseira",
+  "项链": "colar",
+  "耳环": "brinco",
+  "戒指": "anel",
+  "发夹": "presilha",
+  "贴纸": "adesivo",
+  "玩具": "brinquedo",
+  "杯垫": "porta-copo",
+  "冰箱贴": "ímã de geladeira",
+  "双面镜": "espelho dupla face",
+  "圆镜": "espelho redondo",
+  "桃心镜子": "espelho coração",
+  "镜子": "espelho",
+  "帆布袋": "saco de lona",
+  "帆布包": "bolsa de lona",
+  "地图": "mapa",
+  "十字架": "cruz",
+  "顶针": "dedal",
+  "铝片车牌冰箱贴": "ímã de geladeira placa de carro em alumínio",
+  "银箔冰箱贴": "ímã de geladeira prata",
+  "地图银箔冰箱贴": "ímã de geladeira mapa prata",
+  "地图圆镜冰箱贴": "ímã de geladeira mapa com espelho redondo",
+  "圆镜冰箱贴": "ímã de geladeira com espelho redondo",
+  "7.5塑料双面镜": "espelho dupla face plástico 7.5 cm",
+  "7.5双面镜": "espelho dupla face 7.5 cm",
+  "塑料双面镜": "espelho dupla face plástico",
+
   "蓝色": "azul",
   "大红": "vermelho escuro",
   "红色": "vermelho",
   "粉色": "rosa",
   "黑色": "preto",
   "白色": "branco",
-  "地图": "mapa",
-  "冰箱贴": "ímã de geladeira",
-  "7.5塑料双面镜": "espelho duplo plástico 7.5",
-  "塑料双面镜": "espelho duplo plástico",
-  "双面镜": "espelho duplo",
-  "帆布袋": "saco de pano",
-  "桃心镜子": "espelho coração",
-  "镜子": "espelho",
-  "爱心": "coração"
+  "黄色": "amarelo",
+  "绿色": "verde",
+  "紫色": "roxo",
+  "橙色": "laranja",
+  "灰色": "cinza",
+  "金色": "dourado",
+  "银色": "prata",
+  "棕色": "marrom",
+  "彩色": "colorido",
+  "透明": "transparente",
+
+  "蓝": "azul",
+  "红": "vermelho",
+  "粉": "rosa",
+  "黑": "preto",
+  "白": "branco",
+  "黄": "amarelo",
+  "绿": "verde",
+  "紫": "roxo",
+  "橙": "laranja",
+  "灰": "cinza",
+  "金": "dourado",
+  "银": "prata",
+
+  "钥匙扣蓝色": "chaveiro azul",
+  "钥匙扣大红": "chaveiro vermelho escuro",
+  "钥匙扣红色": "chaveiro vermelho",
+  "钥匙扣粉色": "chaveiro rosa",
+  "钥匙扣黑色": "chaveiro preto",
+  "钥匙扣白色": "chaveiro branco",
+  "钥匙扣黄色": "chaveiro amarelo",
+  "钥匙扣绿色": "chaveiro verde",
+  "钥匙扣紫色": "chaveiro roxo",
+  "钥匙扣橙色": "chaveiro laranja",
+  "钥匙扣灰色": "chaveiro cinza",
+  "钥匙扣金色": "chaveiro dourado",
+  "钥匙扣银色": "chaveiro prata",
+
+  "顶针蓝色": "dedal azul",
+  "顶针红色": "dedal vermelho",
+  "顶针粉色": "dedal rosa",
+  "顶针黑色": "dedal preto",
+  "顶针白色": "dedal branco",
+  "顶针黄色": "dedal amarelo",
+  "顶针绿色": "dedal verde",
+  "顶针紫色": "dedal roxo",
+
+  "帆布袋黑色": "saco de lona preto",
+  "帆布袋白色": "saco de lona branco",
+  "帆布包黑色": "bolsa de lona preta",
+  "帆布包白色": "bolsa de lona branca"
 };
 
-function traduzirTextoContainer(txt) {
-  const original = texto(txt);
-  if (!original) return { traduzido: "", original: "" };
+const TERMOS_COMPOSTOS = [
+  ["地图圆镜冰箱贴", "ímã de geladeira mapa com espelho redondo"],
+  ["圆镜冰箱贴", "ímã de geladeira com espelho redondo"],
+  ["地图银箔冰箱贴", "ímã de geladeira mapa prata"],
+  ["银箔冰箱贴", "ímã de geladeira prata"],
+  ["铝片车牌冰箱贴", "ímã de geladeira placa de carro em alumínio"],
+  ["7.5塑料双面镜", "espelho dupla face plástico 7.5 cm"],
+  ["7.5双面镜", "espelho dupla face 7.5 cm"],
+  ["塑料双面镜", "espelho dupla face plástico"],
+  ["桃心镜子", "espelho coração"],
+  ["双面镜", "espelho dupla face"],
+  ["圆镜", "espelho redondo"],
+  ["冰箱贴", "ímã de geladeira"],
+  ["帆布袋", "saco de lona"],
+  ["帆布包", "bolsa de lona"],
+  ["钥匙扣", "chaveiro"],
+  ["顶针", "dedal"],
+  ["十字架", "cruz"],
+  ["吊坠", "pingente"],
+  ["挂件", "enfeite"],
+  ["手链", "pulseira"],
+  ["项链", "colar"],
+  ["耳环", "brinco"],
+  ["戒指", "anel"],
+  ["发夹", "presilha"],
+  ["贴纸", "adesivo"],
+  ["玩具", "brinquedo"],
+  ["杯垫", "porta-copo"],
+  ["地图", "mapa"],
+  ["蓝色", "azul"],
+  ["大红", "vermelho escuro"],
+  ["红色", "vermelho"],
+  ["粉色", "rosa"],
+  ["黑色", "preto"],
+  ["白色", "branco"],
+  ["黄色", "amarelo"],
+  ["绿色", "verde"],
+  ["紫色", "roxo"],
+  ["橙色", "laranja"],
+  ["灰色", "cinza"],
+  ["金色", "dourado"],
+  ["银色", "prata"]
+];
 
-  let traduzido = original;
-  if (DICIONARIO_FIXO[original]) {
-    traduzido = DICIONARIO_FIXO[original];
-  } else {
-    for (const [chave, valor] of Object.entries(DICIONARIO_FIXO)) {
-      if (traduzido.includes(chave)) {
-        traduzido = traduzido.split(chave).join(valor);
+function limparTextoComercial(texto = "") {
+  return String(texto)
+    .replace(/--.*$/g, "")
+    .replace(/还有.*$/g, "")
+    .replace(/[^\x00-\x7F\u4e00-\u9fa5\s.\-\/]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function limparTraducao(texto = "") {
+  return String(texto)
+    .replace(/\s+/g, " ")
+    .replace(/\s+\|/g, " |")
+    .replace(/\|\s+/g, "| ")
+    .replace(/\s+([,.;:])/g, "$1")
+    .trim();
+}
+
+async function traduzirOnline(texto) {
+  const endpoints = [
+    "https://libretranslate.de/translate",
+    "https://translate.argosopentech.com/translate"
+  ];
+
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          q: texto,
+          source: "auto",
+          target: "pt",
+          format: "text"
+        })
+      });
+
+      if (!res.ok) continue;
+
+      const data = await res.json().catch(() => ({}));
+      const traduzido = data?.translatedText;
+
+      if (traduzido && typeof traduzido === "string") {
+        return traduzido.trim();
       }
+    } catch (e) {
+      // tenta o próximo endpoint
     }
   }
 
-  traduzido = traduzido.replace(/\s+/g, " ").trim();
-  return { traduzido, original };
+  return texto;
 }
 
-function enriquecerLinhasContainer(linhas, camposDetectados = {}) {
-  const campoProduto =
-    camposDetectados.produto ||
-    Object.keys(linhas[0] || {}).find((k) => {
-      const n = normalizarCabecalho(k);
-      return ["description", "descricao", "descrição", "品名", "produto", "nome"].includes(n);
-    }) ||
-    "";
+async function traduzirUniversal(texto = "", cache = null) {
+  const valorBruto = String(texto || "").trim();
+  if (!valorBruto) return "";
+  if (!containsChinese(valorBruto)) return valorBruto;
 
-  return linhas.map((linha) => {
-    const clone = { ...linha };
-    if (campoProduto && clone[campoProduto] !== undefined) {
-      const t = traduzirTextoContainer(clone[campoProduto]);
-      clone.__produto_original = t.original;
-      clone[campoProduto] = t.traduzido || t.original;
+  const tradCache = cache || readTradCache();
+  if (tradCache[valorBruto]) return tradCache[valorBruto];
+
+  let valor = limparTextoComercial(valorBruto);
+  let traduzido = valor;
+
+  if (DICIONARIO_CH_PT[valor]) {
+    traduzido = DICIONARIO_CH_PT[valor];
+  } else {
+    for (const [orig, dest] of TERMOS_COMPOSTOS) {
+      if (traduzido.includes(orig)) {
+        traduzido = traduzido.split(orig).join(dest);
+      }
     }
-    return clone;
+
+    const entradas = Object.entries(DICIONARIO_CH_PT).sort((a, b) => b[0].length - a[0].length);
+    for (const [orig, dest] of entradas) {
+      if (traduzido.includes(orig)) {
+        traduzido = traduzido.split(orig).join(dest);
+      }
+    }
+
+    if (containsChinese(traduzido)) {
+      traduzido = await traduzirOnline(traduzido);
+    }
+  }
+
+  traduzido = String(traduzido)
+    .replace(/7\.5x7\.5/gi, "7.5 x 7.5")
+    .replace(/7\.5\s*cm/gi, "7.5 cm")
+    .replace(/mapa\s+prata/gi, "mapa prata")
+    .replace(/prata\s+ímã de geladeira/gi, "ímã de geladeira prata")
+    .replace(/mapa\s+ímã de geladeira/gi, "ímã de geladeira mapa")
+    .replace(/espelho redondo ímã de geladeira/gi, "ímã de geladeira com espelho redondo")
+    .replace(/mapa com espelho redondo ímã de geladeira/gi, "ímã de geladeira mapa com espelho redondo")
+    .replace(/plástico espelho dupla face/gi, "espelho dupla face plástico")
+    .replace(/\bpreto saco de lona\b/gi, "saco de lona preto")
+    .replace(/\bbranco saco de lona\b/gi, "saco de lona branco")
+    .replace(/\bpreto bolsa de lona\b/gi, "bolsa de lona preta")
+    .replace(/\bbranco bolsa de lona\b/gi, "bolsa de lona branca")
+    .replace(/(\b[\wÀ-ÿ.-]+\b)(\s+\1)+/gi, "$1");
+
+  traduzido = limparTraducao(traduzido);
+  tradCache[valorBruto] = traduzido;
+  return traduzido;
+}
+
+/* =========================
+   DETECÇÃO DE COLUNAS
+========================= */
+function detectarCampos(headers, aliasMap) {
+  const detectados = {};
+  const normHeaders = headers.map((h) => normalizar(h));
+
+  for (const [campo, aliases] of Object.entries(aliasMap)) {
+    let encontrado = "";
+
+    for (let i = 0; i < normHeaders.length; i += 1) {
+      const h = normHeaders[i];
+      const ok = aliases.some((alias) => {
+        const a = normalizar(alias);
+        return h === a || h.includes(a) || a.includes(h);
+      });
+      if (ok) {
+        encontrado = headers[i];
+        break;
+      }
+    }
+
+    detectados[campo] = encontrado;
+  }
+
+  return detectados;
+}
+
+function scoreHeaderRow(row, aliasMap) {
+  const headers = uniqueHeaders(row);
+  const campos = detectarCampos(headers, aliasMap);
+  return Object.values(campos).filter(Boolean).length;
+}
+
+function findHeaderRow(indexedRows, aliasMap) {
+  let bestIndex = -1;
+  let bestScore = -1;
+  const limite = Math.min(indexedRows.length, 25);
+
+  for (let i = 0; i < limite; i += 1) {
+    const row = indexedRows[i].row;
+    if (!isMeaningfulRow(row)) continue;
+
+    const filled = row.filter((cell) => !isEmptyCell(cell)).length;
+    if (filled < 2) continue;
+
+    const score = scoreHeaderRow(row, aliasMap);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = i;
+    }
+  }
+
+  if (bestIndex >= 0 && bestScore > 0) return bestIndex;
+
+  for (let i = 0; i < limite; i += 1) {
+    const row = indexedRows[i].row;
+    if (!isMeaningfulRow(row)) continue;
+    const filled = row.filter((cell) => !isEmptyCell(cell)).length;
+    if (filled >= 2) return i;
+  }
+
+  return -1;
+}
+
+function rowsToObjects(rows, aliasMap) {
+  const indexedRows = rows
+    .map((row, idx) => ({ row, idx }))
+    .filter((entry) => isMeaningfulRow(entry.row));
+
+  if (!indexedRows.length) {
+    return { dados: [], cabecalhos: [], camposDetectados: {}, headerExcelRow: -1 };
+  }
+
+  const headerIndex = findHeaderRow(indexedRows, aliasMap);
+  if (headerIndex < 0) {
+    return { dados: [], cabecalhos: [], camposDetectados: {}, headerExcelRow: -1 };
+  }
+
+  const headerEntry = indexedRows[headerIndex];
+  const cabecalhos = uniqueHeaders(headerEntry.row);
+  const dadosEntries = indexedRows.slice(headerIndex + 1);
+
+  const dados = dadosEntries
+    .map((entry) => {
+      const obj = {};
+      cabecalhos.forEach((header, idx) => {
+        obj[header] = entry.row[idx] ?? "";
+      });
+      obj.__excelRow = entry.idx + 1;
+      return obj;
+    })
+    .filter((obj) => Object.entries(obj).some(([k, v]) => k !== "__excelRow" && !isEmptyCell(v)));
+
+  return {
+    dados,
+    cabecalhos,
+    camposDetectados: detectarCampos(cabecalhos, aliasMap),
+    headerExcelRow: headerEntry.idx + 1,
+  };
+}
+
+function parseWorkbook(buffer, aliasMap) {
+  const workbook = XLSX.read(buffer, {
+    type: "buffer",
+    cellDates: true,
+    raw: false,
   });
+
+  const planilhas = {};
+  const metadados = {};
+  const abas = [];
+
+  for (const aba of workbook.SheetNames) {
+    const ws = workbook.Sheets[aba];
+    if (!ws) continue;
+
+    const rows = XLSX.utils.sheet_to_json(ws, {
+      header: 1,
+      defval: "",
+      blankrows: false,
+      raw: false,
+    });
+
+    const { dados, cabecalhos, camposDetectados, headerExcelRow } = rowsToObjects(rows, aliasMap);
+    if (!dados.length) continue;
+
+    planilhas[aba] = dados;
+    metadados[aba] = {
+      cabecalhos,
+      camposDetectados,
+      total: dados.length,
+      headerExcelRow,
+    };
+    abas.push(aba);
+  }
+
+  return { abas, planilhas, metadados };
 }
 
-function normalizeZipPath(p) {
-  return String(p || "").replace(/\\/g, "/").replace(/^\//, "");
+function getUploadedFiles(req) {
+  const files = [];
+
+  if (Array.isArray(req.files)) {
+    files.push(...req.files);
+  } else if (req.files && typeof req.files === "object") {
+    Object.values(req.files).forEach((value) => {
+      if (Array.isArray(value)) files.push(...value);
+    });
+  }
+
+  if (req.file) files.push(req.file);
+  return files.filter(Boolean);
 }
 
-function dirnameZip(p) {
-  const norm = normalizeZipPath(p);
-  const idx = norm.lastIndexOf("/");
-  return idx >= 0 ? norm.slice(0, idx) : "";
+function getFirstSpreadsheet(req) {
+  const files = getUploadedFiles(req);
+  return files.length ? files[0] : null;
+}
+
+/* =========================
+   ALIASES
+========================= */
+const ALIASES_WMS = {
+  codigo: ["codigo", "código", "item no", "item", "sku", "ref", "referencia", "cod", "codigo do produto", "id"],
+  produto: ["produto", "description", "descrição", "item name", "descricao", "nome", "desc"],
+  endereco: ["endereco", "endereço", "location", "address", "locacao", "local", "rua", "posicao"],
+  quantidade: ["quantidade", "qty", "qtd", "estoque (un)", "estoque", "unidades", "t.qty", "quantity"],
+};
+
+const ALIASES_CONTAINER = {
+  codigo: ["codigo", "código", "item no", "sku", "ref", "referencia", "cod", "客人货号", "货号", "ITEM NO"],
+  produto: ["produto", "description", "descrição", "item name", "descricao", "nome", "desc", "traducao", "tradução", "品名", "DESCRIPTION"],
+  caixas: ["caixas", "cartons", "ctns", "ctn", "boxes", "box", "volume", "CTNS"],
+  unidades: ["unidades", "quantidade", "qty", "qtd", "pcs", "pieces", "estoque (un)", "quantity", "t.qty", "件数", "数量", "T.QTY"],
+  imagem: ["imagem", "image", "images", "picture", "pictures", "foto", "fotos", "产品图片", "PICTURE"],
+  container: ["container", "contêiner", "conteiner"],
+  lote: ["lote", "lot", "batch"],
+  nf: ["nf", "nota", "nota fiscal", "invoice"],
+  fornecedor: ["fornecedor", "supplier", "vendor", "fabricante", "marca"],
+  fator: ["fator", "q/c", "qc", "factor", "packing", "pack", "Q/C"]
+};
+
+/* =========================
+   IMAGEM POR CÓDIGO
+========================= */
+function findImageByCode(codigo = "") {
+  const code = String(codigo || "").trim();
+  if (!code) return "";
+
+  const exts = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+  for (const ext of exts) {
+    const abs = path.join(PRODUTOS_IMG_DIR, `${code}${ext}`);
+    if (fs.existsSync(abs)) return `/uploads/produtos/${code}${ext}`;
+  }
+  return "";
+}
+
+/* =========================
+   EXTRAÇÃO DE IMAGENS XLSX
+========================= */
+function posixDir(p) {
+  const d = path.posix.dirname(p);
+  return d === "." ? "" : d;
 }
 
 function resolveZipTarget(baseFile, target) {
-  const baseDir = dirnameZip(baseFile);
-  const stack = baseDir ? baseDir.split("/") : [];
-  const parts = normalizeZipPath(target).split("/");
-
-  if (normalizeZipPath(target).startsWith("xl/")) {
-    return normalizeZipPath(target);
+  const baseDir = posixDir(baseFile);
+  let resolved = path.posix.normalize(path.posix.join(baseDir, target)).replace(/^\/+/, "");
+  if (!resolved.startsWith("xl/") && !resolved.startsWith("_rels/") && !resolved.startsWith("docProps/")) {
+    resolved = path.posix.normalize(path.posix.join("xl", resolved)).replace(/^\/+/, "");
   }
-
-  for (const part of parts) {
-    if (!part || part === ".") continue;
-    if (part === "..") stack.pop();
-    else stack.push(part);
-  }
-
-  return stack.join("/");
+  return resolved;
 }
 
-function parseRelationships(xmlText, relFilePath) {
-  const rels = {};
-  const relRegex = /<Relationship\b[^>]*Id="([^"]+)"[^>]*Target="([^"]+)"[^>]*\/?>/g;
-  let match;
-
-  while ((match = relRegex.exec(xmlText))) {
-    const [, id, target] = match;
-    rels[id] = resolveZipTarget(relFilePath, target);
-  }
-
-  return rels;
-}
-
-async function abrirZipMap(buffer) {
-  const directory = await unzipper.Open.buffer(buffer);
-  const map = {};
-  for (const file of directory.files || []) {
-    map[normalizeZipPath(file.path)] = file;
-  }
+async function zipEntriesMap(buffer) {
+  const zip = await unzipper.Open.buffer(buffer);
+  const map = new Map();
+  for (const entry of zip.files) map.set(entry.path, entry);
   return map;
 }
 
-async function lerArquivoZip(zipMap, filePath, asText = true) {
-  const entry = zipMap[normalizeZipPath(filePath)];
-  if (!entry) return asText ? "" : null;
-  const buf = await entry.buffer();
-  return asText ? buf.toString("utf8") : buf;
+async function readZipText(entries, filePath) {
+  const entry = entries.get(filePath);
+  if (!entry) return "";
+  return (await entry.buffer()).toString("utf8");
 }
 
-function parseWorkbookSheets(workbookXml, workbookRelsXml) {
-  const rels = parseRelationships(workbookRelsXml, "xl/_rels/workbook.xml.rels");
-  const result = [];
-  const sheetRegex = /<sheet\b[^>]*name="([^"]+)"[^>]*r:id="([^"]+)"[^>]*\/?>/g;
-  let match;
+async function readZipBuffer(entries, filePath) {
+  const entry = entries.get(filePath);
+  if (!entry) return null;
+  return entry.buffer();
+}
 
-  while ((match = sheetRegex.exec(workbookXml))) {
-    const [, name, rid] = match;
-    const sheetPath = rels[rid];
-    if (sheetPath) result.push({ name, path: sheetPath });
+function parseRelationships(xml = "") {
+  const rels = {};
+  const regex = /<Relationship\b[^>]*Id="([^"]+)"[^>]*Target="([^"]+)"[^>]*\/?>/g;
+  let m;
+  while ((m = regex.exec(xml))) rels[m[1]] = m[2];
+  return rels;
+}
+
+function parseWorkbookSheets(xml = "") {
+  const sheets = [];
+  const regex = /<sheet\b[^>]*name="([^"]+)"[^>]*r:id="([^"]+)"[^>]*\/?>/g;
+  let m;
+  while ((m = regex.exec(xml))) sheets.push({ name: m[1], rid: m[2] });
+  return sheets;
+}
+
+function parseWorksheetDrawingRid(xml = "") {
+  const m = xml.match(/<drawing\b[^>]*r:id="([^"]+)"/);
+  return m ? m[1] : "";
+}
+
+function parseAnchorsFromDrawing(xml = "") {
+  const results = [];
+  const regex = /<(?:xdr:)?(?:twoCellAnchor|oneCellAnchor)[\s\S]*?<(?:xdr:)?from>[\s\S]*?<(?:xdr:)?row>(\d+)<\/(?:xdr:)?row>[\s\S]*?<a:blip\b[^>]*r:embed="([^"]+)"/g;
+  let m;
+  while ((m = regex.exec(xml))) {
+    results.push({
+      rowZeroBased: Number(m[1] || 0),
+      embedRid: m[2] || "",
+    });
   }
-
-  return result;
+  return results;
 }
 
-function parseWorksheetDrawingRids(sheetXml) {
-  const result = [];
-  const regex = /<drawing\b[^>]*r:id="([^"]+)"[^>]*\/?>/g;
-  let match;
-  while ((match = regex.exec(sheetXml))) result.push(match[1]);
-  return result;
+function extFromMediaPath(mediaPath = "") {
+  const ext = path.extname(mediaPath || "").toLowerCase();
+  return [".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"].includes(ext) ? ext : ".png";
 }
 
-function parseDrawingAnchors(drawingXml) {
-  const anchors = [];
-  const anchorRegex = /<xdr:(?:twoCellAnchor|oneCellAnchor)\b[\s\S]*?<\/xdr:(?:twoCellAnchor|oneCellAnchor)>/g;
-  let anchorMatch;
+async function extractXlsxImagesBySheet(buffer) {
+  const entries = await zipEntriesMap(buffer);
+  const workbookXml = await readZipText(entries, "xl/workbook.xml");
+  const workbookRelsXml = await readZipText(entries, "xl/_rels/workbook.xml.rels");
 
-  while ((anchorMatch = anchorRegex.exec(drawingXml))) {
-    const block = anchorMatch[0];
-    const rowMatch = block.match(/<xdr:from>[\s\S]*?<xdr:row>(\d+)<\/xdr:row>/);
-    const colMatch = block.match(/<xdr:from>[\s\S]*?<xdr:col>(\d+)<\/xdr:col>/);
-    const embedMatch = block.match(/<a:blip\b[^>]*r:embed="([^"]+)"/);
+  if (!workbookXml || !workbookRelsXml) return {};
 
-    if (rowMatch && embedMatch) {
-      anchors.push({
-        rowExcel: Number(rowMatch[1]) + 1,
-        colExcel: colMatch ? Number(colMatch[1]) + 1 : 1,
-        relId: embedMatch[1]
-      });
-    }
-  }
+  const workbookSheets = parseWorkbookSheets(workbookXml);
+  const workbookRels = parseRelationships(workbookRelsXml);
+  const imagesBySheet = {};
 
-  return anchors;
-}
+  for (const sheet of workbookSheets) {
+    const worksheetTarget = workbookRels[sheet.rid];
+    if (!worksheetTarget) continue;
 
-async function extrairImagensAncoradasPrimeiraAba(buffer, fileBaseName = "container") {
-  const zipMap = await abrirZipMap(buffer);
+    const worksheetPath = resolveZipTarget("xl/workbook.xml", worksheetTarget);
+    const worksheetXml = await readZipText(entries, worksheetPath);
+    if (!worksheetXml) continue;
 
-  const workbookXml = await lerArquivoZip(zipMap, "xl/workbook.xml", true);
-  const workbookRelsXml = await lerArquivoZip(zipMap, "xl/_rels/workbook.xml.rels", true);
-  const sheets = parseWorkbookSheets(workbookXml, workbookRelsXml);
+    const drawingRid = parseWorksheetDrawingRid(worksheetXml);
+    if (!drawingRid) continue;
 
-  if (!sheets.length) return [];
+    const sheetRelsPath =
+      `${posixDir(worksheetPath)}/_rels/${path.posix.basename(worksheetPath)}.rels`.replace(/^\/+/, "");
+    const sheetRelsXml = await readZipText(entries, sheetRelsPath);
+    const sheetRels = parseRelationships(sheetRelsXml);
+    const drawingTarget = sheetRels[drawingRid];
+    if (!drawingTarget) continue;
 
-  const primeira = sheets[0];
-  const sheetXml = await lerArquivoZip(zipMap, primeira.path, true);
-  const sheetRelsPath = `${dirnameZip(primeira.path)}/_rels/${path.posix.basename(primeira.path)}.rels`;
-  const sheetRelsXml = await lerArquivoZip(zipMap, sheetRelsPath, true);
+    const drawingPath = resolveZipTarget(worksheetPath, drawingTarget);
+    const drawingXml = await readZipText(entries, drawingPath);
+    if (!drawingXml) continue;
 
-  if (!sheetXml || !sheetRelsXml) return [];
+    const drawingRelsPath =
+      `${posixDir(drawingPath)}/_rels/${path.posix.basename(drawingPath)}.rels`.replace(/^\/+/, "");
+    const drawingRelsXml = await readZipText(entries, drawingRelsPath);
+    const drawingRels = parseRelationships(drawingRelsXml);
 
-  const sheetRels = parseRelationships(sheetRelsXml, sheetRelsPath);
-  const drawingRids = parseWorksheetDrawingRids(sheetXml);
-  const mediaUrlByPath = {};
-  const anchorsForSheet = [];
+    const anchors = parseAnchorsFromDrawing(drawingXml);
+    if (!anchors.length) continue;
 
-  for (const drawingRid of drawingRids) {
-    const drawingPath = sheetRels[drawingRid];
-    if (!drawingPath) continue;
-
-    const drawingXml = await lerArquivoZip(zipMap, drawingPath, true);
-    const drawingRelsPath = `${dirnameZip(drawingPath)}/_rels/${path.posix.basename(drawingPath)}.rels`;
-    const drawingRelsXml = await lerArquivoZip(zipMap, drawingRelsPath, true);
-
-    if (!drawingXml || !drawingRelsXml) continue;
-
-    const drawingRels = parseRelationships(drawingRelsXml, drawingRelsPath);
-    const anchors = parseDrawingAnchors(drawingXml);
+    imagesBySheet[sheet.name] = {};
 
     for (const anchor of anchors) {
-      const mediaPath = drawingRels[anchor.relId];
-      if (!mediaPath) continue;
+      const mediaTarget = drawingRels[anchor.embedRid];
+      if (!mediaTarget) continue;
 
-      let mediaUrl = mediaUrlByPath[mediaPath];
-      if (!mediaUrl) {
-        const mediaBuffer = await lerArquivoZip(zipMap, mediaPath, false);
-        if (!mediaBuffer) continue;
+      const mediaPath = resolveZipTarget(drawingPath, mediaTarget);
+      const mediaBuffer = await readZipBuffer(entries, mediaPath);
+      if (!mediaBuffer) continue;
 
-        const nomeOriginal = path.posix.basename(mediaPath);
-        const nomeFinal = `${Date.now()}_${slugArquivo(fileBaseName)}_${Object.keys(mediaUrlByPath).length}_${nomeOriginal}`;
-        const caminhoFinal = path.join(CONTAINER_IMG_DIR, nomeFinal);
+      const ext = extFromMediaPath(mediaPath);
+      const safeSheet = normalizar(sheet.name).replace(/[^a-z0-9]+/g, "_") || "sheet";
+      const row1 = anchor.rowZeroBased + 1;
+      const filename = `${safeSheet}_row_${row1}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}${ext}`;
+      const abs = path.join(PRODUTOS_IMG_DIR, filename);
 
-        fs.writeFileSync(caminhoFinal, mediaBuffer);
-        mediaUrl = `/uploads/produtos/container/${nomeFinal}`;
-        mediaUrlByPath[mediaPath] = mediaUrl;
+      fs.writeFileSync(abs, mediaBuffer);
+      if (!imagesBySheet[sheet.name][row1]) {
+        imagesBySheet[sheet.name][row1] = `/uploads/produtos/${filename}`;
+      }
+    }
+  }
+
+  return imagesBySheet;
+}
+
+/* =========================
+   ENRIQUECIMENTO CONTÊINER
+========================= */
+async function enrichContainerPreview(planilhas, metadados, imagesBySheet) {
+  const tradCache = readTradCache();
+
+  for (const [aba, rows] of Object.entries(planilhas)) {
+    const meta = metadados[aba] || {};
+    const camposDetectados = meta.camposDetectados || {};
+    const codigoHeader = camposDetectados.codigo || "ITEM NO";
+    const imageHeader = camposDetectados.imagem || "";
+    const produtoHeader = camposDetectados.produto || "DESCRIPTION";
+
+    for (const row of rows) {
+      let imagem = "";
+
+      const rowNum = Number(row.__excelRow || 0);
+      if (rowNum && imagesBySheet[aba] && imagesBySheet[aba][rowNum]) {
+        imagem = imagesBySheet[aba][rowNum];
       }
 
-      anchorsForSheet.push({
-        rowExcel: anchor.rowExcel,
-        colExcel: anchor.colExcel,
-        url: mediaUrl
-      });
+      if (!imagem) {
+        const direto =
+          row.imagem ||
+          row.Imagem ||
+          row.IMAGEM ||
+          row.image ||
+          row.Image ||
+          row.IMAGE ||
+          row.picture ||
+          row.Picture ||
+          row.PICTURE ||
+          (imageHeader ? row[imageHeader] : "");
+
+        if (direto && String(direto).trim()) imagem = String(direto).trim();
+      }
+
+      if (!imagem) {
+        const codigo = String(row[codigoHeader] || row.codigo || row.CODIGO || row["ITEM NO"] || "").trim();
+        imagem = findImageByCode(codigo);
+      }
+
+      if (imagem) {
+        row.imagem = imagem;
+        if (imageHeader && !row[imageHeader]) row[imageHeader] = imagem;
+      }
+
+      const originalProduto = String(
+        row[produtoHeader] ||
+          row.produto ||
+          row.DESCRIPTION ||
+          row["品名"] ||
+          ""
+      ).trim();
+
+      if (originalProduto) {
+        const traduzido = await traduzirUniversal(originalProduto, tradCache);
+        row.descricao_original = originalProduto;
+        row.descricao_traduzida = traduzido;
+        row.traducao = traduzido;
+      }
     }
   }
 
-  anchorsForSheet.sort((a, b) => {
-    if (a.rowExcel !== b.rowExcel) return a.rowExcel - b.rowExcel;
-    return a.colExcel - b.colExcel;
-  });
-
-  return anchorsForSheet;
+  writeTradCache(tradCache);
 }
 
-function anexarImagensInteligente(linhas, anchors = []) {
-  if (!anchors.length) {
-    console.warn("⚠️ Nenhuma imagem por anchor encontrada.");
-    return linhas.map((linha) => ({
-      ...linha,
-      __imagem: "",
-      __checked: true
-    }));
-  }
+/* =========================
+   MAPEAMENTO FINAL
+========================= */
+function pickBySelectedOrDetected(item, selectedMap = {}, detectedMap = {}, aliases = []) {
+  const candidates = [];
 
-  const imageByRow = new Map();
-  for (const anchor of anchors) {
-    if (!imageByRow.has(anchor.rowExcel)) {
-      imageByRow.set(anchor.rowExcel, anchor.url);
-    }
-  }
-
-  let encontrouAlguma = false;
-
-  const resultado = linhas.map((linha) => {
-    const img = imageByRow.get(Number(linha.__excelRow || 0)) || "";
-    if (img) encontrouAlguma = true;
-
-    return {
-      ...linha,
-      __imagem: img,
-      __checked: true
-    };
-  });
-
-  if (!encontrouAlguma) {
-    console.warn("⚠️ Anchors existem, mas não bateram com as linhas. Aplicando fallback por ordem.");
-    return linhas.map((linha, index) => {
-      const anchor = anchors[index];
-      return {
-        ...linha,
-        __imagem: anchor ? anchor.url : "",
-        __checked: true
-      };
+  if (Array.isArray(aliases)) {
+    aliases.forEach((a) => {
+      if (selectedMap[a]) candidates.push(selectedMap[a]);
+      if (detectedMap[a]) candidates.push(detectedMap[a]);
     });
   }
 
-  return resultado;
+  for (const key of candidates) {
+    if (key && Object.prototype.hasOwnProperty.call(item, key)) return item[key];
+  }
+
+  return "";
 }
 
-app.get("/", (_req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, "index.html"));
+function toNumber(value) {
+  if (value === null || value === undefined || value === "") return 0;
+  const texto = String(value).replace(/\./g, "").replace(",", ".").trim();
+  const num = Number(texto);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function mapearLinhaContainer(item, selectedMap = {}, detectedMap = {}) {
+  const codigo = String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["codigo"]) || "").trim();
+  let imagem = String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["imagem"]) || "").trim();
+
+  if (!imagem) {
+    imagem =
+      String(
+        item.imagem ||
+          item.Imagem ||
+          item.IMAGEM ||
+          item.image ||
+          item.Image ||
+          item.IMAGE ||
+          item.picture ||
+          item.Picture ||
+          item.PICTURE ||
+          ""
+      ).trim() || findImageByCode(codigo);
+  }
+
+  const produtoTraduzido = String(item.descricao_traduzida || item.traducao || "").trim();
+  const produtoOriginal = String(item.descricao_original || "").trim();
+
+  const produtoBase = String(
+    produtoTraduzido ||
+      pickBySelectedOrDetected(item, selectedMap, detectedMap, ["produto"]) ||
+      ""
+  ).trim();
+
+  return {
+    codigo,
+    produto: produtoBase,
+    produto_original: produtoOriginal,
+    produto_traduzido: produtoTraduzido || produtoBase,
+    container: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["container"]) || "").trim(),
+    lote: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["lote"]) || "").trim(),
+    caixas: toNumber(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["caixas"])),
+    unidades: toNumber(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["unidades"])),
+    fator: toNumber(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["fator"])),
+    nf: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["nf"]) || "").trim(),
+    fornecedor: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["fornecedor"]) || "").trim(),
+    imagem,
+    bruto: item,
+  };
+}
+
+function mapearLinhaWms(item, selectedMap = {}, detectedMap = {}) {
+  return {
+    codigo: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["codigo"]) || "").trim(),
+    produto: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["produto"]) || "").trim(),
+    endereco: String(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["endereco"]) || "").trim(),
+    quantidade: toNumber(pickBySelectedOrDetected(item, selectedMap, detectedMap, ["quantidade"])),
+    bruto: item,
+  };
+}
+
+function criarRegistroBase(item, origemPadrao) {
+  return {
+    id: `est_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    origem: String(item.origem || origemPadrao || "").trim(),
+    codigo: String(item.codigo || "").trim(),
+    produto: String(item.produto || "").trim(),
+    endereco: String(item.endereco || "").trim(),
+    quantidade: Number(item.quantidade || item.unidades || 0),
+    caixas: Number(item.caixas || 0),
+    fator: Number(item.fator || 0),
+    imagem: String(item.imagem || "").trim(),
+    container: String(item.container || "").trim(),
+    lote: String(item.lote || "").trim(),
+    nf: String(item.nf || "").trim(),
+    fornecedor: String(item.fornecedor || "").trim(),
+    bruto: item.bruto && typeof item.bruto === "object" ? item.bruto : {},
+    criadoEm: new Date().toISOString(),
+  };
+}
+
+function normalizarMapaCampos(mapa) {
+  if (!mapa || typeof mapa !== "object" || Array.isArray(mapa)) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(mapa)) out[k] = typeof v === "string" ? v : "";
+  return out;
+}
+
+/* =========================
+   ROTAS
+========================= */
+app.get("/health", (_req, res) => {
+  res.json({
+    ok: true,
+    service: "rio-das-estrelas",
+    status: "online",
+    time: new Date().toISOString(),
+  });
 });
 
-app.get("/importar_container", (_req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, "importar_container.html"));
-});
-
-app.get("/importar_container.html", (_req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, "importar_container.html"));
-});
-
-app.get("/api/status", (_req, res) => {
-  res.json({ ok: true, status: "online" });
-});
-
-app.post("/api/importar-container", upload.single("file"), async (req, res) => {
+app.post("/api/importar-wms", upload.any(), (req, res) => {
   try {
-    const file = req.file;
-    if (!file) {
-      return res.status(400).json({ ok: false, erro: "Arquivo não enviado." });
+    const file = getFirstSpreadsheet(req);
+    if (!file || !file.buffer) {
+      return res.json({ ok: false, erro: "Arquivo não enviado" });
     }
 
-    const workbook = XLSX.read(file.buffer, {
-      type: "buffer",
-      cellDates: true,
-      raw: false
-    });
+    const { abas, planilhas, metadados } = parseWorkbook(file.buffer, ALIASES_WMS);
 
-    const primeiraAba = workbook.SheetNames[0];
-    if (!primeiraAba) {
-      return res.status(400).json({ ok: false, erro: "Nenhuma aba encontrada." });
+    if (!abas.length) {
+      return res.json({ ok: false, erro: "Planilha vazia ou sem dados válidos." });
     }
-
-    const sheet = workbook.Sheets[primeiraAba];
-    const parsed = sheetToJsonContainer(sheet);
-
-    let dados = parsed.linhas;
-    const campos = detectarCampos(parsed.headers);
-
-    dados = enriquecerLinhasContainer(dados, campos);
-
-    const anchors = await extrairImagensAncoradasPrimeiraAba(
-      file.buffer,
-      file.originalname || "container"
-    );
-
-    dados = anexarImagensInteligente(dados, anchors);
-
-    const colunas = parsed.headers.filter(Boolean);
 
     return res.json({
       ok: true,
-      aba: primeiraAba,
-      totalLinhas: dados.length,
-      totalImagens: anchors.length,
-      colunas,
-      camposDetectados: detectarCampos(colunas),
-      dados
+      abas,
+      planilhas,
+      metadados,
+      arquivo: file.originalname || "arquivo",
     });
   } catch (error) {
-    return responderErro(res, "Erro ao analisar contêiner.", error);
+    console.error("Erro em /api/importar-wms:", error);
+    return res.status(500).json({
+      ok: false,
+      erro: "Erro ao enviar/analisar WMS. Se for PDF, imagem ou outro formato não-planilha, a leitura automática ainda não está pronta.",
+    });
   }
 });
 
-app.use((req, res) => {
-  if (req.path.startsWith("/api/")) {
-    return res.status(404).json({ ok: false, erro: "Rota não encontrada." });
+app.post("/api/importar-container", upload.any(), async (req, res) => {
+  try {
+    const file = getFirstSpreadsheet(req);
+    if (!file || !file.buffer) {
+      return res.json({ ok: false, erro: "Arquivo não enviado" });
+    }
+
+    const { abas, planilhas, metadados } = parseWorkbook(file.buffer, ALIASES_CONTAINER);
+
+    if (!abas.length) {
+      return res.json({ ok: false, erro: "Planilha vazia ou sem dados válidos." });
+    }
+
+    try {
+      const imagesBySheet = await extractXlsxImagesBySheet(file.buffer);
+      await enrichContainerPreview(planilhas, metadados, imagesBySheet);
+    } catch (imgErr) {
+      console.error("Falha ao extrair imagens do XLSX:", imgErr.message);
+      await enrichContainerPreview(planilhas, metadados, {});
+    }
+
+    return res.json({
+      ok: true,
+      abas,
+      planilhas,
+      metadados,
+      arquivo: file.originalname || "arquivo",
+    });
+  } catch (error) {
+    console.error("Erro em /api/importar-container:", error);
+    return res.status(500).json({
+      ok: false,
+      erro: "Erro ao analisar contêiner.",
+      detalhe: error.message
+    });
   }
-  return res.sendFile(path.join(PUBLIC_DIR, "index.html"));
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+app.get("/api/estoque", (_req, res) => {
+  try {
+    const estoque = readJson(ESTOQUE_FILE, []);
+    return res.json({
+      ok: true,
+      total: estoque.length,
+      itens: estoque,
+    });
+  } catch (error) {
+    console.error("Erro em GET /api/estoque:", error);
+    return res.status(500).json({
+      ok: false,
+      erro: "Erro ao carregar estoque.",
+    });
+  }
+});
+
+app.post("/api/estoque", (req, res) => {
+  try {
+    const estoque = readJson(ESTOQUE_FILE, []);
+    const body = req.body || {};
+    const itensEntrada = Array.isArray(body.itens) ? body.itens : [];
+
+    if (itensEntrada.length) {
+      const novos = itensEntrada.map((item) => criarRegistroBase(item, "WMS"));
+      estoque.unshift(...novos);
+      writeJson(ESTOQUE_FILE, estoque);
+      return res.json({ ok: true, inseridos: novos.length, itens: novos });
+    }
+
+    const itemUnico = criarRegistroBase(body, "MANUAL");
+    estoque.unshift(itemUnico);
+    writeJson(ESTOQUE_FILE, estoque);
+    return res.json({ ok: true, inseridos: 1, item: itemUnico });
+  } catch (error) {
+    console.error("Erro em POST /api/estoque:", error);
+    return res.status(500).json({
+      ok: false,
+      erro: "Erro ao salvar item no estoque.",
+    });
+  }
+});
+
+app.post("/api/estoque/wms", (req, res) => {
+  try {
+    const estoque = readJson(ESTOQUE_FILE, []);
+    const body = req.body || {};
+    const itensEntrada = Array.isArray(body.itens) ? body.itens : [];
+    const selectedMap = normalizarMapaCampos(body.campos || body.mapeamento || {});
+    const detectedMap = normalizarMapaCampos(body.camposDetectados || {});
+
+    if (!itensEntrada.length) {
+      return res.status(400).json({
+        ok: false,
+        erro: "Nenhum item recebido para importar WMS.",
+      });
+    }
+
+    const novos = itensEntrada.map((item) =>
+      criarRegistroBase(mapearLinhaWms(item, selectedMap, detectedMap), "WMS")
+    );
+
+    estoque.unshift(...novos);
+    writeJson(ESTOQUE_FILE, estoque);
+
+    return res.json({
+      ok: true,
+      inseridos: novos.length,
+      itens: novos,
+      arquivo: body.arquivo || "",
+      aba: body.aba || "",
+    });
+  } catch (error) {
+    console.error("Erro em POST /api/estoque/wms:", error);
+    return res.status(500).json({
+      ok: false,
+      erro: "Erro ao importar WMS.",
+    });
+  }
+});
+
+app.post("/api/estoque/container", (req, res) => {
+  try {
+    const estoque = readJson(ESTOQUE_FILE, []);
+    const body = req.body || {};
+    const itensEntrada = Array.isArray(body.itens) ? body.itens : [];
+    const selectedMap = normalizarMapaCampos(body.campos || body.mapeamento || {});
+    const detectedMap = normalizarMapaCampos(body.camposDetectados || {});
+
+    if (!itensEntrada.length) {
+      return res.status(400).json({
+        ok: false,
+        erro: "Nenhum item recebido para importar.",
+      });
+    }
+
+    const novos = itensEntrada.map((item) =>
+      criarRegistroBase(mapearLinhaContainer(item, selectedMap, detectedMap), "CONTAINER")
+    );
+
+    estoque.unshift(...novos);
+    writeJson(ESTOQUE_FILE, estoque);
+
+    return res.json({
+      ok: true,
+      inseridos: novos.length,
+      itens: novos,
+      arquivo: body.arquivo || "",
+      aba: body.aba || "",
+    });
+  } catch (error) {
+    console.error("Erro em POST /api/estoque/container:", error);
+    return res.status(500).json({
+      ok: false,
+      erro: "Erro ao importar contêiner.",
+    });
+  }
+});
+
+app.get("/", (_req, res) => {
+  const indexFile = path.join(PUBLIC_DIR, "index.html");
+  if (fs.existsSync(indexFile)) return res.sendFile(indexFile);
+  return res.status(200).send("SISTEMA LOGÍSTICO RIO DAS ESTRELAS ONLINE");
+});
+
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/")) return next();
+
+  const fallbackFile = path.join(PUBLIC_DIR, req.path);
+  if (fs.existsSync(fallbackFile) && fs.statSync(fallbackFile).isFile()) {
+    return res.sendFile(fallbackFile);
+  }
+
+  const indexFile = path.join(PUBLIC_DIR, "index.html");
+  if (fs.existsSync(indexFile)) return res.sendFile(indexFile);
+
+  return res.status(404).send("Página não encontrada.");
+});
+
+app.use((err, _req, res, _next) => {
+  console.error("Erro não tratado:", err);
+  return res.status(500).json({
+    ok: false,
+    erro: "Erro interno do servidor.",
+  });
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 SISTEMA LOGÍSTICO RIO DAS ESTRELAS online na porta ${PORT}`);
 });
