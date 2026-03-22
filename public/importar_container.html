@@ -3,174 +3,85 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Importador Contêiner</title>
+<title>Importador Container</title>
 
 <style>
-body{
-  margin:0;
-  background:#071a36;
-  font-family:Arial;
-  color:#fff;
+body {
+  background: #071a36;
+  color: white;
+  font-family: Arial;
 }
 
-.wrap{
-  padding:10px;
+table {
+  width: 100%;
+  border-collapse: collapse;
 }
 
-.btn{
-  background:#3b73e6;
-  border:0;
-  padding:10px 14px;
-  border-radius:10px;
-  color:#fff;
-  font-weight:bold;
+td, th {
+  padding: 10px;
+  border-bottom: 1px solid #1d3c66;
 }
 
-.table-wrap{
-  overflow:auto;
-  max-height:70vh;
+img {
+  width: 50px;
+  border-radius: 8px;
 }
-
-table{
-  width:100%;
-  border-collapse:collapse;
-}
-
-th,td{
-  padding:8px;
-  border-bottom:1px solid rgba(255,255,255,.1);
-}
-
-th{
-  background:#0b2a59;
-  position:sticky;
-  top:0;
-}
-
-.thumb{
-  width:45px;
-  height:45px;
-  border-radius:8px;
-  object-fit:cover;
-}
-
-.thumb-placeholder{
-  width:45px;
-  height:45px;
-  background:#0a1f43;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:10px;
-  border-radius:8px;
-}
-
-.descricao-traduzida{
-  font-weight:bold;
-}
-
-.descricao-original{
-  font-size:11px;
-  color:#aaa;
-}
-
 </style>
 </head>
 
 <body>
 
-<div class="wrap">
+<h2>Importador Container</h2>
 
 <input type="file" id="file">
-<button class="btn" onclick="analisar()">Analisar</button>
+<button onclick="enviar()">Analisar</button>
 
-<div class="table-wrap">
 <table>
-<thead id="thead"></thead>
+<thead>
+<tr>
+<th>Imagem</th>
+<th>Código</th>
+<th>Descrição</th>
+<th>Qtd</th>
+</tr>
+</thead>
 <tbody id="tbody"></tbody>
 </table>
-</div>
-
-</div>
 
 <script>
-
-let dados = [];
-let headers = [];
-
-async function analisar(){
+async function enviar() {
   const file = document.getElementById("file").files[0];
-  if(!file) return alert("Selecione arquivo");
-
   const form = new FormData();
   form.append("file", file);
 
   const res = await fetch("/api/importar-container", {
-    method:"POST",
-    body:form
+    method: "POST",
+    body: form
   });
 
   const json = await res.json();
 
-  dados = json.dados;
-  headers = json.colunas;
-
-  render();
-}
-
-function render(){
-
-  const thead = document.getElementById("thead");
   const tbody = document.getElementById("tbody");
+  tbody.innerHTML = "";
 
-  // CABEÇALHO FIXO (SEM BAGUNÇA)
-  thead.innerHTML = `
-    <tr>
-      <th>Imagem</th>
-      <th>Código</th>
-      <th>Descrição</th>
-      <th>Caixas</th>
-    </tr>
-  `;
+  json.dados.forEach(row => {
 
-  tbody.innerHTML = dados.map(linha => {
+    const codigo = row["ITEM NO"] || row.codigo || "";
+    const desc = row["DESCRIPTION"] || row.descricao || "";
 
-    return `
+    tbody.innerHTML += `
       <tr>
-
-        <!-- IMAGEM (TRAVADA NA LINHA) -->
+        <td>${row.__imagem ? `<img src="${row.__imagem}">` : "Sem imagem"}</td>
+        <td>${codigo}</td>
         <td>
-          ${
-            linha.__imagem
-              ? `<img src="${linha.__imagem}" class="thumb">`
-              : `<div class="thumb-placeholder">sem</div>`
-          }
+          <b>${desc}</b><br>
+          <small style="opacity:.6">${row.__produto_original || ""}</small>
         </td>
-
-        <!-- CÓDIGO -->
-        <td>${linha["ITEM NO"] || ""}</td>
-
-        <!-- DESCRIÇÃO + ORIGINAL -->
-        <td>
-          <div class="descricao-traduzida">
-            ${linha["DESCRIPTION"] || ""}
-          </div>
-
-          ${
-            linha.__produto_original
-              ? `<div class="descricao-original">${linha.__produto_original}</div>`
-              : ""
-          }
-        </td>
-
-        <!-- CAIXAS -->
-        <td>${linha["CTNS"] || ""}</td>
-
+        <td>${row.CTNS || row.caixas || ""}</td>
       </tr>
     `;
-  }).join("");
+  });
 }
-
 </script>
 
 </body>
