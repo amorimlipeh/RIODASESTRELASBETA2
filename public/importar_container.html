@@ -720,29 +720,61 @@
     function displayHeader(header) {
       const custom = state.renamedHeaders[header];
       if (custom) return custom;
-
       if (header === "__imagem") return "Imagem";
       if (header === "__produto_original") return "Original";
-
-      return String(header)
-        .replace(/^_+/, "")
-        .trim();
+      return String(header).replace(/^_+/, "").trim();
     }
 
     function isIgnorableHeader(header) {
       const h = String(header || "").trim();
-
       if (!h) return true;
       if (TECH_HEADERS.has(h)) return true;
       if (h.startsWith("_") && h !== "__imagem" && h !== "__produto_original") return true;
       if (/^_empty/i.test(h)) return true;
       if (/^empty/i.test(h)) return true;
-
       return false;
     }
 
-    function sanitizeHeaders(headers = []) {
-      const filtrados = headers.filter((h) => !isIgnorableHeader(h));
+    function buildHeadersFromRows(rows) {
+      const keySet = new Set();
+      const sample = rows.slice(0, Math.min(rows.length, 30));
+
+      sample.forEach((row) => {
+        Object.keys(row || {}).forEach((k) => {
+          if (!isIgnorableHeader(k)) keySet.add(k);
+        });
+      });
+
+      return [...keySet];
+    }
+
+    function headerLooksLikeFileTitle(header, fileName) {
+      const h = normalizarCabecalho(header);
+      const f = normalizarCabecalho(fileName || "");
+      if (!h) return false;
+      if (!f) return false;
+      return h.includes(f) || f.includes(h);
+    }
+
+    function isMostlyEmptyColumn(rows, header) {
+      if (header === "__imagem" || header === "__produto_original") return false;
+      const sample = rows.slice(0, Math.min(rows.length, 40));
+      if (!sample.length) return false;
+
+      let filled = 0;
+      sample.forEach((row) => {
+        const v = row?.[header];
+        if (String(v ?? "").trim()) filled++;
+      });
+
+      return filled <= 1;
+    }
+
+    function sanitizeHeaders(headers = [], rows = [], fileName = "") {
+      let filtrados = headers.filter((h) => !isIgnorableHeader(h));
+
+      filtrados = filtrados.filter((h) => !headerLooksLikeFileTitle(h, fileName));
+      filtrados = filtrados.filter((h) => !isMostlyEmptyColumn(rows, h));
 
       FORCE_VISIBLE.forEach((forced) => {
         if (!filtrados.includes(forced)) filtrados.push(forced);
@@ -758,9 +790,7 @@
         else restantes.push(h);
       });
 
-      preferidas.sort(
-        (a, b) => PREFERRED_ORDER.indexOf(a) - PREFERRED_ORDER.indexOf(b)
-      );
+      preferidas.sort((a, b) => PREFERRED_ORDER.indexOf(a) - PREFERRED_ORDER.indexOf(b));
 
       return [...preferidas, ...restantes];
     }
@@ -905,7 +935,6 @@
       const texto = String(state.editingValue || "").trim();
       if (texto) state.renamedHeaders[header] = texto;
       else delete state.renamedHeaders[header];
-
       state.editingHeader = null;
       state.editingValue = "";
       renderTabela();
@@ -994,9 +1023,7 @@
 
       if (header === "__imagem" || normalizarCabecalho(header) === "picture") {
         const src = row.__imagem || valor;
-        if (src) {
-          return `<img class="thumb" src="${htmlEscape(src)}" alt="imagem do produto">`;
-        }
+        if (src) return `<img class="thumb" src="${htmlEscape(src)}" alt="imagem do produto">`;
         return `<div class="thumb-placeholder">Sem imagem</div>`;
       }
 
@@ -1034,9 +1061,7 @@
       `;
 
       els.tbody.innerHTML = rowsPagina.map(({ row, realIndex }) => `
-        <tr
-          class="${isChecked(realIndex) ? "row-selected" : ""}"
-          data-row-index="${realIndex}">
+        <tr class="${isChecked(realIndex) ? "row-selected" : ""}" data-row-index="${realIndex}">
           <td>
             <input class="chk" type="checkbox" ${isChecked(realIndex) ? "checked" : ""} onchange="toggleLinha(${realIndex}, this.checked)">
           </td>
@@ -1051,7 +1076,6 @@
 
     function bindMobileDragSelection() {
       if (!state.selectionMode) return;
-
       const rows = els.tbody.querySelectorAll("tr[data-row-index]");
       rows.forEach((tr) => {
         tr.addEventListener("touchstart", onMobileDragStart, { passive: false });
@@ -1195,11 +1219,9 @@
 
         state.rows = Array.isArray(data.dados) ? data.dados : [];
 
-        const headersBase = Array.isArray(data.colunas) && data.colunas.length
-          ? data.colunas
-          : Object.keys(state.rows[0] || {});
+        const headersBase = buildHeadersFromRows(state.rows);
+        state.headers = sanitizeHeaders(headersBase, state.rows, state.arquivoNome);
 
-        state.headers = sanitizeHeaders(headersBase);
         state.visibleHeaders = new Set(state.headers);
         state.renamedHeaders = {};
         state.selectedRows = new Set();
