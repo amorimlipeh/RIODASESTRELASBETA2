@@ -116,17 +116,88 @@ function detectarCampos(headers = []) {
   }
 
   return {
-    codigo: buscar(["codigo", "codigo do produto", "código", "item no", "sku", "ref", "id", "cod", "客人货号", "货号"]),
-    produto: buscar(["produto", "descricao", "descrição", "description", "nome", "item", "品名"]),
-    endereco: buscar(["endereco", "endereço", "local", "location", "rua", "posicao", "posição"]),
-    quantidade: buscar(["quantidade", "qty", "qtd", "quantity", "estoque (un)", "estoque", "t.qty", "总数", "total"]),
-    caixas: buscar(["caixas", "ctns", "cartons", "box", "件数"]),
-    fator: buscar(["q/c", "fator", "qc", "factor", "装箱"]),
-    lote: buscar(["lote", "lot", "batch"]),
-    nf: buscar(["nf", "nota", "invoice"]),
-    fornecedor: buscar(["fornecedor", "supplier", "vendor"]),
-    imagem: buscar(["imagem", "picture", "image", "foto", "产品图片"]),
-    container: buscar(["container", "contêiner", "conteiner"])
+    codigo: buscar([
+      "codigo",
+      "codigo do produto",
+      "código",
+      "item no",
+      "sku",
+      "ref",
+      "id",
+      "cod",
+      "客人货号",
+      "货号"
+    ]),
+    produto: buscar([
+      "produto",
+      "descricao",
+      "descrição",
+      "description",
+      "nome",
+      "item",
+      "品名"
+    ]),
+    endereco: buscar([
+      "endereco",
+      "endereço",
+      "local",
+      "location",
+      "rua",
+      "posicao",
+      "posição"
+    ]),
+    quantidade: buscar([
+      "quantidade",
+      "qty",
+      "qtd",
+      "quantity",
+      "estoque (un)",
+      "estoque",
+      "t.qty",
+      "总数",
+      "total"
+    ]),
+    caixas: buscar([
+      "caixas",
+      "ctns",
+      "cartons",
+      "box",
+      "件数"
+    ]),
+    fator: buscar([
+      "q/c",
+      "fator",
+      "qc",
+      "factor",
+      "装箱"
+    ]),
+    lote: buscar([
+      "lote",
+      "lot",
+      "batch"
+    ]),
+    nf: buscar([
+      "nf",
+      "nota",
+      "invoice"
+    ]),
+    fornecedor: buscar([
+      "fornecedor",
+      "supplier",
+      "vendor"
+    ]),
+    imagem: buscar([
+      "imagem",
+      "picture",
+      "image",
+      "foto",
+      "产品图片"
+    ]),
+    container: buscar([
+      "container",
+      "contêiner",
+      "conteiner"
+    ])
   };
 }
 
@@ -296,7 +367,9 @@ function workbookParaPayload(fileBuffer, originalname = "", isContainer = false)
         defval: "",
         raw: false
       });
-      cabecalhos = linhas.length ? Object.keys(linhas[0]).filter((h) => h !== "__excelRow") : [];
+      cabecalhos = linhas.length
+        ? Object.keys(linhas[0]).filter((h) => h !== "__excelRow")
+        : [];
     }
 
     planilhas[nomeAba] = linhas;
@@ -754,7 +827,10 @@ app.post("/api/importar-container", upload.any(), async (req, res) => {
     let dados = Array.isArray(payload.dados) ? payload.dados : [];
     dados = enriquecerLinhasContainer(dados, camposDetectados);
 
-    const imagensPorSheet = await extrairImagensAncoradasPorSheet(file.buffer, file.originalname || "container");
+    const imagensPorSheet = await extrairImagensAncoradasPorSheet(
+      file.buffer,
+      file.originalname || "container"
+    );
     const anchorsPrimeiraAba = imagensPorSheet[primeiraAba] || [];
 
     dados = anexarImagensPorExcelRow(dados, anchorsPrimeiraAba);
@@ -786,7 +862,10 @@ app.post("/api/estoque/wms", (req, res) => {
     const campos = body.campos || {};
 
     if (!itens.length) {
-      return res.status(400).json({ ok: false, erro: "Nenhum item recebido para importar WMS." });
+      return res.status(400).json({
+        ok: false,
+        erro: "Nenhum item recebido para importar WMS."
+      });
     }
 
     const novos = importarParaEstoque("WMS", itens, campos);
@@ -807,7 +886,10 @@ app.post("/api/estoque/erp", (req, res) => {
     const campos = body.campos || {};
 
     if (!itens.length) {
-      return res.status(400).json({ ok: false, erro: "Nenhum item recebido para importar ERP." });
+      return res.status(400).json({
+        ok: false,
+        erro: "Nenhum item recebido para importar ERP."
+      });
     }
 
     const novos = importarParaEstoque("ERP", itens, campos);
@@ -830,7 +912,10 @@ app.post("/api/estoque/container", (req, res) => {
     const arquivo = body.arquivo || "";
 
     if (!itens.length) {
-      return res.status(400).json({ ok: false, erro: "Nenhum item recebido para importar contêiner." });
+      return res.status(400).json({
+        ok: false,
+        erro: "Nenhum item recebido para importar contêiner."
+      });
     }
 
     const novos = importarParaEstoque("CONTAINER", itens, campos, {
