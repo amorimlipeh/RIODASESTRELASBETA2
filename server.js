@@ -32,6 +32,10 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }
 });
 
+/* =========================
+   HELPERS BÁSICOS
+========================= */
+
 function garantirPasta(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
@@ -196,6 +200,10 @@ function detectarCampos(headers = []) {
     ])
   };
 }
+
+/* =========================
+   LEITURA XLS / CSV
+========================= */
 
 function parseCsvBuffer(buffer) {
   const texto = buffer.toString("utf8");
@@ -386,6 +394,10 @@ function workbookParaPayload(fileBuffer, originalname = "", isContainer = false)
   };
 }
 
+/* =========================
+   TRADUÇÃO CONTÊINER
+========================= */
+
 const DICIONARIO_FIXO = {
   "顶针": "dedal",
   "钥匙扣": "chaveiro",
@@ -488,6 +500,10 @@ function enriquecerLinhasContainer(linhas, camposDetectados = {}) {
   salvarCacheTraducoes(cache);
   return resultado;
 }
+
+/* =========================
+   EXTRAÇÃO DE IMAGEM POR ÂNCORA
+========================= */
 
 function parseXmlText(buffer) {
   return buffer ? buffer.toString("utf8") : "";
@@ -692,17 +708,29 @@ async function extrairMidiasPorOrdem(buffer, fileBaseName = "container") {
   return urls;
 }
 
+function encontrarCodigoDaLinha(linha) {
+  return textoSeguro(
+    linha["ITEM NO"] ||
+    linha["ITEM NO_2"] ||
+    linha["codigo"] ||
+    linha["Código"] ||
+    linha["SKU"] ||
+    linha["Ref"] ||
+    linha["REF"]
+  );
+}
+
 function anexarImagensComFallback(linhas, anchors = [], imagensFallback = []) {
   if (!Array.isArray(linhas) || !linhas.length) return linhas;
 
   const anchorMap = new Map();
-
   anchors.forEach((a) => {
     if (!anchorMap.has(a.rowExcel)) {
       anchorMap.set(a.rowExcel, a.url);
     }
   });
 
+  const codigoImagemMap = new Map();
   const usarSomenteAncora = anchors.length > 0;
 
   return linhas.map((linha, idx) => {
@@ -718,6 +746,15 @@ function anexarImagensComFallback(linhas, anchors = [], imagensFallback = []) {
       url = imagensFallback[idx] || "";
     }
 
+    const codigo = encontrarCodigoDaLinha(linha);
+    if (codigo) {
+      if (!codigoImagemMap.has(codigo)) {
+        codigoImagemMap.set(codigo, url);
+      } else if (codigoImagemMap.get(codigo)) {
+        url = codigoImagemMap.get(codigo);
+      }
+    }
+
     return {
       ...linha,
       __imagem: url,
@@ -725,6 +762,10 @@ function anexarImagensComFallback(linhas, anchors = [], imagensFallback = []) {
     };
   });
 }
+
+/* =========================
+   IMPORTAÇÃO FINAL
+========================= */
 
 function montarRegistroImportacao(origem, item, campos = {}, index = 0, extras = {}) {
   const pegar = (campo) => {
@@ -763,6 +804,10 @@ function importarParaEstoque(origem, itens, campos = {}, extras = {}) {
   return novos;
 }
 
+/* =========================
+   ROTAS DE PÁGINA
+========================= */
+
 app.get("/", (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "index.html"));
 });
@@ -779,6 +824,10 @@ app.get("/importar_container", (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "importar_container.html"));
 });
 
+/* =========================
+   ANÁLISE WMS
+========================= */
+
 app.post("/api/importar-wms", upload.any(), (req, res) => {
   try {
     const file = (req.files && req.files[0]) || req.file;
@@ -793,6 +842,10 @@ app.post("/api/importar-wms", upload.any(), (req, res) => {
   }
 });
 
+/* =========================
+   ANÁLISE ERP
+========================= */
+
 app.post("/api/importar-erp", upload.any(), (req, res) => {
   try {
     const file = (req.files && req.files[0]) || req.file;
@@ -806,6 +859,10 @@ app.post("/api/importar-erp", upload.any(), (req, res) => {
     return responderErro(res, "Erro ao analisar ERP.", error);
   }
 });
+
+/* =========================
+   ANÁLISE CONTÊINER
+========================= */
 
 app.post("/api/importar-container", upload.any(), async (req, res) => {
   try {
@@ -858,6 +915,10 @@ app.post("/api/importar-container", upload.any(), async (req, res) => {
   }
 });
 
+/* =========================
+   IMPORTAÇÃO FINAL WMS
+========================= */
+
 app.post("/api/estoque/wms", (req, res) => {
   try {
     const body = req.body || {};
@@ -878,6 +939,10 @@ app.post("/api/estoque/wms", (req, res) => {
   }
 });
 
+/* =========================
+   IMPORTAÇÃO FINAL ERP
+========================= */
+
 app.post("/api/estoque/erp", (req, res) => {
   try {
     const body = req.body || {};
@@ -897,6 +962,10 @@ app.post("/api/estoque/erp", (req, res) => {
     return responderErro(res, "Erro ao importar ERP.", error);
   }
 });
+
+/* =========================
+   IMPORTAÇÃO FINAL CONTÊINER
+========================= */
 
 app.post("/api/estoque/container", (req, res) => {
   try {
@@ -924,6 +993,10 @@ app.post("/api/estoque/container", (req, res) => {
   }
 });
 
+/* =========================
+   CONSULTA ESTOQUE
+========================= */
+
 app.get("/api/estoque", (_req, res) => {
   try {
     const estoque = lerJsonSeguro(ESTOQUE_PATH, []);
@@ -933,6 +1006,10 @@ app.get("/api/estoque", (_req, res) => {
   }
 });
 
+/* =========================
+   HEALTHCHECK
+========================= */
+
 app.get("/health", (_req, res) => {
   res.json({
     ok: true,
@@ -940,6 +1017,10 @@ app.get("/health", (_req, res) => {
     time: new Date().toISOString()
   });
 });
+
+/* =========================
+   FALLBACK
+========================= */
 
 app.use((req, res) => {
   if (req.path.startsWith("/api/")) {
