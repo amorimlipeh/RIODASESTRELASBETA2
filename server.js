@@ -429,7 +429,16 @@ async function extrairImagensAncoradasPrimeiraAba(buffer, fileBaseName = "contai
   return anchorsForSheet;
 }
 
-function anexarImagensPorAnchorExato(linhas, anchors = []) {
+function anexarImagensInteligente(linhas, anchors = []) {
+  if (!anchors.length) {
+    console.warn("⚠️ Nenhuma imagem por anchor encontrada.");
+    return linhas.map((linha) => ({
+      ...linha,
+      __imagem: "",
+      __checked: true
+    }));
+  }
+
   const imageByRow = new Map();
   for (const anchor of anchors) {
     if (!imageByRow.has(anchor.rowExcel)) {
@@ -437,11 +446,32 @@ function anexarImagensPorAnchorExato(linhas, anchors = []) {
     }
   }
 
-  return linhas.map((linha) => ({
-    ...linha,
-    __imagem: imageByRow.get(Number(linha.__excelRow || 0)) || "",
-    __checked: true
-  }));
+  let encontrouAlguma = false;
+
+  const resultado = linhas.map((linha) => {
+    const img = imageByRow.get(Number(linha.__excelRow || 0)) || "";
+    if (img) encontrouAlguma = true;
+
+    return {
+      ...linha,
+      __imagem: img,
+      __checked: true
+    };
+  });
+
+  if (!encontrouAlguma) {
+    console.warn("⚠️ Anchors existem, mas não bateram com as linhas. Aplicando fallback por ordem.");
+    return linhas.map((linha, index) => {
+      const anchor = anchors[index];
+      return {
+        ...linha,
+        __imagem: anchor ? anchor.url : "",
+        __checked: true
+      };
+    });
+  }
+
+  return resultado;
 }
 
 app.get("/", (_req, res) => {
@@ -491,7 +521,7 @@ app.post("/api/importar-container", upload.single("file"), async (req, res) => {
       file.originalname || "container"
     );
 
-    dados = anexarImagensPorAnchorExato(dados, anchors);
+    dados = anexarImagensInteligente(dados, anchors);
 
     const colunas = parsed.headers.filter(Boolean);
 
