@@ -546,6 +546,16 @@ app.use((req, res) => {
   }
   return res.sendFile(path.join(PUBLIC_DIR, "index.html"));
 });
+app.use(express.static(path.join(__dirname, "public")));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+app.get("/", (_req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+app.get("/importar_container", (_req, res) => {
+  res.sendFile(path.join(__dirname, "public", "importar_container.html"));
+});
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
