@@ -645,14 +645,14 @@
 
     const TECH_HEADERS = new Set([
       "__checked",
-      "__produto_traduzido"
+      "__produto_traduzido",
+      "__excelRow"
     ]);
 
     const FORCE_VISIBLE = ["__imagem", "__produto_original"];
 
     const PREFERRED_ORDER = [
       "__imagem",
-      "PICTURE",
       "ITEM NO",
       "DESCRIPTION",
       "__produto_original",
@@ -729,35 +729,60 @@
       const h = String(header || "").trim();
       if (!h) return true;
       if (TECH_HEADERS.has(h)) return true;
-      if (h.startsWith("_") && h !== "__imagem" && h !== "__produto_original") return true;
       if (/^_empty/i.test(h)) return true;
       if (/^empty/i.test(h)) return true;
+      if (h.startsWith("_") && h !== "__imagem" && h !== "__produto_original") return true;
       return false;
     }
 
-    function buildHeadersFromRows(rows) {
-      const keySet = new Set();
-      const sample = rows.slice(0, Math.min(rows.length, 30));
+    function isLikelyTitleColumn(header, fileName) {
+      const h = normalizarCabecalho(header);
+      const f = normalizarCabecalho(fileName || "");
+
+      if (!h) return false;
+      if (h.length > 25) return true;
+      if (f && (h.includes(f) || f.includes(h))) return true;
+      if (h.includes("container") && /\d/.test(h) && h.length > 18) return true;
+
+      return false;
+    }
+
+    function buildHeadersFromRows(rows, fileName = "") {
+      const score = new Map();
+      const sample = rows.slice(0, Math.min(rows.length, 80));
 
       sample.forEach((row) => {
-        Object.keys(row || {}).forEach((k) => {
-          if (!isIgnorableHeader(k)) keySet.add(k);
+        Object.keys(row || {}).forEach((key) => {
+          if (isIgnorableHeader(key)) return;
+          if (isLikelyTitleColumn(key, fileName)) return;
+
+          const value = String(row[key] ?? "").trim();
+          if (!score.has(key)) score.set(key, 0);
+
+          let pts = 0;
+          if (value) pts += 1;
+          if (normalizarCabecalho(key) === "item no") pts += 50;
+          if (normalizarCabecalho(key) === "description") pts += 50;
+          if (normalizarCabecalho(key) === "ctns") pts += 40;
+          if (normalizarCabecalho(key) === "q/c") pts += 30;
+          if (normalizarCabecalho(key) === "cbm") pts += 20;
+          if (normalizarCabecalho(key) === "picture") pts -= 25;
+
+          score.set(key, score.get(key) + pts);
         });
       });
 
-      return [...keySet];
-    }
+      const headers = [...score.entries()]
+        .filter(([, pts]) => pts > 1)
+        .sort((a, b) => b[1] - a[1])
+        .map(([key]) => key);
 
-    function headerLooksLikeFileTitle(header, fileName) {
-      const h = normalizarCabecalho(header);
-      const f = normalizarCabecalho(fileName || "");
-      if (!h) return false;
-      if (!f) return false;
-      return h.includes(f) || f.includes(h);
+      return headers;
     }
 
     function isMostlyEmptyColumn(rows, header) {
       if (header === "__imagem" || header === "__produto_original") return false;
+
       const sample = rows.slice(0, Math.min(rows.length, 40));
       if (!sample.length) return false;
 
@@ -772,9 +797,12 @@
 
     function sanitizeHeaders(headers = [], rows = [], fileName = "") {
       let filtrados = headers.filter((h) => !isIgnorableHeader(h));
-
-      filtrados = filtrados.filter((h) => !headerLooksLikeFileTitle(h, fileName));
+      filtrados = filtrados.filter((h) => !isLikelyTitleColumn(h, fileName));
       filtrados = filtrados.filter((h) => !isMostlyEmptyColumn(rows, h));
+
+      if (filtrados.includes("__imagem")) {
+        filtrados = filtrados.filter((h) => normalizarCabecalho(h) !== "picture");
+      }
 
       FORCE_VISIBLE.forEach((forced) => {
         if (!filtrados.includes(forced)) filtrados.push(forced);
@@ -831,7 +859,7 @@
 
     function togglePanel(panel) {
       const panels = [els.panelFiltro, els.panelMapeamento];
-      panels.forEach(p => {
+      panels.forEach((p) => {
         if (p !== panel) p.classList.add("hidden");
       });
       panel.classList.toggle("hidden");
@@ -854,7 +882,10 @@
       function buscar(possibles = []) {
         const exato = lista.find((item) => possibles.includes(item.norm));
         if (exato) return exato.original;
-        const parcial = lista.find((item) => possibles.some((p) => item.norm.includes(p)));
+
+        const parcial = lista.find((item) =>
+          possibles.some((p) => item.norm.includes(p))
+        );
         return parcial ? parcial.original : "";
       }
 
@@ -876,7 +907,7 @@
     }
 
     function getVisibleColumns() {
-      return state.headers.filter(h => state.visibleHeaders.has(h));
+      return state.headers.filter((h) => state.visibleHeaders.has(h));
     }
 
     function getRowsPagina() {
@@ -935,6 +966,7 @@
       const texto = String(state.editingValue || "").trim();
       if (texto) state.renamedHeaders[header] = texto;
       else delete state.renamedHeaders[header];
+
       state.editingHeader = null;
       state.editingValue = "";
       renderTabela();
@@ -988,7 +1020,7 @@
     }
 
     function renderFiltro() {
-      els.filterList.innerHTML = state.headers.map(h => `
+      els.filterList.innerHTML = state.headers.map((h) => `
         <label class="filter-item">
           <input type="checkbox" class="chk" ${state.visibleHeaders.has(h) ? "checked" : ""} onchange="toggleColuna('${String(h).replaceAll("'", "\\'")}', this.checked)">
           <span>${htmlEscape(displayHeader(h))}</span>
@@ -1021,8 +1053,8 @@
     function renderCellContent(row, header) {
       const valor = row[header] ?? "";
 
-      if (header === "__imagem" || normalizarCabecalho(header) === "picture") {
-        const src = row.__imagem || valor;
+      if (header === "__imagem") {
+        const src = row.__imagem || "";
         if (src) return `<img class="thumb" src="${htmlEscape(src)}" alt="imagem do produto">`;
         return `<div class="thumb-placeholder">Sem imagem</div>`;
       }
@@ -1031,7 +1063,7 @@
         return `<div class="descricao-original">${htmlEscape(valor || "")}</div>`;
       }
 
-      if (state.map.produto && header === state.map.produto) {
+      if (header === state.map.produto) {
         return `<div class="descricao-traduzida">${htmlEscape(valor || "")}</div>`;
       }
 
@@ -1184,7 +1216,7 @@
       const [item] = arr.splice(state.dragIndex, 1);
       arr.splice(targetIndex, 0, item);
       state.headers = arr;
-      state.visibleHeaders = new Set(arr.filter(h => state.visibleHeaders.has(h)));
+      state.visibleHeaders = new Set(arr.filter((h) => state.visibleHeaders.has(h)));
       state.dragIndex = null;
       renderTabela();
       renderFiltro();
@@ -1219,7 +1251,7 @@
 
         state.rows = Array.isArray(data.dados) ? data.dados : [];
 
-        const headersBase = buildHeadersFromRows(state.rows);
+        const headersBase = buildHeadersFromRows(state.rows, state.arquivoNome);
         state.headers = sanitizeHeaders(headersBase, state.rows, state.arquivoNome);
 
         state.visibleHeaders = new Set(state.headers);
@@ -1256,7 +1288,7 @@
     }
 
     async function importar() {
-      const itens = Array.from(state.selectedRows).map(i => state.rows[i]).filter(Boolean);
+      const itens = Array.from(state.selectedRows).map((i) => state.rows[i]).filter(Boolean);
       if (!itens.length) {
         alert("Nenhum item selecionado.");
         return;
