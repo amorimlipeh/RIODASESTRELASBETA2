@@ -643,8 +643,31 @@
       imagem: "Imagem"
     };
 
-    const TECH_HEADERS = new Set(["__checked"]);
+    const TECH_HEADERS = new Set([
+      "__checked",
+      "__produto_traduzido"
+    ]);
+
     const FORCE_VISIBLE = ["__imagem", "__produto_original"];
+
+    const PREFERRED_ORDER = [
+      "__imagem",
+      "PICTURE",
+      "ITEM NO",
+      "DESCRIPTION",
+      "__produto_original",
+      "CTNS",
+      "Q/C",
+      "T.QTY",
+      "G.W",
+      "T.G.W",
+      "MEAS.",
+      "CBM",
+      "NF",
+      "CONTAINER",
+      "LOTE",
+      "FORNECEDOR"
+    ];
 
     const els = {
       arquivoInput: document.getElementById("arquivoInput"),
@@ -700,22 +723,46 @@
 
       if (header === "__imagem") return "Imagem";
       if (header === "__produto_original") return "Original";
-      return header;
+
+      return String(header)
+        .replace(/^_+/, "")
+        .trim();
     }
 
     function isIgnorableHeader(header) {
-      if (!header) return true;
-      if (TECH_HEADERS.has(header)) return true;
-      if (/^_empty/i.test(header)) return true;
+      const h = String(header || "").trim();
+
+      if (!h) return true;
+      if (TECH_HEADERS.has(h)) return true;
+      if (h.startsWith("_") && h !== "__imagem" && h !== "__produto_original") return true;
+      if (/^_empty/i.test(h)) return true;
+      if (/^empty/i.test(h)) return true;
+
       return false;
     }
 
     function sanitizeHeaders(headers = []) {
-      const base = headers.filter((h) => !isIgnorableHeader(h));
+      const filtrados = headers.filter((h) => !isIgnorableHeader(h));
+
       FORCE_VISIBLE.forEach((forced) => {
-        if (!base.includes(forced)) base.push(forced);
+        if (!filtrados.includes(forced)) filtrados.push(forced);
       });
-      return base;
+
+      const unicos = [...new Set(filtrados)];
+
+      const preferidas = [];
+      const restantes = [];
+
+      unicos.forEach((h) => {
+        if (PREFERRED_ORDER.includes(h)) preferidas.push(h);
+        else restantes.push(h);
+      });
+
+      preferidas.sort(
+        (a, b) => PREFERRED_ORDER.indexOf(a) - PREFERRED_ORDER.indexOf(b)
+      );
+
+      return [...preferidas, ...restantes];
     }
 
     function showDebug(obj) {
@@ -945,9 +992,10 @@
     function renderCellContent(row, header) {
       const valor = row[header] ?? "";
 
-      if (header === "__imagem") {
-        if (valor) {
-          return `<img class="thumb" src="${htmlEscape(valor)}" alt="imagem do produto">`;
+      if (header === "__imagem" || normalizarCabecalho(header) === "picture") {
+        const src = row.__imagem || valor;
+        if (src) {
+          return `<img class="thumb" src="${htmlEscape(src)}" alt="imagem do produto">`;
         }
         return `<div class="thumb-placeholder">Sem imagem</div>`;
       }
@@ -1146,8 +1194,12 @@
         }
 
         state.rows = Array.isArray(data.dados) ? data.dados : [];
-        state.headers = sanitizeHeaders(Array.isArray(data.colunas) ? data.colunas : Object.keys(state.rows[0] || {}));
 
+        const headersBase = Array.isArray(data.colunas) && data.colunas.length
+          ? data.colunas
+          : Object.keys(state.rows[0] || {});
+
+        state.headers = sanitizeHeaders(headersBase);
         state.visibleHeaders = new Set(state.headers);
         state.renamedHeaders = {};
         state.selectedRows = new Set();
