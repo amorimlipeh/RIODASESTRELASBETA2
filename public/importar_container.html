@@ -748,36 +748,39 @@
     }
 
     function buildHeadersFromRows(rows, fileName = "") {
-      const score = new Map();
-      const sample = rows.slice(0, Math.min(rows.length, 80));
+      if (!Array.isArray(rows) || !rows.length) return [];
 
-      sample.forEach((row) => {
-        Object.keys(row || {}).forEach((key) => {
-          if (isIgnorableHeader(key)) return;
-          if (isLikelyTitleColumn(key, fileName)) return;
+      let bestRow = rows[0];
+      let bestScore = -1;
 
-          const value = String(row[key] ?? "").trim();
-          if (!score.has(key)) score.set(key, 0);
+      rows.slice(0, Math.min(rows.length, 50)).forEach((row) => {
+        const keys = Object.keys(row || {}).filter((k) => !isIgnorableHeader(k));
+        let score = 0;
 
-          let pts = 0;
-          if (value) pts += 1;
-          if (normalizarCabecalho(key) === "item no") pts += 50;
-          if (normalizarCabecalho(key) === "description") pts += 50;
-          if (normalizarCabecalho(key) === "ctns") pts += 40;
-          if (normalizarCabecalho(key) === "q/c") pts += 30;
-          if (normalizarCabecalho(key) === "cbm") pts += 20;
-          if (normalizarCabecalho(key) === "picture") pts -= 25;
+        keys.forEach((k) => {
+          const value = String(row[k] ?? "").trim();
+          if (!value) return;
 
-          score.set(key, score.get(key) + pts);
+          score += 1;
+
+          const nk = normalizarCabecalho(k);
+          if (nk === "item no") score += 20;
+          if (nk === "description") score += 20;
+          if (nk === "ctns") score += 15;
+          if (nk === "q/c") score += 10;
+          if (nk === "t.qty") score += 8;
+          if (nk === "cbm") score += 6;
+          if (nk === "picture") score -= 8;
+          if (isLikelyTitleColumn(k, fileName)) score -= 40;
         });
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestRow = row;
+        }
       });
 
-      const headers = [...score.entries()]
-        .filter(([, pts]) => pts > 1)
-        .sort((a, b) => b[1] - a[1])
-        .map(([key]) => key);
-
-      return headers;
+      return Object.keys(bestRow || {}).filter((k) => !isIgnorableHeader(k));
     }
 
     function isMostlyEmptyColumn(rows, header) {
@@ -800,7 +803,7 @@
       filtrados = filtrados.filter((h) => !isLikelyTitleColumn(h, fileName));
       filtrados = filtrados.filter((h) => !isMostlyEmptyColumn(rows, h));
 
-      if (filtrados.includes("__imagem")) {
+      if (rows.some((r) => String(r.__imagem || "").trim())) {
         filtrados = filtrados.filter((h) => normalizarCabecalho(h) !== "picture");
       }
 
@@ -808,19 +811,19 @@
         if (!filtrados.includes(forced)) filtrados.push(forced);
       });
 
-      const unicos = [...new Set(filtrados)];
+      filtrados = [...new Set(filtrados)];
 
-      const preferidas = [];
-      const restantes = [];
-
-      unicos.forEach((h) => {
-        if (PREFERRED_ORDER.includes(h)) preferidas.push(h);
-        else restantes.push(h);
+      const ordem = [];
+      PREFERRED_ORDER.forEach((pref) => {
+        const encontrado = filtrados.find((h) => h === pref);
+        if (encontrado && !ordem.includes(encontrado)) ordem.push(encontrado);
       });
 
-      preferidas.sort((a, b) => PREFERRED_ORDER.indexOf(a) - PREFERRED_ORDER.indexOf(b));
+      filtrados.forEach((h) => {
+        if (!ordem.includes(h)) ordem.push(h);
+      });
 
-      return [...preferidas, ...restantes];
+      return ordem;
     }
 
     function showDebug(obj) {
@@ -949,6 +952,7 @@
       state.editingHeader = header;
       state.editingValue = displayHeader(header);
       renderTabela();
+
       setTimeout(() => {
         const input = document.getElementById(`rename-input-${cssSafeId(header)}`);
         if (input) {
@@ -1251,8 +1255,15 @@
 
         state.rows = Array.isArray(data.dados) ? data.dados : [];
 
-        const headersBase = buildHeadersFromRows(state.rows, state.arquivoNome);
-        state.headers = sanitizeHeaders(headersBase, state.rows, state.arquivoNome);
+        const headersBase =
+          Array.isArray(data.colunas) && data.colunas.length
+            ? data.colunas.filter((h) => !isIgnorableHeader(h))
+            : buildHeadersFromRows(state.rows, state.arquivoNome);
+
+        const fallbackHeaders = buildHeadersFromRows(state.rows, state.arquivoNome);
+        const headersMesclados = [...new Set([...headersBase, ...fallbackHeaders])];
+
+        state.headers = sanitizeHeaders(headersMesclados, state.rows, state.arquivoNome);
 
         state.visibleHeaders = new Set(state.headers);
         state.renamedHeaders = {};
