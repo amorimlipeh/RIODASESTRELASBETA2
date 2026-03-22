@@ -443,7 +443,7 @@
       line-height:1.2;
       color:#fff;
       font-weight:700;
-      min-width:160px;
+      min-width:180px;
     }
 
     .descricao-original{
@@ -451,7 +451,8 @@
       line-height:1.2;
       color:#b9c7da;
       font-size:11px;
-      min-width:160px;
+      margin-top:4px;
+      min-width:180px;
     }
 
     .msg{
@@ -880,7 +881,11 @@
     }
 
     function getVisibleColumns() {
-      return state.headers.filter((h) => state.visibleHeaders.has(h));
+      return state.headers.filter((h) => {
+        if (!state.visibleHeaders.has(h)) return false;
+        if (h === "__produto_original") return false;
+        return true;
+      });
     }
 
     function getRowsPagina() {
@@ -1029,16 +1034,18 @@
 
       if (header === "__imagem") {
         const src = row.__imagem || "";
-        if (src) return `<img class="thumb" src="${htmlEscape(src)}" alt="imagem do produto">`;
+        if (src) {
+          return `<img class="thumb" src="${htmlEscape(src)}" alt="imagem do produto">`;
+        }
         return `<div class="thumb-placeholder">Sem imagem</div>`;
       }
 
-      if (header === "__produto_original") {
-        return `<div class="descricao-original">${htmlEscape(valor || "")}</div>`;
-      }
-
       if (header === state.map.produto) {
-        return `<div class="descricao-traduzida">${htmlEscape(valor || "")}</div>`;
+        const original = row.__produto_original || "";
+        return `
+          <div class="descricao-traduzida">${htmlEscape(valor || "")}</div>
+          ${original ? `<div class="descricao-original">${htmlEscape(original)}</div>` : ""}
+        `;
       }
 
       return htmlEscape(valor);
