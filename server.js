@@ -32,10 +32,6 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }
 });
 
-/* =========================
-   HELPERS BÁSICOS
-========================= */
-
 function garantirPasta(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
@@ -200,10 +196,6 @@ function detectarCampos(headers = []) {
     ])
   };
 }
-
-/* =========================
-   LEITURA XLS / CSV
-========================= */
 
 function parseCsvBuffer(buffer) {
   const texto = buffer.toString("utf8");
@@ -394,10 +386,6 @@ function workbookParaPayload(fileBuffer, originalname = "", isContainer = false)
   };
 }
 
-/* =========================
-   TRADUÇÃO CONTÊINER
-========================= */
-
 const DICIONARIO_FIXO = {
   "顶针": "dedal",
   "钥匙扣": "chaveiro",
@@ -500,10 +488,6 @@ function enriquecerLinhasContainer(linhas, camposDetectados = {}) {
   salvarCacheTraducoes(cache);
   return resultado;
 }
-
-/* =========================
-   EXTRAÇÃO DE IMAGEM POR ÂNCORA / LINHA
-========================= */
 
 function parseXmlText(buffer) {
   return buffer ? buffer.toString("utf8") : "";
@@ -652,8 +636,7 @@ async function extrairImagensAncoradasPorSheet(buffer, fileBaseName = "container
       const drawingRels = parseRelationships(drawingRelsXml, drawingRelsPath);
       const anchors = parseDrawingAnchors(drawingXml);
 
-      for (let i = 0; i < anchors.length; i++) {
-        const anchor = anchors[i];
+      for (const anchor of anchors) {
         const mediaPath = drawingRels[anchor.relId];
         if (!mediaPath) continue;
 
@@ -678,6 +661,7 @@ async function extrairImagensAncoradasPorSheet(buffer, fileBaseName = "container
       }
     }
 
+    anchorsForSheet.sort((a, b) => a.rowExcel - b.rowExcel);
     bySheet[sheetInfo.name] = anchorsForSheet;
   }
 
@@ -719,6 +703,8 @@ function anexarImagensComFallback(linhas, anchors = [], imagensFallback = []) {
     }
   });
 
+  const usarSomenteAncora = anchors.length > 0;
+
   return linhas.map((linha, idx) => {
     const excelRow = Number(linha.__excelRow || 0);
 
@@ -728,7 +714,7 @@ function anexarImagensComFallback(linhas, anchors = [], imagensFallback = []) {
       anchorMap.get(excelRow + 1) ||
       "";
 
-    if (!url) {
+    if (!url && !usarSomenteAncora) {
       url = imagensFallback[idx] || "";
     }
 
@@ -739,10 +725,6 @@ function anexarImagensComFallback(linhas, anchors = [], imagensFallback = []) {
     };
   });
 }
-
-/* =========================
-   IMPORTAÇÃO FINAL
-========================= */
 
 function montarRegistroImportacao(origem, item, campos = {}, index = 0, extras = {}) {
   const pegar = (campo) => {
@@ -781,10 +763,6 @@ function importarParaEstoque(origem, itens, campos = {}, extras = {}) {
   return novos;
 }
 
-/* =========================
-   ROTAS DE PÁGINA
-========================= */
-
 app.get("/", (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "index.html"));
 });
@@ -801,10 +779,6 @@ app.get("/importar_container", (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "importar_container.html"));
 });
 
-/* =========================
-   ANÁLISE WMS
-========================= */
-
 app.post("/api/importar-wms", upload.any(), (req, res) => {
   try {
     const file = (req.files && req.files[0]) || req.file;
@@ -819,10 +793,6 @@ app.post("/api/importar-wms", upload.any(), (req, res) => {
   }
 });
 
-/* =========================
-   ANÁLISE ERP
-========================= */
-
 app.post("/api/importar-erp", upload.any(), (req, res) => {
   try {
     const file = (req.files && req.files[0]) || req.file;
@@ -836,10 +806,6 @@ app.post("/api/importar-erp", upload.any(), (req, res) => {
     return responderErro(res, "Erro ao analisar ERP.", error);
   }
 });
-
-/* =========================
-   ANÁLISE CONTÊINER
-========================= */
 
 app.post("/api/importar-container", upload.any(), async (req, res) => {
   try {
@@ -862,10 +828,13 @@ app.post("/api/importar-container", upload.any(), async (req, res) => {
     );
     const anchorsPrimeiraAba = imagensPorSheet[primeiraAba] || [];
 
-    const imagensFallback = await extrairMidiasPorOrdem(
-      file.buffer,
-      file.originalname || "container"
-    );
+    let imagensFallback = [];
+    if (!anchorsPrimeiraAba.length) {
+      imagensFallback = await extrairMidiasPorOrdem(
+        file.buffer,
+        file.originalname || "container"
+      );
+    }
 
     dados = anexarImagensComFallback(
       dados,
@@ -889,10 +858,6 @@ app.post("/api/importar-container", upload.any(), async (req, res) => {
   }
 });
 
-/* =========================
-   IMPORTAÇÃO FINAL WMS
-========================= */
-
 app.post("/api/estoque/wms", (req, res) => {
   try {
     const body = req.body || {};
@@ -913,10 +878,6 @@ app.post("/api/estoque/wms", (req, res) => {
   }
 });
 
-/* =========================
-   IMPORTAÇÃO FINAL ERP
-========================= */
-
 app.post("/api/estoque/erp", (req, res) => {
   try {
     const body = req.body || {};
@@ -936,10 +897,6 @@ app.post("/api/estoque/erp", (req, res) => {
     return responderErro(res, "Erro ao importar ERP.", error);
   }
 });
-
-/* =========================
-   IMPORTAÇÃO FINAL CONTÊINER
-========================= */
 
 app.post("/api/estoque/container", (req, res) => {
   try {
@@ -967,10 +924,6 @@ app.post("/api/estoque/container", (req, res) => {
   }
 });
 
-/* =========================
-   CONSULTA ESTOQUE
-========================= */
-
 app.get("/api/estoque", (_req, res) => {
   try {
     const estoque = lerJsonSeguro(ESTOQUE_PATH, []);
@@ -980,10 +933,6 @@ app.get("/api/estoque", (_req, res) => {
   }
 });
 
-/* =========================
-   HEALTHCHECK
-========================= */
-
 app.get("/health", (_req, res) => {
   res.json({
     ok: true,
@@ -991,10 +940,6 @@ app.get("/health", (_req, res) => {
     time: new Date().toISOString()
   });
 });
-
-/* =========================
-   FALLBACK
-========================= */
 
 app.use((req, res) => {
   if (req.path.startsWith("/api/")) {
