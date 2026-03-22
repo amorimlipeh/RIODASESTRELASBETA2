@@ -661,12 +661,14 @@
       "T.QTY",
       "G.W",
       "T.G.W",
-      "MEAS.",
+      "Comprimento",
+      "Largura",
+      "Altura",
       "CBM",
       "NF",
-      "CONTAINER",
-      "LOTE",
-      "FORNECEDOR"
+      "Container",
+      "Lote",
+      "Fornecedor"
     ];
 
     const els = {
@@ -729,58 +731,8 @@
       const h = String(header || "").trim();
       if (!h) return true;
       if (TECH_HEADERS.has(h)) return true;
-      if (/^_empty/i.test(h)) return true;
-      if (/^empty/i.test(h)) return true;
       if (h.startsWith("_") && h !== "__imagem" && h !== "__produto_original") return true;
       return false;
-    }
-
-    function isLikelyTitleColumn(header, fileName) {
-      const h = normalizarCabecalho(header);
-      const f = normalizarCabecalho(fileName || "");
-
-      if (!h) return false;
-      if (h.length > 25) return true;
-      if (f && (h.includes(f) || f.includes(h))) return true;
-      if (h.includes("container") && /\d/.test(h) && h.length > 18) return true;
-
-      return false;
-    }
-
-    function buildHeadersFromRows(rows, fileName = "") {
-      if (!Array.isArray(rows) || !rows.length) return [];
-
-      let bestRow = rows[0];
-      let bestScore = -1;
-
-      rows.slice(0, Math.min(rows.length, 50)).forEach((row) => {
-        const keys = Object.keys(row || {}).filter((k) => !isIgnorableHeader(k));
-        let score = 0;
-
-        keys.forEach((k) => {
-          const value = String(row[k] ?? "").trim();
-          if (!value) return;
-
-          score += 1;
-
-          const nk = normalizarCabecalho(k);
-          if (nk === "item no") score += 20;
-          if (nk === "description") score += 20;
-          if (nk === "ctns") score += 15;
-          if (nk === "q/c") score += 10;
-          if (nk === "t.qty") score += 8;
-          if (nk === "cbm") score += 6;
-          if (nk === "picture") score -= 8;
-          if (isLikelyTitleColumn(k, fileName)) score -= 40;
-        });
-
-        if (score > bestScore) {
-          bestScore = score;
-          bestRow = row;
-        }
-      });
-
-      return Object.keys(bestRow || {}).filter((k) => !isIgnorableHeader(k));
     }
 
     function isMostlyEmptyColumn(rows, header) {
@@ -798,9 +750,27 @@
       return filled <= 1;
     }
 
-    function sanitizeHeaders(headers = [], rows = [], fileName = "") {
+    function buildHeadersFromRows(rows) {
+      if (!Array.isArray(rows) || !rows.length) return [];
+
+      const fixed = [];
+      const first = rows[0] || {};
+
+      Object.keys(first).forEach((k) => {
+        if (!isIgnorableHeader(k)) fixed.push(k);
+      });
+
+      rows.slice(0, Math.min(rows.length, 50)).forEach((row) => {
+        Object.keys(row || {}).forEach((k) => {
+          if (!isIgnorableHeader(k) && !fixed.includes(k)) fixed.push(k);
+        });
+      });
+
+      return fixed;
+    }
+
+    function sanitizeHeaders(headers = [], rows = []) {
       let filtrados = headers.filter((h) => !isIgnorableHeader(h));
-      filtrados = filtrados.filter((h) => !isLikelyTitleColumn(h, fileName));
       filtrados = filtrados.filter((h) => !isMostlyEmptyColumn(rows, h));
 
       if (rows.some((r) => String(r.__imagem || "").trim())) {
@@ -893,11 +863,11 @@
       }
 
       state.map.codigo ||= buscar(["codigo", "codigo do produto", "código", "item no", "sku", "ref", "id", "cod", "客人货号", "货号"]);
-      state.map.produto ||= buscar(["produto", "descricao", "descrição", "description", "nome", "item", "品名"]);
+      state.map.produto ||= buscar(["description", "descricao", "descrição", "produto", "nome"]);
       state.map.container ||= buscar(["container", "contêiner", "conteiner"]);
       state.map.lote ||= buscar(["lote", "lot", "batch"]);
       state.map.caixas ||= buscar(["caixas", "ctns", "cartons", "box", "件数"]);
-      state.map.quantidade ||= buscar(["quantidade", "qty", "qtd", "quantity", "estoque (un)", "estoque", "t.qty", "总数"]);
+      state.map.quantidade ||= buscar(["quantidade", "qty", "qtd", "quantity", "estoque (un)", "estoque", "t.qty", "总数", "total"]);
       state.map.fator ||= buscar(["q/c", "fator", "qc", "factor", "装箱"]);
       state.map.nf ||= buscar(["nf", "nota", "invoice"]);
       state.map.fornecedor ||= buscar(["fornecedor", "supplier", "vendor"]);
@@ -1258,12 +1228,12 @@
         const headersBase =
           Array.isArray(data.colunas) && data.colunas.length
             ? data.colunas.filter((h) => !isIgnorableHeader(h))
-            : buildHeadersFromRows(state.rows, state.arquivoNome);
+            : buildHeadersFromRows(state.rows);
 
-        const fallbackHeaders = buildHeadersFromRows(state.rows, state.arquivoNome);
+        const fallbackHeaders = buildHeadersFromRows(state.rows);
         const headersMesclados = [...new Set([...headersBase, ...fallbackHeaders])];
 
-        state.headers = sanitizeHeaders(headersMesclados, state.rows, state.arquivoNome);
+        state.headers = sanitizeHeaders(headersMesclados, state.rows);
 
         state.visibleHeaders = new Set(state.headers);
         state.renamedHeaders = {};
