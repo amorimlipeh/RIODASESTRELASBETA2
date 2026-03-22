@@ -190,9 +190,7 @@ function sheetToJsonContainer(sheet) {
 
     obj.__excelRow = r + 1;
 
-    if (preenchidos > 0) {
-      linhas.push(obj);
-    }
+    if (preenchidos > 0) linhas.push(obj);
   }
 
   return { headers, linhas };
@@ -446,22 +444,15 @@ function anexarImagensPorAnchorExato(linhas, anchors = []) {
   }));
 }
 
-function backupEstoque() {
-  const estoquePath = path.join(DATA_DIR, "estoque.json");
-  if (!fs.existsSync(estoquePath)) return;
-
-  const backupDir = path.join(DATA_DIR, "backup");
-  if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
-
-  const nome = `estoque_backup_${Date.now()}.json`;
-  fs.copyFileSync(estoquePath, path.join(backupDir, nome));
-}
-
 app.get("/", (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "index.html"));
 });
 
 app.get("/importar_container", (_req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, "importar_container.html"));
+});
+
+app.get("/importar_container.html", (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "importar_container.html"));
 });
 
@@ -502,7 +493,7 @@ app.post("/api/importar-container", upload.single("file"), async (req, res) => {
 
     dados = anexarImagensPorAnchorExato(dados, anchors);
 
-    const colunas = parsed.headers.filter((c) => c && !c.startsWith("COLUNA_"));
+    const colunas = parsed.headers.filter(Boolean);
 
     return res.json({
       ok: true,
@@ -518,43 +509,11 @@ app.post("/api/importar-container", upload.single("file"), async (req, res) => {
   }
 });
 
-app.post("/api/salvar-container", (req, res) => {
-  try {
-    backupEstoque();
-
-    const estoquePath = path.join(DATA_DIR, "estoque.json");
-    const itens = Array.isArray(req.body?.itens) ? req.body.itens : [];
-
-    let estoque = [];
-    if (fs.existsSync(estoquePath)) {
-      const bruto = fs.readFileSync(estoquePath, "utf8").trim();
-      estoque = bruto ? JSON.parse(bruto) : [];
-    }
-
-    estoque.unshift(...itens);
-    fs.writeFileSync(estoquePath, JSON.stringify(estoque, null, 2), "utf8");
-
-    return res.json({ ok: true, inseridos: itens.length });
-  } catch (error) {
-    return responderErro(res, "Erro ao salvar contêiner.", error);
-  }
-});
-
 app.use((req, res) => {
   if (req.path.startsWith("/api/")) {
     return res.status(404).json({ ok: false, erro: "Rota não encontrada." });
   }
   return res.sendFile(path.join(PUBLIC_DIR, "index.html"));
-});
-app.use(express.static(path.join(__dirname, "public")));
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-app.get("/", (_req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-app.get("/importar_container", (_req, res) => {
-  res.sendFile(path.join(__dirname, "public", "importar_container.html"));
 });
 
 app.listen(PORT, () => {
