@@ -684,7 +684,31 @@ async function extrairImagensAncoradasPorSheet(buffer, fileBaseName = "container
   return bySheet;
 }
 
-function anexarImagensPorExcelRow(linhas, anchors = []) {
+async function extrairMidiasPorOrdem(buffer, fileBaseName = "container") {
+  const zipMap = await abrirZipMap(buffer);
+  const arquivos = Object.keys(zipMap)
+    .filter((p) => /^xl\/media\//i.test(p))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+  const urls = [];
+
+  for (let i = 0; i < arquivos.length; i++) {
+    const mediaPath = arquivos[i];
+    const mediaBuffer = await lerArquivoZip(zipMap, mediaPath, false);
+    if (!mediaBuffer) continue;
+
+    const nomeOriginal = path.posix.basename(mediaPath);
+    const nomeFinal = `${Date.now()}_${slugArquivo(fileBaseName)}_fallback_${i}_${nomeOriginal}`;
+    const caminhoFinal = path.join(PRODUTOS_CONTAINER_DIR, nomeFinal);
+
+    fs.writeFileSync(caminhoFinal, mediaBuffer);
+    urls.push(`/uploads/produtos/container/${nomeFinal}`);
+  }
+
+  return urls;
+}
+
+function anexarImagensComFallback(linhas, anchors = [], imagensFallback = []) {
   if (!Array.isArray(linhas) || !linhas.length) return linhas;
 
   const anchorMap = new Map();
@@ -695,12 +719,17 @@ function anexarImagensPorExcelRow(linhas, anchors = []) {
     }
   });
 
-  return linhas.map((linha) => {
+  return linhas.map((linha, idx) => {
     const excelRow = Number(linha.__excelRow || 0);
-    let url = anchorMap.get(excelRow) || "";
+
+    let url =
+      anchorMap.get(excelRow) ||
+      anchorMap.get(excelRow - 1) ||
+      anchorMap.get(excelRow + 1) ||
+      "";
 
     if (!url) {
-      url = anchorMap.get(excelRow - 1) || anchorMap.get(excelRow + 1) || "";
+      url = imagensFallback[idx] || "";
     }
 
     return {
@@ -833,7 +862,16 @@ app.post("/api/importar-container", upload.any(), async (req, res) => {
     );
     const anchorsPrimeiraAba = imagensPorSheet[primeiraAba] || [];
 
-    dados = anexarImagensPorExcelRow(dados, anchorsPrimeiraAba);
+    const imagensFallback = await extrairMidiasPorOrdem(
+      file.buffer,
+      file.originalname || "container"
+    );
+
+    dados = anexarImagensComFallback(
+      dados,
+      anchorsPrimeiraAba,
+      imagensFallback
+    );
 
     const colunas = Object.keys(dados[0] || {}).filter(
       (k) => k !== "__checked" && k !== "__produto_traduzido"
