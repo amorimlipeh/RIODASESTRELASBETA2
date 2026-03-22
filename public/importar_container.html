@@ -8,7 +8,6 @@
     :root{
       --bg:#071a36;
       --panel:#0b2545;
-      --panel2:#0d2c57;
       --line:#1d3c66;
       --text:#fff;
       --muted:#b9c7da;
@@ -32,7 +31,7 @@
 
     h1{
       margin:0 0 16px;
-      font-size:30px;
+      font-size:28px;
     }
 
     .toolbar{
@@ -103,35 +102,9 @@
     }
 
     .status.show{ display:block; }
-    .status.ok{ background:#103322; border-color:#1f8f55; }
-    .status.err{ background:#341515; border-color:#b33b3b; }
+    .status.ok{ background:#103322; border-color:var(--ok); }
+    .status.err{ background:#341515; border-color:var(--err); }
     .status.info{ background:#10294d; border-color:#355b9a; }
-
-    .meta{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
-      gap:10px;
-      margin-bottom:14px;
-    }
-
-    .card{
-      background:var(--panel);
-      border:1px solid rgba(255,255,255,.10);
-      border-radius:12px;
-      padding:12px;
-    }
-
-    .card .label{
-      font-size:12px;
-      color:var(--muted);
-      margin-bottom:6px;
-    }
-
-    .card .value{
-      font-size:16px;
-      font-weight:700;
-      word-break:break-word;
-    }
 
     .table-wrap{
       width:100%;
@@ -143,7 +116,7 @@
 
     table{
       width:100%;
-      min-width:900px;
+      min-width:760px;
       border-collapse:collapse;
     }
 
@@ -190,7 +163,7 @@
       font-weight:700;
       white-space:normal;
       line-height:1.2;
-      min-width:190px;
+      min-width:180px;
     }
 
     .orig{
@@ -199,11 +172,6 @@
       color:var(--muted);
       white-space:normal;
       line-height:1.2;
-    }
-
-    .muted{
-      color:var(--muted);
-      font-size:13px;
     }
   </style>
 </head>
@@ -214,34 +182,15 @@
     <div class="toolbar">
       <label class="file-box">
         Escolher arquivo
-        <input id="file" type="file" accept=".xls,.xlsx,.csv" />
+        <input id="file" type="file" accept=".xls,.xlsx,.csv" onchange="onArquivoSelecionado()" />
       </label>
 
       <div id="fileName" class="file-name">Nenhum arquivo selecionado</div>
 
-      <button id="btnAnalisar" class="btn" type="button">Analisar</button>
+      <button id="btnAnalisar" class="btn" type="button" onclick="analisarArquivo()">Analisar</button>
     </div>
 
     <div id="statusBox" class="status"></div>
-
-    <div class="meta">
-      <div class="card">
-        <div class="label">Aba usada</div>
-        <div id="metaAba" class="value">-</div>
-      </div>
-      <div class="card">
-        <div class="label">Linhas lidas</div>
-        <div id="metaLinhas" class="value">0</div>
-      </div>
-      <div class="card">
-        <div class="label">Imagens ancoradas</div>
-        <div id="metaImagens" class="value">0</div>
-      </div>
-      <div class="card">
-        <div class="label">Campos detectados</div>
-        <div id="metaCampos" class="value">-</div>
-      </div>
-    </div>
 
     <div class="table-wrap">
       <table>
@@ -251,14 +200,12 @@
             <th>Código</th>
             <th>Descrição</th>
             <th>Caixas</th>
-            <th>Total</th>
-            <th>Q/C</th>
             <th>Linha Excel</th>
           </tr>
         </thead>
         <tbody id="tbody">
           <tr>
-            <td colspan="7">Aguardando análise do arquivo...</td>
+            <td colspan="5">Aguardando análise do arquivo...</td>
           </tr>
         </tbody>
       </table>
@@ -266,33 +213,19 @@
   </div>
 
   <script>
-    const fileInput = document.getElementById("file");
-    const fileName = document.getElementById("fileName");
-    const btnAnalisar = document.getElementById("btnAnalisar");
-    const statusBox = document.getElementById("statusBox");
-    const tbody = document.getElementById("tbody");
-
-    const metaAba = document.getElementById("metaAba");
-    const metaLinhas = document.getElementById("metaLinhas");
-    const metaImagens = document.getElementById("metaImagens");
-    const metaCampos = document.getElementById("metaCampos");
-
-    fileInput.addEventListener("change", () => {
-      const file = fileInput.files && fileInput.files[0];
-      fileName.textContent = file ? file.name : "Nenhum arquivo selecionado";
-      setStatus("", "");
-    });
-
-    btnAnalisar.addEventListener("click", analisarArquivo);
+    function $(id) {
+      return document.getElementById(id);
+    }
 
     function setStatus(tipo, texto) {
+      const box = $("statusBox");
       if (!texto) {
-        statusBox.className = "status";
-        statusBox.textContent = "";
+        box.className = "status";
+        box.textContent = "";
         return;
       }
-      statusBox.className = `status show ${tipo}`;
-      statusBox.textContent = texto;
+      box.className = "status show " + tipo;
+      box.textContent = texto;
     }
 
     function esc(str) {
@@ -304,31 +237,31 @@
         .replaceAll("'", "&#039;");
     }
 
+    function onArquivoSelecionado() {
+      const file = $("file").files && $("file").files[0];
+      $("fileName").textContent = file ? file.name : "Nenhum arquivo selecionado";
+      setStatus("", "");
+    }
+
     function valorCodigo(row) {
-      return row["ITEM NO"] || row["Item No"] || row["item no"] || row["客人货号"] || "";
+      return row["ITEM NO"] || row["Item No"] || row["item no"] || row["客人货号"] || row["codigo"] || "";
     }
 
     function valorDescricao(row) {
-      return row["DESCRIPTION"] || row["Description"] || row["品名"] || "";
+      return row["DESCRIPTION"] || row["Description"] || row["品名"] || row["descricao"] || "";
     }
 
     function valorCaixas(row) {
-      return row["CTNS"] || row["件数"] || "";
-    }
-
-    function valorTotal(row) {
-      return row["T.QTY"] || row["总数"] || "";
-    }
-
-    function valorQC(row) {
-      return row["Q/C"] || row["装箱"] || "";
+      return row["CTNS"] || row["件数"] || row["caixas"] || "";
     }
 
     function renderTabela(dados) {
+      const tbody = $("tbody");
+
       if (!Array.isArray(dados) || !dados.length) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="7">Nenhuma linha encontrada.</td>
+            <td colspan="5">Nenhum dado encontrado.</td>
           </tr>
         `;
         return;
@@ -340,8 +273,6 @@
         const descricao = valorDescricao(row);
         const original = row.__produto_original || "";
         const caixas = valorCaixas(row);
-        const total = valorTotal(row);
-        const qc = valorQC(row);
         const excelRow = row.__excelRow || "";
 
         return `
@@ -349,7 +280,7 @@
             <td>
               ${
                 imagem
-                  ? `<img src="${esc(imagem)}" class="thumb" alt="imagem do produto" onerror="this.outerHTML='<div class=&quot;sem-img&quot;>Imagem inválida</div>'">`
+                  ? `<img src="${esc(imagem)}" class="thumb" alt="imagem" onerror="this.outerHTML='<div class=&quot;sem-img&quot;>Imagem inválida</div>'">`
                   : `<div class="sem-img">Sem imagem</div>`
               }
             </td>
@@ -359,33 +290,30 @@
               ${original ? `<div class="orig">${esc(original)}</div>` : ""}
             </td>
             <td>${esc(caixas)}</td>
-            <td>${esc(total)}</td>
-            <td>${esc(qc)}</td>
             <td>${esc(excelRow)}</td>
           </tr>
         `;
       }).join("");
     }
 
-    function resumirCampos(campos) {
-      if (!campos || typeof campos !== "object") return "-";
-      return Object.entries(campos)
-        .filter(([, v]) => v)
-        .map(([k, v]) => `${k}: ${v}`)
-        .join(" | ") || "-";
-    }
-
     async function analisarArquivo() {
-      const file = fileInput.files && fileInput.files[0];
+      const input = $("file");
+      const btn = $("btnAnalisar");
+      const file = input.files && input.files[0];
+
       if (!file) {
         setStatus("err", "Selecione um arquivo antes de analisar.");
         return;
       }
 
-      btnAnalisar.disabled = true;
-      btnAnalisar.textContent = "Analisando...";
-      setStatus("info", "Lendo a primeira aba e vinculando imagens por âncora exata...");
-      tbody.innerHTML = `<tr><td colspan="7">Processando arquivo...</td></tr>`;
+      btn.disabled = true;
+      btn.textContent = "Analisando...";
+      setStatus("info", "Enviando arquivo para análise...");
+      $("tbody").innerHTML = `
+        <tr>
+          <td colspan="5">Processando arquivo...</td>
+        </tr>
+      `;
 
       try {
         const form = new FormData();
@@ -396,40 +324,35 @@
           body: form
         });
 
-        let json = {};
+        let json;
         try {
           json = await res.json();
-        } catch {
-          throw new Error("A API respondeu em formato inválido.");
+        } catch (e) {
+          throw new Error("A resposta da API não veio em JSON.");
         }
 
         if (!res.ok || !json.ok) {
-          throw new Error(json.erro || json.detalhe || `Erro HTTP ${res.status}`);
+          throw new Error(json.erro || json.detalhe || "Falha ao analisar arquivo.");
         }
 
-        metaAba.textContent = json.aba || "-";
-        metaLinhas.textContent = String(json.totalLinhas || 0);
-        metaImagens.textContent = String(json.totalImagens || 0);
-        metaCampos.textContent = resumirCampos(json.camposDetectados);
-
         renderTabela(json.dados || []);
-        setStatus(
-          "ok",
-          `Análise concluída. Aba: ${json.aba || "-"} | Linhas: ${json.totalLinhas || 0} | Imagens: ${json.totalImagens || 0}`
-        );
+        setStatus("ok", `Análise concluída. ${json.totalLinhas || (json.dados || []).length} linha(s) encontrada(s).`);
       } catch (err) {
         console.error(err);
-        metaAba.textContent = "-";
-        metaLinhas.textContent = "0";
-        metaImagens.textContent = "0";
-        metaCampos.textContent = "-";
-        tbody.innerHTML = `<tr><td colspan="7">Falha ao analisar o arquivo.</td></tr>`;
+        $("tbody").innerHTML = `
+          <tr>
+            <td colspan="5">Falha ao analisar o arquivo.</td>
+          </tr>
+        `;
         setStatus("err", err.message || "Erro inesperado.");
       } finally {
-        btnAnalisar.disabled = false;
-        btnAnalisar.textContent = "Analisar";
+        btn.disabled = false;
+        btn.textContent = "Analisar";
       }
     }
+
+    window.onArquivoSelecionado = onArquivoSelecionado;
+    window.analisarArquivo = analisarArquivo;
   </script>
 </body>
 </html>
