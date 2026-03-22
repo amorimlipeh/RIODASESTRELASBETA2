@@ -1,59 +1,41 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>Importador</title>
-<style>
-body{background:#0b1e3a;color:#fff;font-family:sans-serif}
-table{width:100%;border-collapse:collapse}
-td,th{padding:8px;border-bottom:1px solid #333}
-img{width:40px;height:40px;border-radius:6px}
-small{opacity:.6}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rio das Estrelas</title>
+  <style>
+    body{
+      margin:0;
+      background:#071a36;
+      color:#fff;
+      font-family:Arial,Helvetica,sans-serif;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:100vh;
+    }
+    .box{
+      text-align:center;
+      padding:24px;
+    }
+    a{
+      display:inline-block;
+      margin-top:16px;
+      padding:12px 16px;
+      border-radius:10px;
+      background:#3b73e6;
+      color:#fff;
+      text-decoration:none;
+      font-weight:700;
+    }
+  </style>
 </head>
 <body>
-
-<h2>Importador Contêiner</h2>
-
-<input type="file" id="file">
-<button onclick="enviar()">Analisar</button>
-
-<table id="tabela"></table>
-
-<script>
-async function enviar(){
-  const f = document.getElementById("file").files[0];
-  const fd = new FormData();
-  fd.append("file", f);
-
-  const res = await fetch("/upload",{method:"POST",body:fd});
-  const data = await res.json();
-
-  render(data);
-}
-
-function render(data){
-  const t = document.getElementById("tabela");
-  t.innerHTML = "";
-
-  data.forEach(l=>{
-    const tr = document.createElement("tr");
-
-    tr.innerHTML = `
-      <td>${l.__imagem ? `<img src="${l.__imagem}">` : "—"}</td>
-      <td>${l["ITEM NO"] || ""}</td>
-      <td>
-        ${l["DESCRIPTION"] || ""}
-        <br><small>${l.__produto_original || ""}</small>
-      </td>
-      <td>${l["CTNS"] || ""}</td>
-    `;
-
-    t.appendChild(tr);
-  });
-}
-</script>
-
+  <div class="box">
+    <h1>SISTEMA LOGÍSTICO RIO DAS ESTRELAS</h1>
+    <p>Servidor online.</p>
+    <a href="/importar_container.html">Abrir Importador Contêiner</a>
+  </div>
 </body>
 </html>
