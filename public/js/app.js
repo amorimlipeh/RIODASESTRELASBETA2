@@ -1,15 +1,24 @@
+async function atualizarDashboard() {
+  const res = await fetch('/api/estoque');
+  const data = await res.json();
+
+  const total = data.reduce((soma, p) => soma + Number(p.quantidade), 0);
+
+  document.querySelector('.content').innerHTML = `
+    <h1>Painel Operacional</h1>
+    <div class="cards">
+      <div class="card">Estoque: ${total}</div>
+      <div class="card">Pedidos: 0</div>
+      <div class="card">Separação: 0</div>
+    </div>
+  `;
+}
+
 function carregarTela(tela) {
   const content = document.querySelector('.content');
 
   if (tela === 'dashboard') {
-    content.innerHTML = `
-      <h1>Painel Operacional</h1>
-      <div class="cards">
-        <div class="card">Estoque: 0</div>
-        <div class="card">Pedidos: 0</div>
-        <div class="card">Separação: 0</div>
-      </div>
-    `;
+    atualizarDashboard();
   }
 
   if (tela === 'estoque') {
@@ -35,6 +44,11 @@ async function carregar() {
 
   const lista = document.getElementById('lista');
   lista.innerHTML = '';
+
+  if (data.length === 0) {
+    lista.innerHTML = "<p style='color:#888'>Nenhum produto cadastrado</p>";
+    return;
+  }
 
   data.forEach(p => {
     lista.innerHTML += `
@@ -69,9 +83,13 @@ async function salvar() {
     })
   });
 
-  // limpar campos
   nomeInput.value = '';
   qtdInput.value = '';
 
   carregar();
 }
+
+# iniciar no dashboard
+window.onload = () => {
+  atualizarDashboard();
+};
