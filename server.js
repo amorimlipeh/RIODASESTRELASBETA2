@@ -1,12 +1,14 @@
-const http = require('http');
+const express = require('express');
+const app = express();
 
 const PORT = process.env.PORT || 3000;
 
-const server = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/html' });
-  res.end('<h1>🚀 RIO DAS ESTRELAS ONLINE</h1>');
+app.use(express.static('public'));
+
+app.get('/api/status', (req, res) => {
+  res.json({ status: 'ok' });
 });
 
-server.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log('Servidor rodando na porta ' + PORT);
 });

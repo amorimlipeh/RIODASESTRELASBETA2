@@ -1,0 +1,43 @@
+body {
+  margin: 0;
+  font-family: Arial;
+  background: #1e1e1e;
+  color: #fff;
+}
+
+.layout {
+  display: flex;
+}
+
+.sidebar {
+  width: 220px;
+  background: #111;
+  padding: 20px;
+}
+
+.sidebar a {
+  display: block;
+  color: #ccc;
+  margin: 10px 0;
+  text-decoration: none;
+}
+
+.sidebar a:hover {
+  color: #fff;
+}
+
+.content {
+  flex: 1;
+  padding: 20px;
+}
+
+.cards {
+  display: flex;
+  gap: 10px;
+}
+
+.card {
+  background: #2a2a2a;
+  padding: 20px;
+  border-radius: 5px;
+}
