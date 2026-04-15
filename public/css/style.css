@@ -41,3 +41,40 @@ body {
   padding: 20px;
   border-radius: 5px;
 }
+
+.form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.form input {
+  padding: 10px;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  color: #fff;
+}
+
+.form button {
+  background: #00c853;
+  border: none;
+  padding: 10px 15px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.form button:hover {
+  background: #00e676;
+}
+
+.lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card {
+  background: #2a2a2a;
+  padding: 15px;
+  border-left: 4px solid #00c853;
+}

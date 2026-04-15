@@ -22,7 +22,7 @@ function carregarTela(tela) {
         <button onclick="salvar()">Salvar</button>
       </div>
 
-      <div id="lista"></div>
+      <div id="lista" class="lista"></div>
     `;
 
     carregar();
@@ -39,21 +39,39 @@ async function carregar() {
   data.forEach(p => {
     lista.innerHTML += `
       <div class="card">
-        ${p.nome} - ${p.quantidade}
+        <strong>${p.nome}</strong><br>
+        Quantidade: ${p.quantidade}
       </div>
     `;
   });
 }
 
 async function salvar() {
-  const nome = document.getElementById('nome').value;
-  const qtd = document.getElementById('qtd').value;
+  const nomeInput = document.getElementById('nome');
+  const qtdInput = document.getElementById('qtd');
+
+  const nome = nomeInput.value;
+  const qtd = qtdInput.value;
+
+  if (!nome || !qtd) {
+    alert('Preencha todos os campos');
+    return;
+  }
 
   await fetch('/api/estoque', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nome, quantidade: qtd })
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      nome,
+      quantidade: qtd
+    })
   });
+
+  // limpar campos
+  nomeInput.value = '';
+  qtdInput.value = '';
 
   carregar();
 }
