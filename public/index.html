@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="UTF-8">
-  <title>RIO DAS ESTRELAS</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="/css/style.css">
+<meta charset="UTF-8">
+<title>RIO DAS ESTRELAS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
@@ -13,27 +13,21 @@
   <aside class="sidebar">
     <h2>🌟 RIO</h2>
     <nav>
-      <a href="#">Dashboard</a>
-      <a href="#">Estoque</a>
-      <a href="#">WMS</a>
-      <a href="#">Pedidos</a>
-      <a href="#">Separação</a>
-      <a href="#">Configurações</a>
+      <a onclick="carregarTela('dashboard')">Dashboard</a>
+      <a onclick="carregarTela('estoque')">Estoque</a>
+      <a>WMS</a>
+      <a>Pedidos</a>
+      <a>Separação</a>
+      <a>Configurações</a>
     </nav>
   </aside>
 
   <main class="content">
     <h1>Painel Operacional</h1>
-
-    <div class="cards">
-      <div class="card">Estoque: 0</div>
-      <div class="card">Pedidos: 0</div>
-      <div class="card">Separação: 0</div>
-    </div>
-
   </main>
 
 </div>
 
+<script src="/js/app.js"></script>
 </body>
 </html>
