@@ -1,0 +1,10 @@
+{
+  "name": "riodasestrelas",
+  "version": "1.0.0",
+  "description": "Sistema Logístico de Operação RIO DAS ESTRELAS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {}
+}
