@@ -1,21 +1,12 @@
 
+let telaAtual = 'dashboard';
+
 async function carregarTela(tela) {
+  telaAtual = tela;
   const content = document.querySelector('.content');
 
   if (tela === 'dashboard') {
-    const res = await fetch('/api/estoque');
-    const data = await res.json();
-
-    const total = data.reduce((acc, item) => acc + item.quantidade, 0);
-
-    content.innerHTML = `
-      <h1>Painel Operacional</h1>
-      <div class="cards">
-        <div class="card">Estoque: ${total}</div>
-        <div class="card">Pedidos: 0</div>
-        <div class="card">Separação: 0</div>
-      </div>
-    `;
+    await atualizarDashboard();
   }
 
   if (tela === 'estoque') {
@@ -31,8 +22,28 @@ async function carregarTela(tela) {
       <div id="lista"></div>
     `;
 
-    atualizarLista();
+    await atualizarLista();
   }
+
+  if (tela === 'wms') {
+    content.innerHTML = "<h1>WMS (em breve)</h1>";
+  }
+}
+
+async function atualizarDashboard() {
+  const res = await fetch('/api/estoque');
+  const data = await res.json();
+
+  const total = data.reduce((acc, item) => acc + item.quantidade, 0);
+
+  document.querySelector('.content').innerHTML = `
+    <h1>Painel Operacional</h1>
+    <div class="cards">
+      <div class="card">Estoque: ${total}</div>
+      <div class="card">Pedidos: 0</div>
+      <div class="card">Separação: 0</div>
+    </div>
+  `;
 }
 
 async function salvarProduto() {
@@ -52,7 +63,12 @@ async function salvarProduto() {
     })
   });
 
-  atualizarLista();
+  await atualizarLista();
+
+  // 🔥 ATUALIZA DASHBOARD AUTOMATICAMENTE
+  if (telaAtual === 'dashboard') {
+    await atualizarDashboard();
+  }
 
   document.getElementById('produto').value = "";
   document.getElementById('quantidade').value = "";
