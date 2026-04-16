@@ -1,5 +1,5 @@
 async function atualizarDashboard() {
-  const res = await fetch('/api/estoque');
+  const res = await fetch('/api/estoque?ts=' + Date.now());
   const data = await res.json();
 
   const total = data.reduce((soma, p) => soma + Number(p.quantidade), 0);
@@ -39,7 +39,7 @@ function carregarTela(tela) {
 }
 
 async function carregar() {
-  const res = await fetch('/api/estoque');
+  const res = await fetch('/api/estoque?ts=' + Date.now());
   const data = await res.json();
 
   const lista = document.getElementById('lista');
@@ -74,9 +74,7 @@ async function salvar() {
 
   await fetch('/api/estoque', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       nome,
       quantidade: qtd
@@ -89,7 +87,7 @@ async function salvar() {
   carregar();
 }
 
-// iniciar corretamente
+// iniciar correto
 window.onload = () => {
   atualizarDashboard();
 };

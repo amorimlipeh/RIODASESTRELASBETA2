@@ -7,24 +7,27 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static('public'));
 
+// evitar cache
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+
 // ================================
-// LER ESTOQUE
+// ESTOQUE
 // ================================
 app.get('/api/estoque', (req, res) => {
   const data = JSON.parse(fs.readFileSync('./data/estoque.json'));
   res.json(data);
 });
 
-// ================================
-// ADICIONAR PRODUTO
-// ================================
 app.post('/api/estoque', (req, res) => {
   const data = JSON.parse(fs.readFileSync('./data/estoque.json'));
 
   const novo = {
     id: Date.now(),
     nome: req.body.nome,
-    quantidade: req.body.quantidade
+    quantidade: Number(req.body.quantidade)
   };
 
   data.push(novo);
