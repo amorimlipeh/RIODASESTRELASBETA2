@@ -89,7 +89,7 @@ async function salvar() {
   carregar();
 }
 
-# iniciar no dashboard
+// iniciar corretamente
 window.onload = () => {
   atualizarDashboard();
 };
