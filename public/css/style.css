@@ -78,3 +78,22 @@ body {
   padding: 15px;
   border-left: 4px solid #00c853;
 }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.endereco {
+  background: #2a2a2a;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  border-left: 4px solid #00c853;
+}
+
+.endereco:hover {
+  background: #333;
+}

@@ -7,7 +7,6 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static('public'));
 
-// evitar cache
 app.use((req, res, next) => {
   res.set('Cache-Control', 'no-store');
   next();
@@ -33,6 +32,30 @@ app.post('/api/estoque', (req, res) => {
   data.push(novo);
 
   fs.writeFileSync('./data/estoque.json', JSON.stringify(data, null, 2));
+
+  res.json(novo);
+});
+
+// ================================
+// WMS
+// ================================
+app.get('/api/wms', (req, res) => {
+  const data = JSON.parse(fs.readFileSync('./data/wms.json'));
+  res.json(data);
+});
+
+app.post('/api/wms', (req, res) => {
+  const data = JSON.parse(fs.readFileSync('./data/wms.json'));
+
+  const novo = {
+    endereco: req.body.endereco,
+    produto: req.body.produto,
+    quantidade: req.body.quantidade
+  };
+
+  data.push(novo);
+
+  fs.writeFileSync('./data/wms.json', JSON.stringify(data, null, 2));
 
   res.json(novo);
 });
