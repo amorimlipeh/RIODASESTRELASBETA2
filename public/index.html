@@ -3,33 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <title>RIO DAS ESTRELAS</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="/css/style.css">
 </head>
+
 <body>
 
-<div class="layout">
-
-  <aside class="sidebar">
-    <h2>🌟 RIO</h2>
-    <nav>
-      <a href="#" onclick="carregarTela('dashboard')">Dashboard</a>
-      <a href="#" onclick="carregarTela('estoque')">Estoque</a>
-      <a href="#" onclick="carregarTela('wms')">WMS</a>
-      <a href="#">Pedidos</a>
-      <a href="#">Separação</a>
-      <a href="#">Configurações</a>
-    </nav>
-  </aside>
-
-  <main class="content">
-    <h1>Painel Operacional</h1>
-  </main>
-
+<div class="sidebar">
+  <h2>🚀 Sistema</h2>
+  <button onclick="load('dashboard')">Dashboard</button>
+  <button onclick="load('produtos')">Produtos</button>
+  <button onclick="load('estoque')">Estoque</button>
+  <button onclick="load('pedidos')">Pedidos</button>
 </div>
 
-<!-- FORÇA RECARREGAR JS -->
-<script src="/js/app.js?v=2"></script>
+<div class="content" id="content">
+  <h1>Carregando...</h1>
+</div>
+
+<script src="/js/app.js"></script>
 
 </body>
 </html>

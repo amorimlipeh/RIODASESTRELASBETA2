@@ -1,0 +1,30 @@
+<h1>📦 Produtos</h1>
+
+<input id="nome" placeholder="Nome do produto">
+<button onclick="add()">Cadastrar</button>
+
+<ul id="lista"></ul>
+
+<script>
+async function add() {
+  const nome = document.getElementById('nome').value;
+
+  await fetch('/api/produtos', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ nome })
+  });
+
+  loadLista();
+}
+
+async function loadLista() {
+  const res = await fetch('/api/produtos');
+  const data = await res.json();
+
+  document.getElementById('lista').innerHTML =
+    data.map(p => `<li>${p.nome}</li>`).join('');
+}
+
+loadLista();
+</script>

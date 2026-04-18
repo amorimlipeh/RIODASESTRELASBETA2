@@ -1,99 +1,29 @@
 body {
   margin: 0;
   font-family: Arial;
-  background: #1e1e1e;
-  color: #fff;
-}
-
-.layout {
-  display: flex;
+  background: #0f172a;
+  color: white;
 }
 
 .sidebar {
   width: 220px;
-  background: #111;
+  height: 100vh;
+  background: #020617;
   padding: 20px;
+  position: fixed;
 }
 
-.sidebar a {
-  display: block;
-  color: #ccc;
+.sidebar button {
+  width: 100%;
   margin: 10px 0;
-  text-decoration: none;
-}
-
-.sidebar a:hover {
-  color: #fff;
+  padding: 10px;
+  background: #1e293b;
+  color: white;
+  border: none;
+  cursor: pointer;
 }
 
 .content {
-  flex: 1;
+  margin-left: 240px;
   padding: 20px;
-}
-
-.cards {
-  display: flex;
-  gap: 10px;
-}
-
-.card {
-  background: #2a2a2a;
-  padding: 20px;
-  border-radius: 5px;
-}
-
-.form {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-.form input {
-  padding: 10px;
-  background: #2a2a2a;
-  border: 1px solid #444;
-  color: #fff;
-}
-
-.form button {
-  background: #00c853;
-  border: none;
-  padding: 10px 15px;
-  color: #fff;
-  cursor: pointer;
-}
-
-.form button:hover {
-  background: #00e676;
-}
-
-.lista {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.card {
-  background: #2a2a2a;
-  padding: 15px;
-  border-left: 4px solid #00c853;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.endereco {
-  background: #2a2a2a;
-  padding: 20px;
-  text-align: center;
-  cursor: pointer;
-  border-left: 4px solid #00c853;
-}
-
-.endereco:hover {
-  background: #333;
 }
