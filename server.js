@@ -8,19 +8,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// ========================
-// BANCO SIMPLES
-// ========================
 let db = {
   produtos: [],
-  estoque: [],
-  pedidos: [],
+  enderecos: [],
   movimentacoes: []
 };
-
-// ========================
-// ROTAS
-// ========================
 
 // STATUS
 app.get('/api/status', (req, res) => {
@@ -35,22 +27,49 @@ app.get('/api/produtos', (req, res) => {
 app.post('/api/produtos', (req, res) => {
   const produto = {
     id: Date.now(),
-    nome: req.body.nome,
-    quantidade: req.body.quantidade || 0
+    nome: req.body.nome
   };
 
   db.produtos.push(produto);
-
-  db.movimentacoes.push({
-    tipo: "entrada",
-    produto: produto.nome,
-    data: new Date()
-  });
-
   res.json(produto);
 });
 
-// MOVIMENTAÇÕES
+// ENDEREÇOS
+app.get('/api/enderecos', (req, res) => {
+  res.json(db.enderecos);
+});
+
+app.post('/api/enderecos', (req, res) => {
+  const endereco = {
+    id: Date.now(),
+    codigo: req.body.codigo,
+    produto: req.body.produto || null
+  };
+
+  db.enderecos.push(endereco);
+  res.json(endereco);
+});
+
+// VINCULAR PRODUTO AO ENDEREÇO
+app.post('/api/alocar', (req, res) => {
+  const { codigo, produto } = req.body;
+
+  const endereco = db.enderecos.find(e => e.codigo === codigo);
+
+  if (!endereco) return res.status(404).json({ erro: "Endereço não encontrado" });
+
+  endereco.produto = produto;
+
+  db.movimentacoes.push({
+    tipo: "alocacao",
+    produto,
+    endereco: codigo
+  });
+
+  res.json(endereco);
+});
+
+// MOVIMENTAÇÃO
 app.get('/api/movimentacoes', (req, res) => {
   res.json(db.movimentacoes);
 });
@@ -61,5 +80,5 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log('🚀 Sistema rodando na porta ' + PORT);
+  console.log('🚀 WMS rodando na porta ' + PORT);
 });
