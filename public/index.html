@@ -1,26 +1,103 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>RIO DAS ESTRELAS</title>
-<link rel="stylesheet" href="/css/style.css">
+<title>WMS</title>
+<style>
+body { margin:0; font-family:Arial; background:#0b1220; color:#fff; display:flex }
+.menu { width:220px; background:#050b18; padding:20px }
+.menu button { width:100%; margin:5px 0; padding:10px; background:#1e293b; border:0; color:#fff }
+.content { flex:1; padding:20px }
+input, select { padding:5px; margin:5px }
+</style>
 </head>
-
 <body>
 
-<div class="sidebar">
-  <h2>🚀 Sistema</h2>
-
-  <button onclick="load('dashboard')">Dashboard</button>
-  <button onclick="load('produtos')">Produtos</button>
-  <button onclick="load('estoque')">Estoque</button>
-  <button onclick="load('pedidos')">Movimentações</button>
-  <button onclick="load('wms')">WMS</button>
+<div class="menu">
+<h3>🚀 Sistema</h3>
+<button onclick="load('dashboard')">Dashboard</button>
+<button onclick="load('produtos')">Produtos</button>
+<button onclick="load('estoque')">Estoque</button>
+<button onclick="load('mov')">Movimentações</button>
+<button onclick="load('wms')">WMS</button>
 </div>
 
-<div class="content" id="content"></div>
+<div class="content" id="app"></div>
 
-<script src="/js/app.js"></script>
+<script>
+async function load(page) {
+  const app = document.getElementById('app');
+
+  if (page === 'dashboard') {
+    const d = await fetch('/api/dashboard').then(r=>r.json());
+    app.innerHTML = `<h2>Dashboard</h2>
+    Produtos: ${d.produtos}<br>
+    Movimentações: ${d.movimentacoes}<br>
+    Endereços: ${d.enderecos}`;
+  }
+
+  if (page === 'produtos') {
+    app.innerHTML = `
+    <h2>Produtos</h2>
+    <input id="nome"><button onclick="add()">Cadastrar</button>
+    <div id="lista"></div>`;
+    listar();
+  }
+
+  if (page === 'estoque') {
+    app.innerHTML = `
+    <h2>Estoque</h2>
+    <input id="p"><input id="q">
+    <select id="t"><option>entrada</option><option>saida</option></select>
+    <button onclick="mov()">OK</button>`;
+  }
+
+  if (page === 'mov') {
+    const d = await fetch('/api/movimentacoes').then(r=>r.json());
+    app.innerHTML = '<h2>Movimentações</h2>' + JSON.stringify(d);
+  }
+
+  if (page === 'wms') {
+    app.innerHTML = `
+    <h2>WMS</h2>
+    <input id="e" placeholder="Endereço">
+    <input id="p2" placeholder="Produto">
+    <input id="q2" placeholder="Qtd">
+    <button onclick="w()">Salvar</button>`;
+  }
+}
+
+async function add() {
+  const nome = document.getElementById('nome').value;
+  await fetch('/api/produtos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome})});
+  listar();
+}
+
+async function listar() {
+  const d = await fetch('/api/produtos').then(r=>r.json());
+  document.getElementById('lista').innerHTML = JSON.stringify(d);
+}
+
+async function mov() {
+  await fetch('/api/estoque',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+    produto:document.getElementById('p').value,
+    quantidade:Number(document.getElementById('q').value),
+    tipo:document.getElementById('t').value
+  })});
+}
+
+async function w() {
+  await fetch('/api/wms',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+    endereco:document.getElementById('e').value,
+    produto:document.getElementById('p2').value,
+    quantidade:Number(document.getElementById('q2').value)
+  })});
+}
+
+load('dashboard');
+</script>
 
 </body>
 </html>
