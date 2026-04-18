@@ -1,29 +1,19 @@
-<h1>📍 WMS</h1>
-
-<input id="codigo" placeholder="Ex: 05-001-3-1">
-<button onclick="criar()">Criar</button>
+<h1>📍 Mapa WMS</h1>
 
 <ul id="lista"></ul>
 
 <script>
-async function criar() {
-  const codigo = document.getElementById('codigo').value;
-
-  await fetch('/api/enderecos', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ codigo })
-  });
-
-  carregar();
-}
-
 async function carregar() {
-  const res = await fetch('/api/enderecos');
+  const res = await fetch('/api/estoque');
   const data = await res.json();
 
   document.getElementById('lista').innerHTML =
-    data.map(e => `<li>${e.codigo}</li>`).join('');
+    data.map(e => `
+      <li>
+        <b>${e.codigo}</b><br>
+        ${e.estoque.map(i => `${i.produto}: ${i.quantidade}`).join('<br>')}
+      </li>
+    `).join('<hr>');
 }
 
 carregar();

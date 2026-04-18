@@ -1,39 +1,29 @@
-<h1>📦 Estoque</h1>
+<h1>📦 Movimentar Estoque (WMS)</h1>
 
-<h3>Adicionar ao estoque</h3>
 <input id="produto" placeholder="Produto">
-<input id="quantidade" placeholder="Quantidade">
-<button onclick="add()">Adicionar</button>
+<input id="quantidade" placeholder="Qtd">
+<input id="endereco" placeholder="Endereço (05-001-3-1)">
 
-<ul id="lista"></ul>
+<select id="tipo">
+  <option value="entrada">Entrada</option>
+  <option value="saida">Saída</option>
+</select>
+
+<button onclick="add()">Movimentar</button>
 
 <script>
 async function add() {
-  const produto = document.getElementById('produto').value;
-  const quantidade = document.getElementById('quantidade').value;
-
   await fetch('/api/movimentacoes', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({
-      tipo: "entrada",
-      produto,
-      quantidade
+      tipo: document.getElementById('tipo').value,
+      produto: document.getElementById('produto').value,
+      quantidade: document.getElementById('quantidade').value,
+      endereco: document.getElementById('endereco').value
     })
   });
 
-  carregar();
+  alert("Movimentação realizada");
 }
-
-async function carregar() {
-  const res = await fetch('/api/movimentacoes');
-  const data = await res.json();
-
-  document.getElementById('lista').innerHTML =
-    data.map(m =>
-      `<li>${m.tipo} - ${m.produto} (${m.quantidade || ''})</li>`
-    ).join('');
-}
-
-carregar();
 </script>

@@ -30,18 +30,6 @@ app.post('/api/produtos', (req, res) => {
 });
 
 // ============================
-// MOVIMENTAÇÕES
-// ============================
-app.get('/api/movimentacoes', (req, res) => {
-  res.json(db.movimentacoes);
-});
-
-app.post('/api/movimentacoes', (req, res) => {
-  db.movimentacoes.push(req.body);
-  res.json({ ok: true });
-});
-
-// ============================
 // WMS
 // ============================
 app.get('/api/enderecos', (req, res) => {
@@ -49,12 +37,58 @@ app.get('/api/enderecos', (req, res) => {
 });
 
 app.post('/api/enderecos', (req, res) => {
-  db.enderecos.push({ codigo: req.body.codigo });
+  db.enderecos.push({
+    codigo: req.body.codigo,
+    estoque: []
+  });
   res.json({ ok: true });
 });
 
 // ============================
-// DASHBOARD (🔥 FALTAVA ISSO)
+// MOVIMENTAÇÃO COM ENDEREÇO
+// ============================
+app.post('/api/movimentacoes', (req, res) => {
+  const { tipo, produto, quantidade, endereco } = req.body;
+
+  const end = db.enderecos.find(e => e.codigo === endereco);
+
+  if (!end) {
+    return res.status(400).json({ erro: 'Endereço não existe' });
+  }
+
+  let item = end.estoque.find(i => i.produto === produto);
+
+  if (!item) {
+    item = { produto, quantidade: 0 };
+    end.estoque.push(item);
+  }
+
+  if (tipo === 'entrada') {
+    item.quantidade += Number(quantidade);
+  }
+
+  if (tipo === 'saida') {
+    item.quantidade -= Number(quantidade);
+  }
+
+  db.movimentacoes.push(req.body);
+
+  res.json({ ok: true });
+});
+
+app.get('/api/movimentacoes', (req, res) => {
+  res.json(db.movimentacoes);
+});
+
+// ============================
+// ESTOQUE POR ENDEREÇO
+// ============================
+app.get('/api/estoque', (req, res) => {
+  res.json(db.enderecos);
+});
+
+// ============================
+// DASHBOARD
 // ============================
 app.get('/api/dashboard', (req, res) => {
   res.json({
@@ -64,11 +98,10 @@ app.get('/api/dashboard', (req, res) => {
   });
 });
 
-// ============================
 app.get('*', (req, res) => {
   res.sendFile(__dirname + '/public/index.html');
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log('🚀 Sistema rodando na porta ' + PORT);
+  console.log('🚀 WMS rodando na porta ' + PORT);
 });
