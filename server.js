@@ -14,71 +14,28 @@ let db = {
   movimentacoes: []
 };
 
-// STATUS
-app.get('/api/status', (req, res) => {
+app.get('/api/movimentacoes', (req, res) => {
+  res.json(db.movimentacoes);
+});
+
+app.post('/api/movimentacoes', (req, res) => {
+  db.movimentacoes.push(req.body);
   res.json({ ok: true });
 });
 
-// PRODUTOS
-app.get('/api/produtos', (req, res) => {
-  res.json(db.produtos);
-});
-
-app.post('/api/produtos', (req, res) => {
-  const produto = {
-    id: Date.now(),
-    nome: req.body.nome
-  };
-
-  db.produtos.push(produto);
-  res.json(produto);
-});
-
-// ENDEREÇOS
 app.get('/api/enderecos', (req, res) => {
   res.json(db.enderecos);
 });
 
 app.post('/api/enderecos', (req, res) => {
-  const endereco = {
-    id: Date.now(),
-    codigo: req.body.codigo,
-    produto: req.body.produto || null
-  };
-
-  db.enderecos.push(endereco);
-  res.json(endereco);
+  db.enderecos.push({ codigo: req.body.codigo });
+  res.json({ ok: true });
 });
 
-// VINCULAR PRODUTO AO ENDEREÇO
-app.post('/api/alocar', (req, res) => {
-  const { codigo, produto } = req.body;
-
-  const endereco = db.enderecos.find(e => e.codigo === codigo);
-
-  if (!endereco) return res.status(404).json({ erro: "Endereço não encontrado" });
-
-  endereco.produto = produto;
-
-  db.movimentacoes.push({
-    tipo: "alocacao",
-    produto,
-    endereco: codigo
-  });
-
-  res.json(endereco);
-});
-
-// MOVIMENTAÇÃO
-app.get('/api/movimentacoes', (req, res) => {
-  res.json(db.movimentacoes);
-});
-
-// SPA
 app.get('*', (req, res) => {
   res.sendFile(__dirname + '/public/index.html');
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log('🚀 WMS rodando na porta ' + PORT);
+  console.log('🚀 Sistema rodando ' + PORT);
 });

@@ -1,13 +1,7 @@
-<h1>📍 WMS - Endereçamento</h1>
+<h1>📍 WMS</h1>
 
-<h3>Criar Endereço</h3>
 <input id="codigo" placeholder="Ex: 05-001-3-1">
 <button onclick="criar()">Criar</button>
-
-<h3>Alocar Produto</h3>
-<input id="endereco" placeholder="Endereço">
-<input id="produto" placeholder="Produto">
-<button onclick="alocar()">Alocar</button>
 
 <ul id="lista"></ul>
 
@@ -24,27 +18,12 @@ async function criar() {
   carregar();
 }
 
-async function alocar() {
-  const codigo = document.getElementById('endereco').value;
-  const produto = document.getElementById('produto').value;
-
-  await fetch('/api/alocar', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ codigo, produto })
-  });
-
-  carregar();
-}
-
 async function carregar() {
   const res = await fetch('/api/enderecos');
   const data = await res.json();
 
   document.getElementById('lista').innerHTML =
-    data.map(e =>
-      `<li>${e.codigo} → ${e.produto || "vazio"}</li>`
-    ).join('');
+    data.map(e => `<li>${e.codigo}</li>`).join('');
 }
 
 carregar();

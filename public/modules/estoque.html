@@ -1,2 +1,39 @@
-<h1>📊 Estoque</h1>
-<p>Controle em breve...</p>
+<h1>📦 Estoque</h1>
+
+<h3>Adicionar ao estoque</h3>
+<input id="produto" placeholder="Produto">
+<input id="quantidade" placeholder="Quantidade">
+<button onclick="add()">Adicionar</button>
+
+<ul id="lista"></ul>
+
+<script>
+async function add() {
+  const produto = document.getElementById('produto').value;
+  const quantidade = document.getElementById('quantidade').value;
+
+  await fetch('/api/movimentacoes', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      tipo: "entrada",
+      produto,
+      quantidade
+    })
+  });
+
+  carregar();
+}
+
+async function carregar() {
+  const res = await fetch('/api/movimentacoes');
+  const data = await res.json();
+
+  document.getElementById('lista').innerHTML =
+    data.map(m =>
+      `<li>${m.tipo} - ${m.produto} (${m.quantidade || ''})</li>`
+    ).join('');
+}
+
+carregar();
+</script>
