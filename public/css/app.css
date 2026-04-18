@@ -1,0 +1,4 @@
+body{margin:0;font-family:Arial;background:#0b1220;color:#fff;display:flex}
+.menu{width:220px;background:#050b18;padding:20px}
+.menu button{width:100%;margin:5px 0;padding:10px;background:#1e293b;color:#fff;border:0}
+.content{flex:1;padding:20px}
