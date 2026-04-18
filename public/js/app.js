@@ -1,7 +1,8 @@
+import { ImportacaoModule } from './modules/importacao.js';
 import { ProdutosModule } from './modules/produtos.js'
 import { DashboardModule } from './modules/dashboard.js'
 
-const routes={
+const routes={ importacao:ImportacaoModule,
 dashboard:DashboardModule,
 produtos:ProdutosModule
 }

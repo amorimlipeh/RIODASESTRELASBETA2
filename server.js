@@ -10,6 +10,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ROTAS
 app.use('/api/produtos', require('./server/routes/produtos'));
 app.use('/api/dashboard', require('./server/routes/dashboard'));
+app.use('/api/importacao', require('./server/routes/importacao'));
 
 // SPA
 app.get('*', (req,res)=>{
