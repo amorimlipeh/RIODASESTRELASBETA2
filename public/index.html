@@ -2,101 +2,74 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>WMS</title>
+<title>RIOBETA2</title>
 <style>
-body { margin:0; font-family:Arial; background:#0b1220; color:#fff; display:flex }
-.menu { width:220px; background:#050b18; padding:20px }
-.menu button { width:100%; margin:5px 0; padding:10px; background:#1e293b; border:0; color:#fff }
-.content { flex:1; padding:20px }
-input, select { padding:5px; margin:5px }
+body{margin:0;font-family:Arial;background:#0b1220;color:#fff;display:flex}
+.menu{width:220px;background:#050b18;padding:20px}
+.menu button{width:100%;margin:5px 0;padding:10px;background:#1e293b;color:#fff;border:0}
+.content{flex:1;padding:20px}
 </style>
 </head>
 <body>
 
 <div class="menu">
-<h3>🚀 Sistema</h3>
+<h3>🚀 RIOBETA2</h3>
 <button onclick="load('dashboard')">Dashboard</button>
 <button onclick="load('produtos')">Produtos</button>
 <button onclick="load('estoque')">Estoque</button>
-<button onclick="load('mov')">Movimentações</button>
+<button onclick="load('mov')">Mov</button>
 <button onclick="load('wms')">WMS</button>
 </div>
 
 <div class="content" id="app"></div>
 
 <script>
-async function load(page) {
-  const app = document.getElementById('app');
+async function load(p){
+const a=document.getElementById('app')
 
-  if (page === 'dashboard') {
-    const d = await fetch('/api/dashboard').then(r=>r.json());
-    app.innerHTML = `<h2>Dashboard</h2>
-    Produtos: ${d.produtos}<br>
-    Movimentações: ${d.movimentacoes}<br>
-    Endereços: ${d.enderecos}`;
-  }
-
-  if (page === 'produtos') {
-    app.innerHTML = `
-    <h2>Produtos</h2>
-    <input id="nome"><button onclick="add()">Cadastrar</button>
-    <div id="lista"></div>`;
-    listar();
-  }
-
-  if (page === 'estoque') {
-    app.innerHTML = `
-    <h2>Estoque</h2>
-    <input id="p"><input id="q">
-    <select id="t"><option>entrada</option><option>saida</option></select>
-    <button onclick="mov()">OK</button>`;
-  }
-
-  if (page === 'mov') {
-    const d = await fetch('/api/movimentacoes').then(r=>r.json());
-    app.innerHTML = '<h2>Movimentações</h2>' + JSON.stringify(d);
-  }
-
-  if (page === 'wms') {
-    app.innerHTML = `
-    <h2>WMS</h2>
-    <input id="e" placeholder="Endereço">
-    <input id="p2" placeholder="Produto">
-    <input id="q2" placeholder="Qtd">
-    <button onclick="w()">Salvar</button>`;
-  }
+if(p==='dashboard'){
+const d=await fetch('/api/dashboard').then(r=>r.json())
+a.innerHTML=JSON.stringify(d)
 }
 
-async function add() {
-  const nome = document.getElementById('nome').value;
-  await fetch('/api/produtos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome})});
-  listar();
+if(p==='produtos'){
+a.innerHTML='<input id=n><button onclick=add()>+</button><div id=l></div>'
+listar()
 }
 
-async function listar() {
-  const d = await fetch('/api/produtos').then(r=>r.json());
-  document.getElementById('lista').innerHTML = JSON.stringify(d);
+if(p==='estoque'){
+a.innerHTML='<input id=p><input id=q><button onclick=mov()>OK</button>'
 }
 
-async function mov() {
-  await fetch('/api/estoque',{method:'POST',headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({
-    produto:document.getElementById('p').value,
-    quantidade:Number(document.getElementById('q').value),
-    tipo:document.getElementById('t').value
-  })});
+if(p==='mov'){
+const d=await fetch('/api/mov').then(r=>r.json())
+a.innerHTML=JSON.stringify(d)
 }
 
-async function w() {
-  await fetch('/api/wms',{method:'POST',headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({
-    endereco:document.getElementById('e').value,
-    produto:document.getElementById('p2').value,
-    quantidade:Number(document.getElementById('q2').value)
-  })});
+if(p==='wms'){
+a.innerHTML='<input id=e><input id=p2><button onclick=w()>+</button>'
+}
 }
 
-load('dashboard');
+async function add(){
+await fetch('/api/produtos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome:n.value})})
+listar()
+}
+
+async function listar(){
+const d=await fetch('/api/produtos').then(r=>r.json())
+l.innerHTML=JSON.stringify(d)
+}
+
+async function mov(){
+await fetch('/api/estoque',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({produto:p.value,quantidade:Number(q.value)})})
+}
+
+async function w(){
+await fetch('/api/wms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endereco:e.value,produto:p2.value})})
+}
+
+load('dashboard')
 </script>
 
 </body>
