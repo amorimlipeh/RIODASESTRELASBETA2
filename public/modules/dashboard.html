@@ -1,16 +1,20 @@
 <h1>🚀 Dashboard Enterprise</h1>
 
-<div id="stats"></div>
+<div id="stats">Carregando dados...</div>
 
 <script>
 async function loadStats() {
-  const produtos = await fetch('/api/produtos').then(r=>r.json());
-  const mov = await fetch('/api/movimentacoes').then(r=>r.json());
+  try {
+    const produtos = await fetch('/api/produtos').then(r=>r.json());
+    const mov = await fetch('/api/movimentacoes').then(r=>r.json());
 
-  document.getElementById('stats').innerHTML = `
-    <p>📦 Produtos: ${produtos.length}</p>
-    <p>🔄 Movimentações: ${mov.length}</p>
-  `;
+    document.getElementById('stats').innerHTML = `
+      <p>📦 Produtos: ${produtos.length}</p>
+      <p>🔄 Movimentações: ${mov.length}</p>
+    `;
+  } catch {
+    document.getElementById('stats').innerHTML = "Erro ao carregar dados";
+  }
 }
 
 loadStats();
