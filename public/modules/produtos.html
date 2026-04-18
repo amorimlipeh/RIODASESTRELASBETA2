@@ -1,7 +1,7 @@
 <h1>📦 Produtos</h1>
 
 <input id="nome" placeholder="Nome">
-<input id="qtd" placeholder="Qtd" type="number">
+<input id="qtd" placeholder="Qtd">
 <button onclick="add()">Cadastrar</button>
 
 <ul id="lista"></ul>
@@ -9,24 +9,24 @@
 <script>
 async function add() {
   const nome = document.getElementById('nome').value;
-  const quantidade = document.getElementById('qtd').value;
+  const qtd = document.getElementById('qtd').value;
 
   await fetch('/api/produtos', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ nome, quantidade })
+    body: JSON.stringify({ nome, qtd })
   });
 
-  loadLista();
+  carregar();
 }
 
-async function loadLista() {
+async function carregar() {
   const res = await fetch('/api/produtos');
   const data = await res.json();
 
   document.getElementById('lista').innerHTML =
-    data.map(p => `<li>${p.nome} - ${p.quantidade}</li>`).join('');
+    data.map(p => `<li>${p.nome} (${p.qtd})</li>`).join('');
 }
 
-loadLista();
+carregar();
 </script>

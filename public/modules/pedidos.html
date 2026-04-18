@@ -1,15 +1,17 @@
 <h1>🔄 Movimentações</h1>
 
-<ul id="mov"></ul>
+<ul id="lista"></ul>
 
 <script>
-async function loadMov() {
+async function carregar() {
   const res = await fetch('/api/movimentacoes');
   const data = await res.json();
 
-  document.getElementById('mov').innerHTML =
-    data.map(m => `<li>${m.tipo} - ${m.produto}</li>`).join('');
+  document.getElementById('lista').innerHTML =
+    data.map(m =>
+      `<li>${m.tipo} - ${m.produto} (${m.quantidade || ''})</li>`
+    ).join('');
 }
 
-loadMov();
+carregar();
 </script>
