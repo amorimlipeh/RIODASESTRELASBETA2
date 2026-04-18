@@ -1,2 +1,17 @@
 <h1>🚀 Dashboard Enterprise</h1>
-<p>Sistema ativo</p>
+
+<div id="stats"></div>
+
+<script>
+async function loadStats() {
+  const produtos = await fetch('/api/produtos').then(r=>r.json());
+  const mov = await fetch('/api/movimentacoes').then(r=>r.json());
+
+  document.getElementById('stats').innerHTML = `
+    <p>📦 Produtos: ${produtos.length}</p>
+    <p>🔄 Movimentações: ${mov.length}</p>
+  `;
+}
+
+loadStats();
+</script>

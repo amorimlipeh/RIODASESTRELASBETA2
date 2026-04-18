@@ -9,7 +9,7 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // ========================
-// BANCO MOCK
+// BANCO SIMPLES
 // ========================
 let db = {
   produtos: [],
@@ -22,8 +22,9 @@ let db = {
 // ROTAS
 // ========================
 
+// STATUS
 app.get('/api/status', (req, res) => {
-  res.json({ ok: true, sistema: "RIO DAS ESTRELAS ENTERPRISE" });
+  res.json({ ok: true });
 });
 
 // PRODUTOS
@@ -32,20 +33,26 @@ app.get('/api/produtos', (req, res) => {
 });
 
 app.post('/api/produtos', (req, res) => {
-  const produto = req.body;
-  produto.id = Date.now();
+  const produto = {
+    id: Date.now(),
+    nome: req.body.nome,
+    quantidade: req.body.quantidade || 0
+  };
+
   db.produtos.push(produto);
+
+  db.movimentacoes.push({
+    tipo: "entrada",
+    produto: produto.nome,
+    data: new Date()
+  });
+
   res.json(produto);
 });
 
-// ESTOQUE
-app.get('/api/estoque', (req, res) => {
-  res.json(db.estoque);
-});
-
-// PEDIDOS
-app.get('/api/pedidos', (req, res) => {
-  res.json(db.pedidos);
+// MOVIMENTAÇÕES
+app.get('/api/movimentacoes', (req, res) => {
+  res.json(db.movimentacoes);
 });
 
 // SPA
@@ -53,7 +60,6 @@ app.get('*', (req, res) => {
   res.sendFile(__dirname + '/public/index.html');
 });
 
-// START
 app.listen(PORT, '0.0.0.0', () => {
-  console.log('🚀 Rodando na porta ' + PORT);
+  console.log('🚀 Sistema rodando na porta ' + PORT);
 });
