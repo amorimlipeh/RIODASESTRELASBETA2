@@ -1,107 +1,95 @@
 const express = require('express');
-const cors = require('cors');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// ============================
-// BANCO
-// ============================
 let db = {
   produtos: [],
+  estoque: {},
   movimentacoes: [],
-  enderecos: []
+  enderecos: {}
 };
 
-// ============================
-// PRODUTOS
-// ============================
-app.get('/api/produtos', (req, res) => {
-  res.json(db.produtos);
-});
+// ================= PRODUTOS =================
+app.get('/api/produtos', (req, res) => res.json(db.produtos));
 
 app.post('/api/produtos', (req, res) => {
-  db.produtos.push(req.body);
-  res.json({ ok: true });
+  const { nome } = req.body;
+  const produto = {
+    id: Date.now(),
+    nome
+  };
+  db.produtos.push(produto);
+  res.json(produto);
 });
 
-// ============================
-// WMS
-// ============================
-app.get('/api/enderecos', (req, res) => {
-  res.json(db.enderecos);
-});
+// ================= ESTOQUE =================
+app.get('/api/estoque', (req, res) => res.json(db.estoque));
 
-app.post('/api/enderecos', (req, res) => {
-  db.enderecos.push({
-    codigo: req.body.codigo,
-    estoque: []
-  });
-  res.json({ ok: true });
-});
+app.post('/api/estoque', (req, res) => {
+  const { produto, quantidade, tipo } = req.body;
 
-// ============================
-// MOVIMENTAÇÃO COM ENDEREÇO
-// ============================
-app.post('/api/movimentacoes', (req, res) => {
-  const { tipo, produto, quantidade, endereco } = req.body;
-
-  const end = db.enderecos.find(e => e.codigo === endereco);
-
-  if (!end) {
-    return res.status(400).json({ erro: 'Endereço não existe' });
-  }
-
-  let item = end.estoque.find(i => i.produto === produto);
-
-  if (!item) {
-    item = { produto, quantidade: 0 };
-    end.estoque.push(item);
-  }
+  if (!db.estoque[produto]) db.estoque[produto] = 0;
 
   if (tipo === 'entrada') {
-    item.quantidade += Number(quantidade);
+    db.estoque[produto] += quantidade;
+  } else {
+    db.estoque[produto] -= quantidade;
   }
 
-  if (tipo === 'saida') {
-    item.quantidade -= Number(quantidade);
-  }
-
-  db.movimentacoes.push(req.body);
+  db.movimentacoes.push({
+    produto,
+    quantidade,
+    tipo,
+    data: new Date()
+  });
 
   res.json({ ok: true });
 });
 
+// ================= MOVIMENTACOES =================
 app.get('/api/movimentacoes', (req, res) => {
   res.json(db.movimentacoes);
 });
 
-// ============================
-// ESTOQUE POR ENDEREÇO
-// ============================
-app.get('/api/estoque', (req, res) => {
+// ================= WMS =================
+app.post('/api/wms', (req, res) => {
+  const { endereco, produto, quantidade } = req.body;
+
+  if (!db.enderecos[endereco]) {
+    db.enderecos[endereco] = [];
+  }
+
+  db.enderecos[endereco].push({
+    produto,
+    quantidade
+  });
+
+  res.json({ ok: true });
+});
+
+app.get('/api/wms', (req, res) => {
   res.json(db.enderecos);
 });
 
-// ============================
-// DASHBOARD
-// ============================
+// ================= DASHBOARD =================
 app.get('/api/dashboard', (req, res) => {
   res.json({
     produtos: db.produtos.length,
     movimentacoes: db.movimentacoes.length,
-    enderecos: db.enderecos.length
+    enderecos: Object.keys(db.enderecos).length
   });
 });
 
+// ================= SPA =================
 app.get('*', (req, res) => {
-  res.sendFile(__dirname + '/public/index.html');
+  res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log('🚀 WMS rodando na porta ' + PORT);
+  console.log('🚀 Sistema rodando na porta ' + PORT);
 });
