@@ -1,21 +1,38 @@
-<h2>📦 Importação</h2>
+<h2>📦 Importação (Preview)</h2>
+
 <input type="file" id="file"/>
-<button onclick="enviar()">Importar</button>
-<p id="res"></p>
+<br>
+<button onclick="preview()">Visualizar</button>
+
+<h3>Colunas</h3>
+<div id="cols"></div>
+
+<h3>Preview</h3>
+<div id="preview"></div>
 
 <script>
-async function enviar(){
+async function preview(){
     const f = document.getElementById('file').files[0];
-    if(!f) return alert('Selecione');
+    if(!f) return alert('Selecione arquivo');
 
     const fd = new FormData();
     fd.append('file', f);
 
-    document.getElementById('res').innerText='Enviando...';
+    document.getElementById('preview').innerText='Carregando...';
 
-    const r = await fetch('/api/importacao/xlsx',{method:'POST',body:fd});
+    const r = await fetch('/api/importacao/preview',{
+        method:'POST',
+        body:fd
+    });
+
     const d = await r.json();
 
-    document.getElementById('res').innerText='Importado: '+d.totalImportado;
+    // colunas
+    document.getElementById('cols').innerHTML =
+        d.headers.map(h=>`<span style="margin-right:10px">${h}</span>`).join('');
+
+    // tabela
+    document.getElementById('preview').innerHTML =
+        '<pre>'+JSON.stringify(d.linhas,null,2)+'</pre>';
 }
 </script>
