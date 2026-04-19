@@ -7,14 +7,17 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ROTAS
-app.use('/api/produtos', require('./server/routes/produtos'));
-app.use('/api/dashboard', require('./server/routes/dashboard'));
-app.use('/api/importacao', require('./server/routes/importacao'));
+const importacaoRoutes = require('./server/routes/importacao');
+app.use('/api/importacao', importacaoRoutes);
 
-// SPA
-app.get('*', (req,res)=>{
-res.sendFile(path.join(__dirname,'public/index.html'));
+app.get('/api/status', (req, res) => {
+    res.json({ ok: true });
 });
 
-app.listen(PORT,'0.0.0.0',()=>console.log('🚀 RIOBETA2 '+PORT));
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/index.html'));
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+    console.log('🚀 Rodando na porta ' + PORT);
+});

@@ -1,20 +1,12 @@
-import { ImportacaoModule } from './modules/importacao.js';
-import { ProdutosModule } from './modules/produtos.js'
-import { DashboardModule } from './modules/dashboard.js'
+async function loadModule(nome) {
+    const res = await fetch('/modules/' + nome + '.html');
+    const html = await res.text();
+    document.getElementById('app').innerHTML = html;
 
-const routes={ importacao:ImportacaoModule,
-dashboard:DashboardModule,
-produtos:ProdutosModule
+    if (nome === 'importacao') {
+        initImportacao();
+    }
 }
 
-window.load=async(name)=>{
-const html=await routes[name]()
-document.getElementById('app').innerHTML=html
-
-if(name==='produtos'){
-const d=await fetch('/api/produtos').then(r=>r.json())
-document.getElementById('lista').innerHTML=JSON.stringify(d)
-}
-}
-
-load('dashboard')
+// inicial
+loadModule('dashboard');
