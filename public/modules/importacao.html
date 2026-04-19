@@ -11,37 +11,30 @@
 <pre id="preview"></pre>
 
 <button onclick="salvar()">Salvar Mapeamento</button>
+<button onclick="importar()">IMPORTAR</button>
 
 <script>
 let headersGlobal = [];
 
 async function preview(){
     const f = document.getElementById('file').files[0];
-    if(!f) return alert('Selecione');
-
     const fd = new FormData();
     fd.append('file', f);
 
-    const r = await fetch('/api/importacao/preview',{
-        method:'POST',
-        body:fd
-    });
-
+    const r = await fetch('/api/importacao/preview',{method:'POST',body:fd});
     const d = await r.json();
 
     headersGlobal = d.headers;
 
-    // dropdown
     document.getElementById('map').innerHTML = ['codigo','nome','fator','quantidade']
-    .map(campo => {
-        return `
+    .map(campo => `
         <div>
             ${campo}:
             <select id="${campo}">
                 ${d.headers.map(h=>`<option ${d.sugestao[campo]==h?'selected':''}>${h}</option>`).join('')}
             </select>
-        </div>`;
-    }).join('');
+        </div>
+    `).join('');
 
     document.getElementById('preview').innerText =
         JSON.stringify(d.linhas,null,2);
@@ -50,10 +43,10 @@ async function preview(){
 async function salvar(){
     const body = {
         campos:{
-            codigo:document.getElementById('codigo').value,
-            nome:document.getElementById('nome').value,
-            fator:document.getElementById('fator').value,
-            quantidade:document.getElementById('quantidade').value
+            codigo:codigo.value,
+            nome:nome.value,
+            fator:fator.value,
+            quantidade:quantidade.value
         }
     };
 
@@ -64,5 +57,27 @@ async function salvar(){
     });
 
     alert('Mapeamento salvo!');
+}
+
+async function importar(){
+    const f = document.getElementById('file').files[0];
+    const fd = new FormData();
+
+    fd.append('file', f);
+    fd.append('mapeamento', JSON.stringify({
+        codigo:codigo.value,
+        nome:nome.value,
+        fator:fator.value,
+        quantidade:quantidade.value
+    }));
+
+    const r = await fetch('/api/importacao/importar',{
+        method:'POST',
+        body:fd
+    });
+
+    const d = await r.json();
+
+    alert('Importado: '+d.total);
 }
 </script>

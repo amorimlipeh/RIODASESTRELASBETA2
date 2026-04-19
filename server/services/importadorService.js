@@ -15,52 +15,25 @@ function writeJSON(file, data) {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
-function detectarColunas(headers) {
-    const map = {};
-
-    headers.forEach((h, index) => {
-        const nome = String(h).toLowerCase();
-
-        if (nome.includes('item') || nome.includes('codigo'))
-            map.codigo = index;
-
-        if (nome.includes('desc') || nome.includes('produto'))
-            map.nome = index;
-
-        if (nome.includes('q/c') || nome.includes('fator'))
-            map.fator = index;
-
-        if (nome.includes('qtd') || nome.includes('quantidade'))
-            map.quantidade = index;
-    });
-
-    return map;
-}
-
-function importarXLSX(filePath) {
+function importarComMapeamento(filePath, mapeamento) {
     const workbook = XLSX.readFile(filePath);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
-    const headers = data[0];
-    const col = detectarColunas(headers);
+    const data = XLSX.utils.sheet_to_json(sheet);
 
     let produtos = readJSON('produtos.json');
     let estoque = readJSON('estoque.json');
 
-    for (let i = 1; i < data.length; i++) {
-        const row = data[i];
-        if (!row) continue;
+    data.forEach(row => {
+        const codigo = row[mapeamento.codigo];
+        if (!codigo) return;
 
-        const codigo = row[col.codigo];
-        if (!codigo) continue;
-
-        const nome = row[col.nome] || '';
-        const fator = parseFloat(row[col.fator]) || 1;
-        const quantidade = parseFloat(row[col.quantidade]) || 0;
+        const nome = row[mapeamento.nome] || '';
+        const fator = parseFloat(row[mapeamento.fator]) || 1;
+        const quantidade = parseFloat(row[mapeamento.quantidade]) || 0;
 
         const caixas = fator > 0 ? quantidade / fator : 0;
 
+        // PRODUTO
         let produto = produtos.find(p => p.codigo == codigo);
 
         if (!produto) {
@@ -68,9 +41,10 @@ function importarXLSX(filePath) {
             produtos.push(produto);
         }
 
-        let itemEstoque = estoque.find(e => e.codigo == codigo);
+        // ESTOQUE
+        let item = estoque.find(e => e.codigo == codigo);
 
-        if (!itemEstoque) {
+        if (!item) {
             estoque.push({
                 codigo,
                 unidades: quantidade,
@@ -78,18 +52,17 @@ function importarXLSX(filePath) {
                 fator
             });
         } else {
-            itemEstoque.unidades += quantidade;
-            itemEstoque.caixas += caixas;
+            item.unidades += quantidade;
+            item.caixas += caixas;
         }
-    }
+    });
 
     writeJSON('produtos.json', produtos);
     writeJSON('estoque.json', estoque);
 
-    return {
-        sucesso: true,
-        totalImportado: data.length - 1
-    };
+    return { sucesso: true, total: data.length };
 }
 
-module.exports = { importarXLSX };
+module.exports = {
+    importarComMapeamento
+};
