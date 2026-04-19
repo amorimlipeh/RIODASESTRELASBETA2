@@ -1,24 +1,26 @@
-<h2>📦 Importação (Preview)</h2>
+<h2>📦 Importação Inteligente</h2>
 
 <input type="file" id="file"/>
 <br>
 <button onclick="preview()">Visualizar</button>
 
-<h3>Colunas</h3>
-<div id="cols"></div>
+<h3>Mapeamento</h3>
+<div id="map"></div>
 
 <h3>Preview</h3>
-<div id="preview"></div>
+<pre id="preview"></pre>
+
+<button onclick="salvar()">Salvar Mapeamento</button>
 
 <script>
+let headersGlobal = [];
+
 async function preview(){
     const f = document.getElementById('file').files[0];
-    if(!f) return alert('Selecione arquivo');
+    if(!f) return alert('Selecione');
 
     const fd = new FormData();
     fd.append('file', f);
-
-    document.getElementById('preview').innerText='Carregando...';
 
     const r = await fetch('/api/importacao/preview',{
         method:'POST',
@@ -27,12 +29,40 @@ async function preview(){
 
     const d = await r.json();
 
-    // colunas
-    document.getElementById('cols').innerHTML =
-        d.headers.map(h=>`<span style="margin-right:10px">${h}</span>`).join('');
+    headersGlobal = d.headers;
 
-    // tabela
-    document.getElementById('preview').innerHTML =
-        '<pre>'+JSON.stringify(d.linhas,null,2)+'</pre>';
+    // dropdown
+    document.getElementById('map').innerHTML = ['codigo','nome','fator','quantidade']
+    .map(campo => {
+        return `
+        <div>
+            ${campo}:
+            <select id="${campo}">
+                ${d.headers.map(h=>`<option ${d.sugestao[campo]==h?'selected':''}>${h}</option>`).join('')}
+            </select>
+        </div>`;
+    }).join('');
+
+    document.getElementById('preview').innerText =
+        JSON.stringify(d.linhas,null,2);
+}
+
+async function salvar(){
+    const body = {
+        campos:{
+            codigo:document.getElementById('codigo').value,
+            nome:document.getElementById('nome').value,
+            fator:document.getElementById('fator').value,
+            quantidade:document.getElementById('quantidade').value
+        }
+    };
+
+    await fetch('/api/importacao/mapear',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body)
+    });
+
+    alert('Mapeamento salvo!');
 }
 </script>
