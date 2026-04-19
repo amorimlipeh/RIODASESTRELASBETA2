@@ -14,6 +14,8 @@ app.use((req, res, next) => {
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+const importacaoRoutes = require('./server/routes/importacao');
+app.use('/api/importacao', importacaoRoutes);
 app.use(express.static(path.join(__dirname, 'public')));
 
 const importacaoRoutes = require('./server/routes/importacao');
