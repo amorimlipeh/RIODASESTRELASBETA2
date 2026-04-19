@@ -1,50 +1,63 @@
 
-async function visualizarImportacao() {
-    const input = document.querySelector('input[type="file"]');
-    const file = input.files[0];
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('IMPORTAÇÃO JS CARREGADO');
 
-    if (!file) {
-        alert('Selecione um arquivo primeiro');
+    const btn = document.getElementById('btnVisualizar');
+
+    if (!btn) {
+        console.error('BOTÃO NÃO ENCONTRADO');
         return;
     }
 
-    const formData = new FormData();
-    formData.append('file', file);
+    btn.addEventListener('click', async () => {
+        console.log('CLICOU VISUALIZAR');
 
-    const previewDiv = document.querySelector('#preview');
-    previewDiv.innerHTML = '<p>⏳ Carregando...</p>';
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
 
-    try {
-        const res = await fetch('/api/importacao/preview', {
-            method: 'POST',
-            body: formData
-        });
-
-        const data = await res.json();
-
-        if (!data.sucesso) {
-            previewDiv.innerHTML = 'Erro ao importar';
+        if (!file) {
+            alert('Selecione um arquivo');
             return;
         }
 
-        let html = `<p>Total: ${data.total}</p><table border="1">`;
+        const preview = document.getElementById('preview');
+        preview.innerHTML = '<p>⏳ Carregando...</p>';
 
-        const keys = Object.keys(data.dados[0] || {});
-        html += '<tr>' + keys.map(k => `<th>${k}</th>`).join('') + '</tr>';
+        const formData = new FormData();
+        formData.append('file', file);
 
-        data.dados.forEach(row => {
-            html += '<tr>' + keys.map(k => `<td>${row[k]}</td>`).join('') + '</tr>';
-        });
+        try {
+            const res = await fetch('/api/importacao/preview', {
+                method: 'POST',
+                body: formData
+            });
 
-        html += '</table>';
+            const data = await res.json();
 
-        previewDiv.innerHTML = html;
+            console.log('RESPOSTA:', data);
 
-    } catch (err) {
-        console.error(err);
-        previewDiv.innerHTML = 'Erro na requisição';
-    }
-}
+            if (!data.sucesso) {
+                preview.innerHTML = 'Erro ao processar';
+                return;
+            }
 
-window.visualizarImportacao = visualizarImportacao;
+            let html = `<p>Total: ${data.total}</p><table border="1">`;
+
+            const keys = Object.keys(data.dados[0] || {});
+            html += '<tr>' + keys.map(k => `<th>${k}</th>`).join('') + '</tr>';
+
+            data.dados.forEach(row => {
+                html += '<tr>' + keys.map(k => `<td>${row[k]}</td>`).join('') + '</tr>';
+            });
+
+            html += '</table>';
+
+            preview.innerHTML = html;
+
+        } catch (err) {
+            console.error(err);
+            preview.innerHTML = 'Erro na requisição';
+        }
+    });
+});
 
