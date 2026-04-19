@@ -3,6 +3,7 @@ const express = require('express');
 const path = require('path');
 
 const app = express();
+const importacaoRoutes = require('./server/routes/importacao');
 // ANTI CACHE GLOBAL
 app.use((req, res, next) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -14,12 +15,9 @@ app.use((req, res, next) => {
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-const importacaoRoutes = require('./server/routes/importacao');
 app.use('/api/importacao', importacaoRoutes);
 app.use(express.static(path.join(__dirname, 'public')));
 
-const importacaoRoutes = require('./server/routes/importacao');
-app.use('/api/importacao', importacaoRoutes);
 
 app.get('/api/status', (req, res) => {
     res.json({ ok: true });
